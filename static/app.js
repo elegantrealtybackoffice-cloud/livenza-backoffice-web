@@ -240,6 +240,54 @@ initPageFeatures(document);
   };
 })();
 
+// ===== Web 1.5.0 • pattern login + WebAuthn / Windows Hello =====
+(function(){
+  const fromB64url=value=>{
+    const b64=String(value||'').replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(String(value||'').length/4)*4,'=');
+    const bin=atob(b64),out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out.buffer;
+  };
+  const toB64url=value=>{
+    if(value===null||value===undefined)return null;const bytes=new Uint8Array(value);let bin='';bytes.forEach(v=>bin+=String.fromCharCode(v));return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  };
+  function initPatternWidgets(root=document){
+    root.querySelectorAll?.('[data-pattern-widget]').forEach(widget=>{
+      if(widget.dataset.ready)return;widget.dataset.ready='1';const selected=[],hidden=widget.querySelector('[data-pattern-value]');
+      widget.querySelectorAll('[data-pattern-node]').forEach(node=>node.addEventListener('click',()=>{
+        const value=node.dataset.patternNode;if(selected.includes(value))return;selected.push(value);node.classList.add('selected');if(hidden)hidden.value=selected.join('-');
+      }));
+      widget.addEventListener('dblclick',e=>{e.preventDefault();selected.splice(0);widget.querySelectorAll('.selected').forEach(n=>n.classList.remove('selected'));if(hidden)hidden.value=''});
+    });
+  }
+  function setStatus(message,error=false){const el=document.getElementById('webauthnStatus');if(el){el.textContent=message;el.classList.toggle('danger',error)}}
+  async function jsonRequest(url,body){const r=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const d=await r.json().catch(()=>({error:`Request failed (${r.status})`}));if(!r.ok||d.ok===false)throw new Error(d.error||`Request failed (${r.status})`);return d}
+  async function fingerprintLogin(){
+    if(!window.PublicKeyCredential)throw new Error('Fingerprint/passkeys are not supported by this browser.');
+    const username=document.getElementById('loginUsername')?.value?.trim();if(!username)throw new Error('Enter the Login ID first.');
+    setStatus('Waiting for the device fingerprint/passkey prompt…');const options=await jsonRequest('/api/webauthn/auth/options',{username});
+    options.challenge=fromB64url(options.challenge);(options.allowCredentials||[]).forEach(c=>c.id=fromB64url(c.id));
+    const credential=await navigator.credentials.get({publicKey:options});
+    const payload={id:credential.id,rawId:toB64url(credential.rawId),type:credential.type,response:{clientDataJSON:toB64url(credential.response.clientDataJSON),authenticatorData:toB64url(credential.response.authenticatorData),signature:toB64url(credential.response.signature),userHandle:toB64url(credential.response.userHandle)},clientExtensionResults:credential.getClientExtensionResults()};
+    const verified=await jsonRequest('/api/webauthn/auth/verify',payload);setStatus('Verified. Opening Livenza…');location.assign(verified.redirect||'/');
+  }
+  async function enrollPasskey(button){
+    if(!window.PublicKeyCredential)throw new Error('Fingerprint/passkeys are not supported by this browser.');
+    button.disabled=true;setStatus('Waiting for Windows Hello / fingerprint…');
+    try{
+      const options=await jsonRequest('/api/webauthn/register/options',{});options.challenge=fromB64url(options.challenge);options.user.id=fromB64url(options.user.id);(options.excludeCredentials||[]).forEach(c=>c.id=fromB64url(c.id));
+      const credential=await navigator.credentials.create({publicKey:options});
+      const payload={id:credential.id,rawId:toB64url(credential.rawId),type:credential.type,device_name:navigator.userAgentData?.platform||navigator.platform||'Windows Hello / fingerprint',response:{clientDataJSON:toB64url(credential.response.clientDataJSON),attestationObject:toB64url(credential.response.attestationObject),transports:credential.response.getTransports?.()||[]},clientExtensionResults:credential.getClientExtensionResults()};
+      const result=await jsonRequest('/api/webauthn/register/verify',payload);setStatus(result.message||'Fingerprint/passkey enrolled.');button.textContent='Enrolled ✓';
+    }finally{button.disabled=false}
+  }
+  document.querySelectorAll('[data-auth-tab]').forEach(tab=>tab.addEventListener('click',()=>{
+    const mode=tab.dataset.authTab;document.querySelectorAll('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===tab));document.querySelectorAll('[data-auth-panel]').forEach(x=>x.hidden=x.dataset.authPanel!==mode);const method=document.getElementById('authMethod');if(method)method.value=mode;const submit=document.getElementById('normalLoginButton');if(submit)submit.hidden=mode==='fingerprint';
+  }));
+  document.getElementById('fingerprintLogin')?.addEventListener('click',async()=>{try{await fingerprintLogin()}catch(e){setStatus(e.message||'Fingerprint login failed.',true)}});
+  document.getElementById('loginForm')?.addEventListener('submit',async e=>{if(document.getElementById('authMethod')?.value==='fingerprint'){e.preventDefault();try{await fingerprintLogin()}catch(err){setStatus(err.message||'Fingerprint login failed.',true)}}});
+  document.addEventListener('click',async e=>{const btn=e.target.closest('[data-enroll-passkey]');if(!btn)return;e.preventDefault();try{await enrollPasskey(btn)}catch(err){setStatus(err.message||'Enrollment failed.',true)}});
+  initPatternWidgets(document);window.addEventListener('livenza:page-ready',e=>initPatternWidgets(e.detail?.root||document));
+})();
+
 // ===== Web 1.4.6 • professional motion + fullscreen-safe navigation =====
 (function(){
   const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -437,4 +485,32 @@ initPageFeatures(document);
       el.style.setProperty('--live-delay',`${(i%6)*70}ms`);
     });
   });
+})();
+
+// ===== Web 1.5.0 • reference-style apps menu + configurable live marquee =====
+(()=>{
+  const toggle=document.getElementById('appsMenuToggle'),menu=document.getElementById('appsMenu'),close=document.getElementById('appsMenuClose');
+  function setMenu(open){if(!menu||!toggle)return;menu.hidden=!open;menu.classList.toggle('open',open);toggle.classList.toggle('active',open);toggle.setAttribute('aria-expanded',String(open));document.body.classList.toggle('apps-menu-open',open)}
+  toggle?.addEventListener('click',e=>{e.stopPropagation();setMenu(menu.hidden)});close?.addEventListener('click',()=>setMenu(false));menu?.addEventListener('click',e=>{if(e.target.closest('a'))setMenu(false)});
+  document.addEventListener('pointerdown',e=>{if(menu&&!menu.hidden&&!menu.contains(e.target)&&!toggle?.contains(e.target))setMenu(false)});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')setMenu(false)});
+
+  const ticker=document.getElementById('liveMarqueeTrack');
+  function tickerNode(item){
+    const span=document.createElement('span');span.className=`marquee-item tone-${item.tone||'blue'}`;
+    const label=document.createElement('b');label.textContent=item.label||'Live';span.appendChild(label);span.append(' '+(item.value||'—'));
+    if(item.source){const source=document.createElement('small');source.textContent=` · ${item.source}`;span.appendChild(source)}
+    if(item.url){const link=document.createElement('a');link.href=item.url;link.target='_blank';link.rel='noopener';link.title='Open source';link.appendChild(span);return link}
+    return span;
+  }
+  function renderTicker(items){
+    if(!ticker||!items?.length)return;ticker.replaceChildren();
+    for(let copy=0;copy<2;copy++)items.forEach(item=>{ticker.appendChild(tickerNode(item));const gem=document.createElement('i');gem.textContent='◆';ticker.appendChild(gem)});
+  }
+  async function refreshTicker(){
+    if(!ticker)return;let delay=60000;
+    try{const r=await fetch('/api/marquee',{credentials:'same-origin',headers:{Accept:'application/json'}}),d=await r.json();if(r.ok&&d.ok){renderTicker(d.items);delay=Math.max(30000,Math.min(600000,(d.refresh_seconds||60)*1000))}}catch(e){console.warn('Live marquee refresh failed',e)}
+    window.setTimeout(refreshTicker,delay);
+  }
+  refreshTicker();
 })();

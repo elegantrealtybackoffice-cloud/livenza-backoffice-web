@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}{{message.subject}} · Email{% endblock %}{% block content %}
+<div class="page-head"><div><p class="eyebrow">EMAIL MESSAGE</p><h1>{{message.subject}}</h1></div><a class="secondary btn" href="{{url_for('email_workspace')}}" data-app-nav>← Inbox</a></div>
+<article class="form-card liquid-card email-reader"><dl><dt>From</dt><dd>{{message.from}}</dd><dt>To</dt><dd>{{message.to}}</dd><dt>Date</dt><dd>{{message.date}}</dd></dl><div class="email-body">{{message.body}}</div></article>
+{% endblock %}

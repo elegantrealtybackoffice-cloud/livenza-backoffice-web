@@ -1,3 +1,32 @@
-{% extends 'base.html' %}{% block title %}Login · Livenza Back Office{% endblock %}{% block content %}
-<div class="login-card"><img src="{{url_for('static',filename='livenza_logo.png')}}" class="login-logo"><p class="eyebrow">SECURE WEB ACCESS</p><h1>Livenza Back Office</h1><p class="muted">Central management suite · Browser edition</p><form method="post" class="stack"><label>Login ID<input name="username" autocomplete="username" required autofocus></label><label>Password<input type="password" name="password" autocomplete="current-password" required></label><button class="primary">AUTHENTICATE</button></form><div class="statusline"><span></span>Encrypted session · Central cloud database</div></div>
+{% extends 'base.html' %}
+{% block title %}Login · Livenza Back Office{% endblock %}
+{% block content %}
+<div class="login-card auth-login-card">
+  <img src="{{url_for('static',filename='livenza_logo.png')}}" class="login-logo" alt="Livenza Life">
+  <p class="eyebrow">SECURE WEB ACCESS</p><h1>Livenza Back Office</h1>
+  <p class="muted">Password, secure pattern or device fingerprint</p>
+  <div class="auth-tabs" role="tablist">
+    <button type="button" data-auth-tab="password" class="active">Password</button>
+    <button type="button" data-auth-tab="pattern">Pattern</button>
+    <button type="button" data-auth-tab="fingerprint">Fingerprint</button>
+  </div>
+  <form method="post" class="stack" id="loginForm">
+    <input type="hidden" name="auth_method" id="authMethod" value="password">
+    <label>Login ID<input id="loginUsername" name="username" autocomplete="username" required autofocus></label>
+    <div data-auth-panel="password"><label>Password<input type="password" name="password" autocomplete="current-password"></label></div>
+    <div data-auth-panel="pattern" hidden>
+      <label>Security pattern</label>
+      <div class="pattern-grid" data-pattern-widget><input type="hidden" name="pattern" data-pattern-value>{% for i in range(9) %}<button type="button" data-pattern-node="{{i}}" aria-label="Pattern point {{i+1}}"><span></span></button>{% endfor %}</div>
+      <small class="muted">Select at least four different dots, then authenticate.</small>
+    </div>
+    <div data-auth-panel="fingerprint" hidden class="fingerprint-panel">
+      <div class="fingerprint-mark">◎</div><b>Windows Hello / fingerprint / passkey</b>
+      <p class="muted">Enter the login ID above, then use the biometric prompt from this device.</p>
+      <button type="button" class="secondary" id="fingerprintLogin">Use fingerprint or passkey</button>
+    </div>
+    <button class="primary" id="normalLoginButton">AUTHENTICATE</button>
+    <p id="webauthnStatus" class="muted" aria-live="polite"></p>
+  </form>
+  <div class="statusline"><span></span>Encrypted session · Device biometrics stay on the device</div>
+</div>
 {% endblock %}

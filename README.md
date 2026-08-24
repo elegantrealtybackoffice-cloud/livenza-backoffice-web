@@ -1,4 +1,26 @@
-# Livenza Life Operations Cloud — Web 1.4.9
+# Livenza Life Operations Cloud — Web 1.5.0
+
+## Web 1.5.0 security and cloud workspace
+
+- Windows kiosk package: automatic Edge kiosk launch at sign-in, enable/disable scripts and official Assigned Access setup guidance.
+- Server-enforced Livenza PIN/password gate so authenticated routes remain locked until explicitly unlocked.
+- Separate WhatsApp, Email and Google Drive tabs with per-user permissions.
+- WhatsApp uses Meta's official Cloud API and signed message webhooks; it does not embed or retain WhatsApp Web QR/browser sessions.
+- Google Drive and Gmail use one server-side OAuth connection. Refresh tokens are encrypted at rest.
+- Pattern login stores only a salted hash. Fingerprint/Windows Hello uses WebAuthn passkeys; biometric data remains on the user's device.
+- Configurable live marquee shows current tenants, vacant beds, earnings, user/favourites/custom text and optional cached Moneycontrol quote-page rates.
+- White reference header now has a three-bar applications menu, a hanging rotating Livenza logo and icon-based controls.
+
+### Required deployment steps
+
+1. Run `migrations/web_v1_5_0.sql` in Supabase SQL Editor.
+2. Deploy the new dependencies from `requirements.txt`.
+3. Configure Google OAuth: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `INTEGRATION_ENCRYPTION_KEY`, and optionally `GOOGLE_DRIVE_FOLDER_ID`. Add `https://YOUR-SITE/integrations/google/callback` as an authorized redirect URI.
+4. Configure WhatsApp: `WHATSAPP_CLOUD_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, and `META_APP_SECRET`. Point the Meta messages webhook to `https://YOUR-SITE/webhooks/whatsapp/messages`.
+5. Configure passkeys: `WEBAUTHN_RP_ID=YOUR-SITE-HOST` and `WEBAUTHN_ORIGIN=https://YOUR-SITE`.
+6. In Admin, connect Google, assign the WhatsApp/Email/Drive permissions, enable pattern or fingerprint access per user, and optionally enable kiosk lock.
+
+See `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
 
 ## Web 1.4.9 addition
 - The Livenza Assistant now has a high-contrast cross icon that remains visible after messages are added.

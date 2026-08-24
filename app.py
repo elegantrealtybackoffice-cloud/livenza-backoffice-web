@@ -1,11 +1,12 @@
-import os, io, csv, json, hashlib, datetime, urllib.parse, html, base64, re, secrets, uuid
+import os, io, csv, json, hashlib, hmac, datetime, urllib.parse, html, base64, re, secrets, uuid
+from email.message import EmailMessage
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, inspect
 from dateutil.relativedelta import relativedelta
 import requests
 import qrcode
@@ -15,7 +16,7 @@ from zoneinfo import ZoneInfo
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.4.9'
+APP_VERSION = 'Web 1.5.0'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -57,6 +58,9 @@ class User(db.Model):
     aadhaar_verification_ref = db.Column(db.String(180), default='')
     aadhaar_verified_at = db.Column(db.DateTime, nullable=True)
     permissions_json = db.Column(db.Text, default='[]')
+    pattern_hash = db.Column(db.Text, default='')
+    webauthn_enabled = db.Column(db.Boolean, default=False)
+    webauthn_enrolled_at = db.Column(db.DateTime, nullable=True)
     active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
@@ -378,6 +382,43 @@ class QueryActivity(db.Model):
     actor_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
+class WebAuthnCredential(db.Model):
+    __tablename__ = 'web_authn_credential'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    credential_id = db.Column(db.LargeBinary, unique=True, nullable=False)
+    public_key = db.Column(db.LargeBinary, nullable=False)
+    sign_count = db.Column(db.BigInteger, default=0, nullable=False)
+    transports = db.Column(db.Text, default='[]')
+    device_name = db.Column(db.String(180), default='Windows Hello / fingerprint')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    last_used_at = db.Column(db.DateTime, nullable=True)
+
+class WhatsAppMessage(db.Model):
+    __tablename__ = 'whatsapp_message'
+    id = db.Column(db.Integer, primary_key=True)
+    direction = db.Column(db.String(12), nullable=False, default='outbound')
+    contact_name = db.Column(db.String(180), default='')
+    wa_id = db.Column(db.String(40), nullable=False, default='', index=True)
+    message_id = db.Column(db.String(220), unique=True, nullable=True)
+    message_type = db.Column(db.String(40), default='text')
+    body = db.Column(db.Text, default='')
+    status = db.Column(db.String(40), default='sent')
+    raw_json = db.Column(db.Text, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, index=True)
+
+class DriveFile(db.Model):
+    __tablename__ = 'drive_file'
+    id = db.Column(db.Integer, primary_key=True)
+    provider_file_id = db.Column(db.String(220), unique=True, nullable=False)
+    name = db.Column(db.String(300), nullable=False)
+    mime_type = db.Column(db.String(180), default='application/octet-stream')
+    file_size = db.Column(db.BigInteger, default=0)
+    web_view_link = db.Column(db.Text, default='')
+    source = db.Column(db.String(80), default='manual')
+    uploaded_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
 class Setting(db.Model):
     key = db.Column(db.String(120), primary_key=True)
     value = db.Column(db.Text, default='')
@@ -394,6 +435,183 @@ def set_setting(key, value):
     db.session.commit()
 
 
+GOOGLE_SCOPES = [
+    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.send',
+]
+
+def _integration_cipher():
+    """Encrypt provider refresh tokens at rest; biometrics are never stored here."""
+    from cryptography.fernet import Fernet
+    configured=os.getenv('INTEGRATION_ENCRYPTION_KEY','').strip()
+    if configured:
+        try: return Fernet(configured.encode('ascii'))
+        except Exception:
+            derived=base64.urlsafe_b64encode(hashlib.sha256(configured.encode()).digest())
+            return Fernet(derived)
+    derived=base64.urlsafe_b64encode(hashlib.sha256(str(app.config['SECRET_KEY']).encode()).digest())
+    return Fernet(derived)
+
+def _encrypted_setting_get(key):
+    raw=setting(key,'')
+    if not raw: return ''
+    try: return _integration_cipher().decrypt(raw.encode('ascii')).decode('utf-8')
+    except Exception: return ''
+
+def _encrypted_setting_set(key, value):
+    set_setting(key,_integration_cipher().encrypt(value.encode('utf-8')).decode('ascii') if value else '')
+
+def google_oauth_configured():
+    return bool(os.getenv('GOOGLE_CLIENT_ID','').strip() and os.getenv('GOOGLE_CLIENT_SECRET','').strip())
+
+def google_connected():
+    return bool(_encrypted_setting_get('google_oauth_token'))
+
+def _google_token_data(refresh=True):
+    raw=_encrypted_setting_get('google_oauth_token')
+    if not raw: return {}
+    try: data=json.loads(raw)
+    except Exception: return {}
+    expires=float(data.get('expires_at') or 0)
+    if refresh and (not data.get('access_token') or expires < datetime.datetime.utcnow().timestamp()+90):
+        refresh_token=data.get('refresh_token')
+        if not (refresh_token and google_oauth_configured()): return {}
+        try:
+            r=requests.post('https://oauth2.googleapis.com/token',data={
+                'client_id':os.getenv('GOOGLE_CLIENT_ID','').strip(),
+                'client_secret':os.getenv('GOOGLE_CLIENT_SECRET','').strip(),
+                'refresh_token':refresh_token,'grant_type':'refresh_token'
+            },timeout=25)
+            if not r.ok: return {}
+            fresh=r.json(); data.update(fresh); data['refresh_token']=refresh_token
+            data['expires_at']=datetime.datetime.utcnow().timestamp()+int(fresh.get('expires_in') or 3600)
+            _encrypted_setting_set('google_oauth_token',json.dumps(data))
+        except Exception: return {}
+    return data
+
+def _google_headers():
+    token=_google_token_data().get('access_token','')
+    return {'Authorization':f'Bearer {token}'} if token else {}
+
+def ensure_google_drive_folder():
+    existing=(setting('google_drive_folder_id','') or os.getenv('GOOGLE_DRIVE_FOLDER_ID','')).strip()
+    if existing: return existing
+    headers=_google_headers()
+    if not headers: return ''
+    try:
+        r=requests.post('https://www.googleapis.com/drive/v3/files',headers=dict(headers,**{'Content-Type':'application/json'}),params={'fields':'id'},json={'name':'Livenza Back Office','mimeType':'application/vnd.google-apps.folder'},timeout=25)
+        if r.ok and r.json().get('id'):
+            set_setting('google_drive_folder_id',r.json()['id']); return r.json()['id']
+    except Exception: pass
+    return ''
+
+def google_drive_upload_bytes(data, filename, mime_type='application/octet-stream', source='manual', uploaded_by=None):
+    """Upload through Drive's resumable API and keep non-secret metadata locally."""
+    headers=_google_headers()
+    if not headers: return None, 'Connect Google in Admin first.'
+    folder=ensure_google_drive_folder()
+    metadata={'name':filename}
+    if folder: metadata['parents']=[folder]
+    init_headers=dict(headers,**{'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':mime_type,'X-Upload-Content-Length':str(len(data))})
+    try:
+        start=requests.post('https://www.googleapis.com/upload/drive/v3/files',params={'uploadType':'resumable','fields':'id,name,mimeType,size,webViewLink'},headers=init_headers,json=metadata,timeout=25)
+        if not start.ok or not start.headers.get('Location'):
+            return None, f'Drive upload could not start ({start.status_code}): {start.text[:300]}'
+        put=requests.put(start.headers['Location'],headers={'Content-Type':mime_type,'Content-Length':str(len(data))},data=data,timeout=180)
+        if not put.ok: return None, f'Drive upload failed ({put.status_code}): {put.text[:300]}'
+        info=put.json()
+        row=DriveFile.query.filter_by(provider_file_id=info.get('id','')).first()
+        if not row:
+            row=DriveFile(provider_file_id=info.get('id',''),name=info.get('name') or filename)
+            db.session.add(row)
+        row.name=info.get('name') or filename; row.mime_type=info.get('mimeType') or mime_type
+        row.file_size=int(info.get('size') or len(data)); row.web_view_link=info.get('webViewLink') or ''
+        row.source=source; row.uploaded_by_user_id=(uploaded_by.id if uploaded_by else None)
+        db.session.commit()
+        return row, ''
+    except Exception as exc:
+        db.session.rollback(); return None, f'Drive upload failed: {exc}'
+
+def _pattern_value(value):
+    nodes=[]
+    for part in str(value or '').split('-'):
+        if part.isdigit() and 0 <= int(part) <= 8 and part not in nodes: nodes.append(part)
+    return '-'.join(nodes) if len(nodes)>=4 else ''
+
+def _b64url_decode(value):
+    value=str(value or '')
+    return base64.urlsafe_b64decode(value+'='*((4-len(value)%4)%4))
+
+def _webauthn_context():
+    rp_id=os.getenv('WEBAUTHN_RP_ID','').strip() or request.host.split(':')[0]
+    origin=os.getenv('WEBAUTHN_ORIGIN','').strip() or request.host_url.rstrip('/')
+    return rp_id,origin
+
+MARKET_QUOTE_CACHE = {}
+
+def _moneycontrol_quote(label, url):
+    """Small, cached, fail-soft reader for a user-selected official Moneycontrol quote page."""
+    parsed=urllib.parse.urlparse(url)
+    host=(parsed.hostname or '').lower()
+    if parsed.scheme!='https' or not (host=='moneycontrol.com' or host.endswith('.moneycontrol.com')):
+        return None
+    cached=MARKET_QUOTE_CACHE.get(url); now=datetime.datetime.utcnow().timestamp()
+    if cached and now-cached['at']<120: return cached['value']
+    try:
+        r=requests.get(url,headers={'User-Agent':'Mozilla/5.0 (compatible; LivenzaBackOffice/1.5; +https://www.moneycontrol.com/)'},timeout=12)
+        if not r.ok: return None
+        raw=r.text
+        price=''
+        for pattern in (
+            r'id=["\'](?:nsecp|bsecp)["\'][^>]*>\s*([0-9][0-9,.]*)',
+            r'class=["\'][^"\']*(?:inprice1|lastprice)[^"\']*["\'][^>]*>\s*([0-9][0-9,.]*)',
+            r'["\'](?:lastPrice|last_price|price)["\']\s*:\s*["\']?([0-9][0-9,.]*)',
+        ):
+            m=re.search(pattern,raw,re.I)
+            if m: price=m.group(1); break
+        if not price: return None
+        change=''
+        for pattern in (r'id=["\'](?:nsechange|bsechange)["\'][^>]*>\s*([^<]{1,40})',r'["\'](?:percentChange|pChange)["\']\s*:\s*["\']?([-+0-9.]+)'):
+            m=re.search(pattern,raw,re.I)
+            if m: change=re.sub(r'<[^>]+>','',m.group(1)).strip(); break
+        value={'label':label[:40],'value':price+((f' ({change}%)' if change and '%' not in change else f' ({change})') if change else ''),'url':url,'source':'Moneycontrol'}
+        MARKET_QUOTE_CACHE[url]={'at':now,'value':value}; return value
+    except Exception: return None
+
+def live_marquee_items(user=None):
+    user=user or current_user(); items=[]
+    if setting('marquee_show_username','1')=='1' and user:
+        items.append({'label':'Signed in','value':user.full_name or user.username,'tone':'blue'})
+    if setting('marquee_show_tenants','1')=='1':
+        active=Tenant.query.filter(~Tenant.status.in_(['Vacated','Cancelled','Terminated'])).count()
+        items.append({'label':'Current tenants','value':str(active),'tone':'green'})
+    rooms=Room.query.all()
+    if setting('marquee_show_vacant_beds','1')=='1':
+        vacant=[r for r in rooms if room_status(r)=='Vacant']; beds=0
+        for r in vacant:
+            try: beds+=max(1,int(float(r.capacity or 1)))
+            except Exception: beds+=1
+        items.append({'label':'Vacant beds','value':str(beds),'tone':'gold'})
+    if setting('marquee_show_earnings','1')=='1':
+        earned=float(db.session.query(func.coalesce(func.sum(FoodOrder.net),0)).scalar() or 0)
+        manual=setting('marquee_manual_earnings','').strip()
+        items.append({'label':'Amount earned','value':manual or ('₹'+format(earned,',.0f')),'tone':'green'})
+    if setting('marquee_show_favorites','0')=='1' and setting('marquee_favorites','').strip():
+        items.append({'label':'Favourites','value':setting('marquee_favorites','').strip()[:180],'tone':'pink'})
+    if setting('marquee_custom_text','').strip():
+        items.append({'label':'Live update','value':setting('marquee_custom_text','').strip()[:240],'tone':'blue'})
+    if setting('marquee_show_stocks','0')=='1':
+        configured=setting('marquee_stock_pages','').splitlines()
+        if not configured:
+            configured=['NIFTY 50|https://www.moneycontrol.com/indian-indices/nifty-50-9.html','SENSEX|https://www.moneycontrol.com/indian-indices/sensex-4.html']
+        for line in configured[:5]:
+            label,sep,url=line.partition('|')
+            quote=_moneycontrol_quote(label.strip() or 'Market',url.strip()) if sep else None
+            if quote: quote['tone']='market'; items.append(quote)
+    return items
+
+
 
 MODULES = {
     'agreements': 'Agreement Studio',
@@ -403,6 +621,9 @@ MODULES = {
     'rentok': 'Livenza Billing Suite',
     'queries': 'Live Queries Manager',
     'video_wall': 'Video Wall Studio',
+    'whatsapp': 'WhatsApp Workspace',
+    'email': 'Email Workspace',
+    'drive': 'Google Drive Files',
 }
 
 BASE_REQUIRED_AGREEMENT_FIELDS = []
@@ -609,7 +830,9 @@ def whatsapp_cloud_text(to, body):
     if not (to and token and pid): return False, 'WhatsApp Cloud API is not configured.'
     ver=os.getenv('WHATSAPP_GRAPH_VERSION','v23.0')
     r=requests.post(f'https://graph.facebook.com/{ver}/{pid}/messages',headers={'Authorization':f'Bearer {token}','Content-Type':'application/json'},json={'messaging_product':'whatsapp','to':to,'type':'text','text':{'body':body,'preview_url':False}},timeout=25)
-    return r.ok, (r.text[:800] if not r.ok else 'Sent')
+    if not r.ok: return False,r.text[:800]
+    try: return True,str((r.json().get('messages') or [{}])[0].get('id') or 'Sent')
+    except Exception: return True,'Sent'
 
 def whatsapp_cloud_template(to, template_name, language='en'):
     to=wa_number(to); token=os.getenv('WHATSAPP_CLOUD_TOKEN','').strip(); pid=os.getenv('WHATSAPP_PHONE_NUMBER_ID','').strip()
@@ -713,7 +936,10 @@ def upload_video_wall_media(file_storage):
         if not r.ok:
             return None, f'Supabase Storage upload failed ({r.status_code}): {r.text[:300]}'
         public=f"{base}/storage/v1/object/public/video-wall-media/{urllib.parse.quote(path,safe='/')}"
-        return {'path':path,'url':public,'size':size,'mime':mime,'type':('image' if mime.startswith('image/') else 'video')}, ''
+        drive_warning=''
+        if setting('google_drive_auto_backup','0')=='1' and google_connected():
+            _,drive_warning=google_drive_upload_bytes(data,file_storage.filename or os.path.basename(path),mime,source='video-wall',uploaded_by=current_user())
+        return {'path':path,'url':public,'size':size,'mime':mime,'type':('image' if mime.startswith('image/') else 'video'),'drive_backup_error':drive_warning}, ''
     except Exception as exc:
         return None, f'Upload failed: {exc}'
 
@@ -835,8 +1061,51 @@ def inject_common():
     return dict(
         current_user=current_user(), app_version=APP_VERSION,
         can_access=can_access, module_labels=MODULES,
-        is_admin=bool(current_user() and (current_user().role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar
+        is_admin=bool(current_user() and (current_user().role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar,
+        kiosk_mode_enabled=setting('kiosk_mode_enabled','0')=='1', marquee_enabled=setting('marquee_enabled','1')=='1'
     )
+
+@app.before_request
+def enforce_kiosk_pin_gate():
+    """Server-side gate for every authenticated page while application lock is enabled."""
+    if not session.get('uid') or setting('kiosk_mode_enabled','0')!='1' or session.get('kiosk_unlocked'):
+        return None
+    allowed={'kiosk_lock','kiosk_unlock','logout','health','version','static'}
+    if request.endpoint not in allowed:
+        return redirect(url_for('kiosk_lock',next=request.full_path.rstrip('?')))
+
+@app.route('/kiosk')
+@login_required
+def kiosk_lock():
+    if setting('kiosk_mode_enabled','0')!='1' or session.get('kiosk_unlocked'):
+        return redirect(url_for('dashboard'))
+    return render_template('kiosk_lock.html')
+
+@app.route('/kiosk/unlock',methods=['POST'])
+@login_required
+def kiosk_unlock():
+    u=current_user(); secret=request.form.get('secret','')
+    now=datetime.datetime.utcnow().timestamp(); attempts=int(session.get('kiosk_failed_attempts') or 0); last=float(session.get('kiosk_failed_at') or 0)
+    if attempts>=5 and now-last<60:
+        flash('Too many unlock attempts. Wait one minute and try again.','danger'); return redirect(url_for('kiosk_lock'))
+    if now-last>=60: attempts=0
+    pin_hash=setting('kiosk_pin_hash','')
+    valid=bool((pin_hash and check_password_hash(pin_hash,secret)) or check_password_hash(u.password_hash,secret))
+    if not valid:
+        session['kiosk_failed_attempts']=attempts+1; session['kiosk_failed_at']=now
+        flash('Incorrect kiosk PIN or account password.','danger'); return redirect(url_for('kiosk_lock'))
+    session.pop('kiosk_failed_attempts',None); session.pop('kiosk_failed_at',None)
+    session['kiosk_unlocked']=True
+    target=request.form.get('next','')
+    return redirect(target if target.startswith('/') and not target.startswith('//') else url_for('dashboard'))
+
+@app.route('/kiosk/lock',methods=['POST'])
+@login_required
+def kiosk_relock():
+    if setting('kiosk_mode_enabled','0')=='1':
+        session['kiosk_unlocked']=False
+        return redirect(url_for('kiosk_lock'))
+    return redirect(url_for('dashboard'))
 
 @app.route('/health')
 def health(): return jsonify(status='ok', service='livenza-back-office-web', version=APP_VERSION)
@@ -850,6 +1119,10 @@ def livenza_no_cache(response):
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
     response.headers['X-Livenza-Build'] = APP_VERSION
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'publickey-credentials-get=(self)'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     return response
 
 @app.teardown_request
@@ -883,16 +1156,24 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art'])
 
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method=='POST':
         u=User.query.filter_by(username=request.form.get('username','').strip()).first()
-        if u and u.active and check_password_hash(u.password_hash, request.form.get('password','')):
+        method=request.form.get('auth_method','password')
+        valid=False
+        if u and u.active and method=='pattern' and u.pattern_hash:
+            pattern=_pattern_value(request.form.get('pattern',''))
+            valid=bool(pattern and check_password_hash(u.pattern_hash,'pattern:'+pattern))
+        elif u and u.active:
+            valid=check_password_hash(u.password_hash, request.form.get('password',''))
+        if valid:
             session.clear(); session['uid']=u.id
-            return redirect(request.args.get('next') or url_for('dashboard'))
-        flash('Invalid login ID/password or inactive account.', 'danger')
+            session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
+            return redirect(url_for('kiosk_lock') if not session['kiosk_unlocked'] else (request.args.get('next') or url_for('dashboard')))
+        flash('Invalid login ID, password/pattern or inactive account.', 'danger')
     return render_template('login.html')
 
 @app.route('/logout')
@@ -936,6 +1217,13 @@ def dashboard():
             'agreements':sum(1 for a in agreements_all if (a.data.get('city') or '').strip()==c.name)
         })
     return render_template('dashboard.html', stats=stats, cities=city_rows, permissions=user_permissions())
+
+@app.route('/api/marquee')
+@login_required
+def marquee_status():
+    try: refresh=max(30,min(600,int(setting('marquee_refresh_seconds','60') or 60)))
+    except Exception: refresh=60
+    return jsonify(ok=True,items=live_marquee_items(),refresh_seconds=refresh,updated_at=datetime.datetime.now(ZoneInfo('Asia/Kolkata')).isoformat())
 
 @app.route('/api/presets/<path:name>')
 @permission_required('agreements')
@@ -1305,7 +1593,7 @@ def food_integration_sync(iid):
     row=db.session.get(FoodIntegration,iid) or abort(404)
     if not row.active or not row.api_enabled or not (row.api_base_url or '').strip():
         flash('Enable API Sync and add the official/API endpoint supplied by the platform first.','warning');return redirect(url_for('food_integrations'))
-    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.4.9'}
+    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.0'}
     bearer=os.getenv((row.api_token_env or '').strip(),'').strip() if row.api_token_env else ''
     api_key=os.getenv((row.api_key_env or '').strip(),'').strip() if row.api_key_env else ''
     if bearer: headers['Authorization']=f'Bearer {bearer}'
@@ -1557,7 +1845,9 @@ def video_wall_asset_upload():
     if err:
         flash(err,'danger'); return redirect(url_for('video_wall'))
     asset=VideoAsset(title=title or f.filename,media_type=info['type'],storage_path=info['path'],public_url=info['url'],mime_type=info['mime'],file_size=info['size'],uploaded_by_user_id=current_user().id)
-    db.session.add(asset); db.session.commit(); flash('Media uploaded and ready for screens.','success'); return redirect(url_for('video_wall'))
+    db.session.add(asset); db.session.commit(); flash('Media uploaded and ready for screens.','success')
+    if info.get('drive_backup_error'): flash('Google Drive mirror warning: '+info['drive_backup_error'],'warning')
+    return redirect(url_for('video_wall'))
 
 @app.route('/video-wall/assets/<int:asset_id>/toggle',methods=['POST'])
 @permission_required('video_wall')
@@ -1645,6 +1935,10 @@ HELP_FEATURES = {
     'video': 'Open Video Wall. Add media, create TV/screen endpoints, assign a different playlist to each TV, set rotation/fit/loop options, or start a Festive Takeover to run one commercial across all enabled screens.',
     'billing': 'Open Billing for the Livenza Billing Suite. It embeds the configured billing manager when the external service allows embedding and otherwise provides a direct-open fallback.',
     'food': 'Open Food for orders and settlements. Use Integrations to configure Swiggy, Zomato, Toing or another partner using webhook/API details, and Live Partner Websites to open their official restaurant portals inside Operations Cloud when embedding is allowed.',
+    'whatsapp': 'Open WhatsApp to send Cloud API messages and view the incoming message feed. Admin must configure the Meta token, phone-number ID and webhook verification secrets.',
+    'email': 'Open Email to view the latest Gmail inbox metadata and compose messages without leaving Livenza. An admin must connect Google once from the Admin panel.',
+    'drive': 'Open Drive to upload, list, open and download Livenza files in the configured Google Drive folder. Admin can also mirror Video Wall uploads automatically.',
+    'security': 'Admins can configure pattern login and allow fingerprint/passkey enrollment per user. The kiosk PIN gate and Windows startup downloads are in Admin → Kiosk & Main Screen.',
     'fullscreen': 'Open View → Full Screen. While fullscreen is active, top navigation uses in-place page switching so moving between modules does not exit fullscreen.',
     'rotate': 'Open View and choose Auto, Portrait, Landscape, 90°, 180° or 270°. Portrait/Landscape can use device orientation on supported fullscreen mobile/tablet browsers; desktop custom angles rotate the application viewport.',
     'user': 'Admins can open the profile menu → Admin to create user IDs, passwords, profile photos and module-by-module access permissions.',
@@ -1664,6 +1958,10 @@ def _local_help_answer(question):
         (('video wall','tv','screen','festive','playlist'), 'video'),
         (('food','swiggy','zomato','toing','restaurant partner','delivery order'), 'food'),
         (('billing','rentok','rent ok'), 'billing'),
+        (('whatsapp','message','chat'), 'whatsapp'),
+        (('email','gmail','mail','inbox'), 'email'),
+        (('drive','google drive','cloud file','upload'), 'drive'),
+        (('fingerprint','passkey','windows hello','pattern','kiosk','pin','lock'), 'security'),
         (('fullscreen','full screen','f11'), 'fullscreen'),
         (('rotate','portrait','landscape','orientation'), 'rotate'),
         (('user','permission','login','password','access'), 'user'),
@@ -1698,10 +1996,290 @@ def help_assistant():
     except Exception:
         return jsonify(ok=True,answer=fallback,mode='local')
 
+@app.route('/api/webauthn/register/options',methods=['POST'])
+@login_required
+def webauthn_register_options():
+    u=current_user()
+    if not u.webauthn_enabled: return jsonify(ok=False,error='Fingerprint/passkey enrollment is not enabled for this user.'),403
+    try:
+        from webauthn import generate_registration_options, options_to_json
+        from webauthn.helpers.structs import AuthenticatorSelectionCriteria, PublicKeyCredentialDescriptor, ResidentKeyRequirement, UserVerificationRequirement
+        rp_id,_=_webauthn_context()
+        existing=WebAuthnCredential.query.filter_by(user_id=u.id).all()
+        options=generate_registration_options(
+            rp_id=rp_id,rp_name='Livenza Back Office',user_id=str(u.id).encode(),user_name=u.username,
+            user_display_name=u.full_name or u.username,
+            exclude_credentials=[PublicKeyCredentialDescriptor(id=c.credential_id) for c in existing],
+            authenticator_selection=AuthenticatorSelectionCriteria(
+                resident_key=ResidentKeyRequirement.PREFERRED,
+                user_verification=UserVerificationRequirement.REQUIRED,
+            ),
+        )
+        session['webauthn_register_challenge']=base64.urlsafe_b64encode(options.challenge).decode('ascii')
+        return app.response_class(options_to_json(options),mimetype='application/json')
+    except Exception as exc:
+        return jsonify(ok=False,error=f'Passkey service is unavailable: {exc}'),503
+
+@app.route('/api/webauthn/register/verify',methods=['POST'])
+@login_required
+def webauthn_register_verify():
+    u=current_user(); challenge=session.pop('webauthn_register_challenge','')
+    if not (u.webauthn_enabled and challenge): return jsonify(ok=False,error='Enrollment request expired.'),400
+    try:
+        from webauthn import verify_registration_response
+        rp_id,origin=_webauthn_context(); payload=request.get_json(force=True)
+        verified=verify_registration_response(
+            credential=payload,expected_challenge=base64.urlsafe_b64decode(challenge.encode('ascii')),
+            expected_rp_id=rp_id,expected_origin=origin,require_user_verification=True,
+        )
+        row=WebAuthnCredential.query.filter_by(credential_id=verified.credential_id).first()
+        if not row:
+            row=WebAuthnCredential(user_id=u.id,credential_id=verified.credential_id,public_key=verified.credential_public_key)
+            db.session.add(row)
+        row.sign_count=verified.sign_count; row.device_name=str(payload.get('device_name') or 'Windows Hello / fingerprint')[:180]
+        row.transports=json.dumps(((payload.get('response') or {}).get('transports') or []))
+        u.webauthn_enrolled_at=datetime.datetime.utcnow(); db.session.commit()
+        return jsonify(ok=True,message='Fingerprint/passkey enrolled on this device.')
+    except Exception as exc:
+        db.session.rollback(); return jsonify(ok=False,error=f'Enrollment could not be verified: {exc}'),400
+
+@app.route('/api/webauthn/auth/options',methods=['POST'])
+def webauthn_auth_options():
+    payload=request.get_json(silent=True) or {}; username=str(payload.get('username') or '').strip()
+    u=User.query.filter_by(username=username,active=True).first()
+    credentials=WebAuthnCredential.query.filter_by(user_id=u.id).all() if u and u.webauthn_enabled else []
+    if not credentials: return jsonify(ok=False,error='No fingerprint/passkey is enrolled for this login ID.'),404
+    try:
+        from webauthn import generate_authentication_options, options_to_json
+        from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerificationRequirement
+        rp_id,_=_webauthn_context()
+        options=generate_authentication_options(
+            rp_id=rp_id,allow_credentials=[PublicKeyCredentialDescriptor(id=c.credential_id) for c in credentials],
+            user_verification=UserVerificationRequirement.REQUIRED,
+        )
+        session['webauthn_auth_challenge']=base64.urlsafe_b64encode(options.challenge).decode('ascii'); session['webauthn_auth_user']=u.id
+        return app.response_class(options_to_json(options),mimetype='application/json')
+    except Exception as exc:
+        return jsonify(ok=False,error=f'Passkey service is unavailable: {exc}'),503
+
+@app.route('/api/webauthn/auth/verify',methods=['POST'])
+def webauthn_auth_verify():
+    challenge=session.pop('webauthn_auth_challenge',''); uid=session.pop('webauthn_auth_user',None)
+    u=db.session.get(User,uid) if uid else None; payload=request.get_json(force=True)
+    if not (u and u.active and u.webauthn_enabled and challenge): return jsonify(ok=False,error='Authentication request expired.'),400
+    try:
+        from webauthn import verify_authentication_response
+        credential_id=_b64url_decode(payload.get('id',''))
+        row=WebAuthnCredential.query.filter_by(user_id=u.id,credential_id=credential_id).first()
+        if not row: return jsonify(ok=False,error='This passkey is not registered.'),404
+        rp_id,origin=_webauthn_context()
+        verified=verify_authentication_response(
+            credential=payload,expected_challenge=base64.urlsafe_b64decode(challenge.encode('ascii')),
+            expected_rp_id=rp_id,expected_origin=origin,credential_public_key=row.public_key,
+            credential_current_sign_count=row.sign_count,require_user_verification=True,
+        )
+        row.sign_count=verified.new_sign_count; row.last_used_at=datetime.datetime.utcnow(); db.session.commit()
+        session.clear(); session['uid']=u.id; session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
+        return jsonify(ok=True,redirect=(url_for('kiosk_lock') if not session['kiosk_unlocked'] else url_for('dashboard')))
+    except Exception as exc:
+        db.session.rollback(); return jsonify(ok=False,error=f'Fingerprint/passkey verification failed: {exc}'),400
+
+@app.route('/admin/webauthn/<int:credential_id>/delete',methods=['POST'])
+@admin_required
+def webauthn_credential_delete(credential_id):
+    row=db.session.get(WebAuthnCredential,credential_id) or abort(404); uid=row.user_id
+    db.session.delete(row); db.session.commit()
+    if WebAuthnCredential.query.filter_by(user_id=uid).count()==0:
+        u=db.session.get(User,uid); u.webauthn_enrolled_at=None; db.session.commit()
+    flash('Registered fingerprint/passkey removed.','success'); return redirect(url_for('admin_panel')+'#user-'+str(uid))
+
+@app.route('/whatsapp',methods=['GET','POST'])
+@permission_required('whatsapp')
+def whatsapp_workspace():
+    if request.method=='POST':
+        to=wa_number(request.form.get('to','')); body=request.form.get('body','').strip()
+        if not (to and body):
+            flash('Enter a valid WhatsApp number and message.','danger'); return redirect(url_for('whatsapp_workspace'))
+        ok,result=whatsapp_cloud_text(to,body)
+        if ok:
+            mid=result if result.startswith('wamid.') else None
+            db.session.add(WhatsAppMessage(direction='outbound',wa_id=to,message_id=mid,body=body,status='sent',raw_json=json.dumps({'api_result':result})))
+            db.session.commit(); flash('WhatsApp message sent.','success')
+        else: flash('WhatsApp send failed: '+result,'danger')
+        return redirect(url_for('whatsapp_workspace'))
+    rows=WhatsAppMessage.query.order_by(WhatsAppMessage.created_at.desc()).limit(250).all()
+    return render_template('whatsapp.html',messages=rows,configured=whatsapp_cloud_configured(),webhook_url=url_for('whatsapp_messages_webhook',_external=True))
+
+@app.route('/webhooks/whatsapp/messages',methods=['GET','POST'])
+def whatsapp_messages_webhook():
+    if request.method=='GET':
+        verify=os.getenv('WHATSAPP_VERIFY_TOKEN',os.getenv('META_VERIFY_TOKEN','')).strip()
+        if request.args.get('hub.mode')=='subscribe' and verify and hmac.compare_digest(request.args.get('hub.verify_token',''),verify):
+            return request.args.get('hub.challenge','')
+        return 'Verification failed',403
+    app_secret=os.getenv('META_APP_SECRET','').strip(); raw=request.get_data(cache=True)
+    signature=request.headers.get('X-Hub-Signature-256','')
+    if app_secret:
+        expected='sha256='+hmac.new(app_secret.encode(),raw,hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(signature,expected): return jsonify(ok=False),403
+    payload=request.get_json(silent=True) or {}; changed=0
+    for entry in payload.get('entry',[]) or []:
+        for change in entry.get('changes',[]) or []:
+            value=change.get('value') or {}; contacts={x.get('wa_id'):((x.get('profile') or {}).get('name') or '') for x in value.get('contacts',[]) or []}
+            for msg in value.get('messages',[]) or []:
+                mid=str(msg.get('id') or '') or None
+                row=WhatsAppMessage.query.filter_by(message_id=mid).first() if mid else None
+                if not row:
+                    mtype=str(msg.get('type') or 'unknown'); content=msg.get('text',{}).get('body','') if mtype=='text' else json.dumps(msg.get(mtype) or {})
+                    row=WhatsAppMessage(direction='inbound',contact_name=contacts.get(msg.get('from'),'')[:180],wa_id=str(msg.get('from') or '')[:40],message_id=mid,message_type=mtype,body=content,status='received',raw_json=json.dumps(msg))
+                    db.session.add(row); changed+=1
+            for status in value.get('statuses',[]) or []:
+                row=WhatsAppMessage.query.filter_by(message_id=str(status.get('id') or '')).first()
+                if row: row.status=str(status.get('status') or row.status)[:40]; row.raw_json=json.dumps(status); changed+=1
+    if changed: db.session.commit()
+    return jsonify(ok=True)
+
+@app.route('/integrations/google/connect')
+@admin_required
+def google_connect():
+    if not google_oauth_configured():
+        flash('Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET first.','danger'); return redirect(url_for('admin_panel')+'#cloud-integrations')
+    state=secrets.token_urlsafe(30); session['google_oauth_state']=state
+    redirect_uri=url_for('google_callback',_external=True,_scheme='https' if os.getenv('FORCE_HTTPS','1')=='1' else request.scheme)
+    params={'client_id':os.getenv('GOOGLE_CLIENT_ID'),'redirect_uri':redirect_uri,'response_type':'code','scope':' '.join(GOOGLE_SCOPES),'access_type':'offline','include_granted_scopes':'true','prompt':'consent','state':state}
+    return redirect('https://accounts.google.com/o/oauth2/v2/auth?'+urllib.parse.urlencode(params))
+
+@app.route('/integrations/google/callback')
+@admin_required
+def google_callback():
+    if not hmac.compare_digest(str(session.pop('google_oauth_state','')),str(request.args.get('state',''))):
+        flash('Google connection state did not match. Please try again.','danger'); return redirect(url_for('admin_panel')+'#cloud-integrations')
+    redirect_uri=url_for('google_callback',_external=True,_scheme='https' if os.getenv('FORCE_HTTPS','1')=='1' else request.scheme)
+    try:
+        r=requests.post('https://oauth2.googleapis.com/token',data={'code':request.args.get('code',''),'client_id':os.getenv('GOOGLE_CLIENT_ID'),'client_secret':os.getenv('GOOGLE_CLIENT_SECRET'),'redirect_uri':redirect_uri,'grant_type':'authorization_code'},timeout=25)
+        if not r.ok: raise RuntimeError(r.text[:500])
+        data=r.json(); data['expires_at']=datetime.datetime.utcnow().timestamp()+int(data.get('expires_in') or 3600)
+        _encrypted_setting_set('google_oauth_token',json.dumps(data)); ensure_google_drive_folder(); flash('Google Drive and Gmail connected.','success')
+    except Exception as exc: flash(f'Google connection failed: {exc}','danger')
+    return redirect(url_for('admin_panel')+'#cloud-integrations')
+
+@app.route('/integrations/google/disconnect',methods=['POST'])
+@admin_required
+def google_disconnect():
+    data=_google_token_data(refresh=False); token=data.get('refresh_token') or data.get('access_token')
+    if token:
+        try: requests.post('https://oauth2.googleapis.com/revoke',params={'token':token},timeout=15)
+        except Exception: pass
+    _encrypted_setting_set('google_oauth_token',''); flash('Google connection removed.','success')
+    return redirect(url_for('admin_panel')+'#cloud-integrations')
+
+@app.route('/admin/google/settings',methods=['POST'])
+@admin_required
+def google_settings():
+    set_setting('google_drive_folder_id',request.form.get('google_drive_folder_id','').strip())
+    set_setting('google_drive_auto_backup','1' if request.form.get('google_drive_auto_backup')=='1' else '0')
+    flash('Google Drive settings saved.','success'); return redirect(url_for('admin_panel')+'#cloud-integrations')
+
+@app.route('/drive',methods=['GET','POST'])
+@permission_required('drive')
+def drive_workspace():
+    if request.method=='POST':
+        f=request.files.get('file')
+        if not f or not f.filename:
+            flash('Choose a file to upload.','danger'); return redirect(url_for('drive_workspace'))
+        data=f.read(); row,err=google_drive_upload_bytes(data,f.filename,f.mimetype or 'application/octet-stream','manual',current_user())
+        flash(('Uploaded to Google Drive.' if row else err),('success' if row else 'danger')); return redirect(url_for('drive_workspace'))
+    live=[]; error=''
+    headers=_google_headers()
+    if headers:
+        try:
+            folder=ensure_google_drive_folder()
+            params={'pageSize':100,'orderBy':'modifiedTime desc','fields':'files(id,name,mimeType,size,modifiedTime,webViewLink)','q':f"'{folder}' in parents and trashed=false" if folder else 'trashed=false'}
+            r=requests.get('https://www.googleapis.com/drive/v3/files',headers=headers,params=params,timeout=25)
+            if r.ok: live=r.json().get('files',[])
+            else: error=r.text[:400]
+        except Exception as exc: error=str(exc)
+    return render_template('drive.html',files=live,connected=bool(headers),error=error,folder_id=setting('google_drive_folder_id',''))
+
+@app.route('/drive/files/<file_id>/download')
+@permission_required('drive')
+def drive_file_download(file_id):
+    if not re.fullmatch(r'[A-Za-z0-9_-]{10,220}',file_id): abort(400)
+    headers=_google_headers()
+    if not headers: abort(503)
+    meta=requests.get(f'https://www.googleapis.com/drive/v3/files/{file_id}',headers=headers,params={'fields':'name,mimeType'},timeout=25)
+    mime=meta.json().get('mimeType','') if meta.ok else ''
+    exports={
+        'application/vnd.google-apps.document':('application/pdf','.pdf'),
+        'application/vnd.google-apps.spreadsheet':('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','.xlsx'),
+        'application/vnd.google-apps.presentation':('application/vnd.openxmlformats-officedocument.presentationml.presentation','.pptx'),
+        'application/vnd.google-apps.drawing':('application/pdf','.pdf'),
+    }
+    if mime in exports:
+        export_mime,extension=exports[mime]
+        content=requests.get(f'https://www.googleapis.com/drive/v3/files/{file_id}/export',headers=headers,params={'mimeType':export_mime},timeout=90)
+    else:
+        export_mime,extension=mime,''
+        content=requests.get(f'https://www.googleapis.com/drive/v3/files/{file_id}',headers=headers,params={'alt':'media'},timeout=90)
+    if not (meta.ok and content.ok): abort(502)
+    info=meta.json(); name=info.get('name') or 'drive-file'
+    if extension and not name.lower().endswith(extension): name+=extension
+    return send_file(io.BytesIO(content.content),download_name=name,mimetype=export_mime or 'application/octet-stream',as_attachment=True)
+
+def _gmail_plain_text(part):
+    if not isinstance(part,dict): return ''
+    mime=part.get('mimeType',''); data=(part.get('body') or {}).get('data','')
+    if mime=='text/plain' and data:
+        try: return _b64url_decode(data).decode('utf-8','replace')
+        except Exception: return ''
+    for child in part.get('parts',[]) or []:
+        text=_gmail_plain_text(child)
+        if text: return text
+    return ''
+
+@app.route('/email',methods=['GET','POST'])
+@permission_required('email')
+def email_workspace():
+    headers=_google_headers(); messages=[]; error=''
+    if request.method=='POST':
+        if not headers:
+            flash('Connect Google in Admin first.','danger'); return redirect(url_for('email_workspace'))
+        to=request.form.get('to','').strip(); subject=request.form.get('subject','').strip(); body=request.form.get('body','').strip()
+        if not (to and body):
+            flash('Recipient and message are required.','danger'); return redirect(url_for('email_workspace'))
+        mail=EmailMessage(); mail['To']=to; mail['Subject']=subject; mail.set_content(body)
+        raw=base64.urlsafe_b64encode(mail.as_bytes()).decode('ascii').rstrip('=')
+        r=requests.post('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',headers=dict(headers,**{'Content-Type':'application/json'}),json={'raw':raw},timeout=30)
+        flash(('Email sent.' if r.ok else 'Email send failed: '+r.text[:300]),('success' if r.ok else 'danger')); return redirect(url_for('email_workspace'))
+    if headers:
+        try:
+            listing=requests.get('https://gmail.googleapis.com/gmail/v1/users/me/messages',headers=headers,params={'maxResults':15},timeout=25)
+            for item in (listing.json().get('messages',[]) if listing.ok else []):
+                r=requests.get(f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{item['id']}",headers=headers,params={'format':'metadata','metadataHeaders':['From','Subject','Date']},timeout=20)
+                if not r.ok: continue
+                data=r.json(); hs={x.get('name','').lower():x.get('value','') for x in (data.get('payload',{}).get('headers',[]) or [])}
+                messages.append({'id':item['id'],'from':hs.get('from',''),'subject':hs.get('subject','(no subject)'),'date':hs.get('date',''),'snippet':data.get('snippet','')})
+            if not listing.ok: error=listing.text[:400]
+        except Exception as exc: error=str(exc)
+    return render_template('email.html',messages=messages,connected=bool(headers),error=error)
+
+@app.route('/email/messages/<message_id>')
+@permission_required('email')
+def email_message(message_id):
+    if not re.fullmatch(r'[A-Za-z0-9_-]{8,220}',message_id): abort(400)
+    headers=_google_headers()
+    if not headers: abort(503)
+    r=requests.get(f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}',headers=headers,params={'format':'full'},timeout=30)
+    if not r.ok: abort(502)
+    data=r.json(); hs={x.get('name','').lower():x.get('value','') for x in (data.get('payload',{}).get('headers',[]) or [])}
+    message={'from':hs.get('from',''),'to':hs.get('to',''),'subject':hs.get('subject','(no subject)'),'date':hs.get('date',''),'body':_gmail_plain_text(data.get('payload') or {}) or data.get('snippet','')}
+    return render_template('email_message.html',message=message)
+
 @app.route('/settings', methods=['GET','POST'])
 @admin_required
 def settings_page():
-    keys=('food_webhook_token','whatsapp_recipient','empty_report_time','default_google_review_url','vacant_report_enabled','vacant_report_time','vacant_report_recipients','query_webhook_token')
+    keys=('food_webhook_token','whatsapp_recipient','empty_report_time','default_google_review_url','vacant_report_enabled','vacant_report_time','vacant_report_recipients','query_webhook_token',
+          'marquee_enabled','marquee_show_username','marquee_show_tenants','marquee_show_vacant_beds','marquee_show_earnings','marquee_show_favorites','marquee_show_stocks','marquee_favorites','marquee_custom_text','marquee_manual_earnings','marquee_stock_pages','marquee_refresh_seconds')
     if request.method=='POST':
         for k in keys:
             if k in request.form:
@@ -1714,12 +2292,44 @@ def settings_page():
                         return redirect(url_for('settings_page'))
                 set_setting(k,val)
         flash('Settings saved.','success'); return redirect(url_for('settings_page'))
-    return render_template('settings.html',settings={k:setting(k) for k in keys})
+    defaults={'marquee_enabled':'1','marquee_show_username':'1','marquee_show_tenants':'1','marquee_show_vacant_beds':'1','marquee_show_earnings':'1','marquee_refresh_seconds':'60'}
+    return render_template('settings.html',settings={k:setting(k,defaults.get(k,'')) for k in keys})
 
 @app.route('/admin')
 @admin_required
 def admin_panel():
-    return render_template('admin.html', users=User.query.order_by(User.username).all(), cities=City.query.order_by(City.name).all(), modules=MODULES, query_templates=QueryTemplate.query.order_by(QueryTemplate.id.desc()).all(), aadhaar_provider_configured=bool(os.getenv('AADHAAR_AUTH_URL','').strip()))
+    users=User.query.order_by(User.username).all()
+    credentials={u.id:WebAuthnCredential.query.filter_by(user_id=u.id).order_by(WebAuthnCredential.id).all() for u in users}
+    return render_template('admin.html', users=users, cities=City.query.order_by(City.name).all(), modules=MODULES,
+        query_templates=QueryTemplate.query.order_by(QueryTemplate.id.desc()).all(), aadhaar_provider_configured=bool(os.getenv('AADHAAR_AUTH_URL','').strip()),
+        credentials=credentials, google_oauth_ready=google_oauth_configured(), google_is_connected=google_connected(),
+        drive_folder_id=setting('google_drive_folder_id',''), drive_auto_backup=setting('google_drive_auto_backup','0')=='1',
+        kiosk_enabled=setting('kiosk_mode_enabled','0')=='1')
+
+@app.route('/admin/kiosk/settings',methods=['POST'])
+@admin_required
+def kiosk_settings():
+    u=current_user(); password=request.form.get('admin_password','')
+    if not check_password_hash(u.password_hash,password):
+        flash('Administrator password is required to change Windows/kiosk lock settings.','danger'); return redirect(url_for('admin_panel')+'#kiosk-security')
+    enabled=request.form.get('kiosk_mode_enabled')=='1'; new_pin=request.form.get('kiosk_pin','').strip()
+    if enabled and not (setting('kiosk_pin_hash','') or len(new_pin)>=6):
+        flash('Set a kiosk PIN with at least 6 characters before enabling lock mode.','danger'); return redirect(url_for('admin_panel')+'#kiosk-security')
+    if new_pin:
+        if len(new_pin)<6:
+            flash('Kiosk PIN must contain at least 6 characters.','danger'); return redirect(url_for('admin_panel')+'#kiosk-security')
+        set_setting('kiosk_pin_hash',generate_password_hash(new_pin))
+    set_setting('kiosk_mode_enabled','1' if enabled else '0')
+    session['kiosk_unlocked']=not enabled
+    flash(('Kiosk lock enabled. Unlock with the kiosk PIN or user password.' if enabled else 'Kiosk lock disabled.'),'success')
+    return redirect(url_for('kiosk_lock') if enabled else url_for('admin_panel')+'#kiosk-security')
+
+@app.route('/admin/kiosk/windows/<kind>')
+@admin_required
+def kiosk_windows_download(kind):
+    names={'enable':'Enable-LivenzaKiosk.ps1','disable':'Disable-LivenzaKiosk.ps1','guide':'README_WINDOWS_KIOSK.md'}
+    name=names.get(kind) or abort(404)
+    return send_file(os.path.join(BASE_DIR,'windows-kiosk',name),as_attachment=True,download_name=name)
 
 @app.route('/admin/users/save', methods=['POST'])
 @admin_required
@@ -1753,6 +2363,12 @@ def admin_user_save():
     if request.form.get('aadhaar_verification_ref') is not None: u.aadhaar_verification_ref=request.form.get('aadhaar_verification_ref','').strip()
     u.role=request.form.get('role','manager') if request.form.get('role') in ('admin','manager') else 'manager'
     u.active=request.form.get('active')=='1'
+    u.webauthn_enabled=request.form.get('webauthn_enabled')=='1'
+    pattern=_pattern_value(request.form.get('pattern',''))
+    if request.form.get('clear_pattern')=='1': u.pattern_hash=''
+    elif pattern: u.pattern_hash=generate_password_hash('pattern:'+pattern)
+    elif request.form.get('pattern'):
+        flash('Pattern was not changed: connect at least 4 different dots.','warning')
     perms=[m for m in MODULES if request.form.get(f'perm_{m}')=='1']
     u.permissions_json=json.dumps(perms)
     db.session.commit(); flash('User access saved.','success'); return redirect(url_for('admin_panel'))
@@ -1787,9 +2403,20 @@ def admin_city_delete(cid):
     c=db.session.get(City,cid) or abort(404); db.session.delete(c); db.session.commit(); flash('City removed.','success'); return redirect(url_for('admin_panel'))
 
 
+def ensure_v150_user_columns():
+    """Small compatibility bridge; production schema is also provided as a migration."""
+    existing={c['name'] for c in inspect(db.engine).get_columns('user')}
+    statements=[]
+    if 'pattern_hash' not in existing: statements.append('ALTER TABLE "user" ADD COLUMN pattern_hash TEXT DEFAULT \'\'')
+    if 'webauthn_enabled' not in existing: statements.append('ALTER TABLE "user" ADD COLUMN webauthn_enabled BOOLEAN NOT NULL DEFAULT FALSE')
+    if 'webauthn_enrolled_at' not in existing: statements.append('ALTER TABLE "user" ADD COLUMN webauthn_enrolled_at TIMESTAMP NULL')
+    for sql in statements: db.session.execute(db.text(sql))
+    if statements: db.session.commit()
+
 def bootstrap():
     os.makedirs(os.path.join(BASE_DIR,'instance'),exist_ok=True)
     db.create_all()
+    ensure_v150_user_columns()
     if User.query.count()==0:
         username=os.getenv('ADMIN_USERNAME','admin').strip() or 'admin'
         password=os.getenv('ADMIN_PASSWORD','')
