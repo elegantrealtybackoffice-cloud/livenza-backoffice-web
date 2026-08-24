@@ -2,14 +2,15 @@ services:
   - type: web
     name: livenza-back-office
     runtime: python
-    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --workers 2 --threads 4 --timeout 120
     healthCheckPath: /health
     autoDeployTrigger: commit
     envVars:
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: livenza-backoffice-db
+          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: ADMIN_USERNAME
@@ -22,3 +23,7 @@ services:
         value: gpt-5.6-luna
       - key: FORCE_HTTPS
         value: "1"
+databases:
+  - name: livenza-backoffice-db
+    databaseName: livenza_backoffice
+    user: livenza_backoffice
