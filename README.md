@@ -1,4 +1,10 @@
-# Livenza Life Operations Cloud — Web 1.5.0
+# Livenza Life Operations Cloud — Web 1.5.1
+
+## Web 1.5.1 header refinement
+
+- The hanging Livenza logo is now completely stable and never rotates.
+- An independent conic light runner, pulsing halo and two orbiting AI indicators animate around the stationary logo, matching the AI-style logo treatment on the Home screen.
+- Reduced-motion mode keeps the logo stable and pauses the surrounding effects.
 
 ## Web 1.5.0 security and cloud workspace
 
@@ -9,7 +15,7 @@
 - Google Drive and Gmail use one server-side OAuth connection. Refresh tokens are encrypted at rest.
 - Pattern login stores only a salted hash. Fingerprint/Windows Hello uses WebAuthn passkeys; biometric data remains on the user's device.
 - Configurable live marquee shows current tenants, vacant beds, earnings, user/favourites/custom text and optional cached Moneycontrol quote-page rates.
-- White reference header now has a three-bar applications menu, a hanging rotating Livenza logo and icon-based controls.
+- White reference header has a three-bar applications menu, a stable AI-lit hanging Livenza logo and icon-based controls.
 
 ### Required deployment steps
 
@@ -20,7 +26,7 @@
 5. Configure passkeys: `WEBAUTHN_RP_ID=YOUR-SITE-HOST` and `WEBAUTHN_ORIGIN=https://YOUR-SITE`.
 6. In Admin, connect Google, assign the WhatsApp/Email/Drive permissions, enable pattern or fingerprint access per user, and optionally enable kiosk lock.
 
-See `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
+See `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
 
 ## Web 1.4.9 addition
 - The Livenza Assistant now has a high-contrast cross icon that remains visible after messages are added.
