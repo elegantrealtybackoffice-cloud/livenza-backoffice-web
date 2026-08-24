@@ -372,7 +372,11 @@ initPageFeatures(document);
 
   // Footer-adjacent feature assistant.
   const launcher=document.getElementById('assistantLauncher'),panel=document.getElementById('assistantPanel'),close=document.getElementById('assistantClose'),form=document.getElementById('assistantForm'),input=document.getElementById('assistantInput'),messages=document.getElementById('assistantMessages');
-  function setAssistant(open){if(!panel||!launcher)return;panel.hidden=!open;launcher.setAttribute('aria-expanded',String(open));panel.classList.toggle('open',open);if(open)setTimeout(()=>input?.focus(),60)}
+  function setAssistant(open,restoreFocus=false){
+    if(!panel||!launcher)return;
+    panel.hidden=!open;panel.setAttribute('aria-hidden',String(!open));launcher.setAttribute('aria-expanded',String(open));panel.classList.toggle('open',open);
+    if(open)setTimeout(()=>input?.focus(),60);else if(restoreFocus)launcher.focus();
+  }
   function addMessage(text,who='bot'){
     if(!messages)return;const div=document.createElement('div');div.className=`assistant-message ${who}`;div.textContent=text;messages.appendChild(div);messages.scrollTop=messages.scrollHeight;
   }
@@ -380,8 +384,19 @@ initPageFeatures(document);
     text=(text||'').trim();if(!text)return;setAssistant(true);addMessage(text,'user');if(input)input.value='';const thinking=document.createElement('div');thinking.className='assistant-message bot thinking';thinking.textContent='Thinking…';messages?.appendChild(thinking);messages.scrollTop=messages.scrollHeight;
     try{const r=await fetch('/api/help',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({message:text})});const d=await r.json();thinking.remove();addMessage(d.answer||d.error||'I could not answer that right now.','bot')}catch(e){thinking.remove();addMessage('I could not reach the help service. Please try again.','bot')}
   }
-  launcher?.addEventListener('click',()=>setAssistant(panel?.hidden));close?.addEventListener('click',()=>setAssistant(false));form?.addEventListener('submit',e=>{e.preventDefault();askAssistant(input?.value)});
+  launcher?.addEventListener('click',()=>setAssistant(panel?.hidden));close?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();setAssistant(false,true)});form?.addEventListener('submit',e=>{e.preventDefault();askAssistant(input?.value)});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel&&!panel.hidden){e.preventDefault();setAssistant(false,true)}});
   document.addEventListener('click',e=>{const b=e.target.closest('[data-help-prompt]');if(b)askAssistant(b.dataset.helpPrompt)});
+
+  // Authenticated partner portals often refuse third-party iframe embedding.
+  // Copying or launching their official top-level URL keeps login and OTP flows intact.
+  document.addEventListener('click',async e=>{
+    const button=e.target.closest('[data-copy-portal]');if(!button)return;
+    const url=button.dataset.copyPortal||'';if(!url)return;
+    const original=button.textContent;
+    try{await navigator.clipboard.writeText(url);button.textContent='Link Copied ✓'}catch(err){button.textContent='Copy Unavailable'}
+    setTimeout(()=>button.textContent=original,1600);
+  });
 
   // Transparent Livenza easter egg with a gentle star burst.
   const egg=document.getElementById('livenzaEasterEgg'),toast=document.getElementById('easterToast');

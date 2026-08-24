@@ -17,7 +17,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static',filename='apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static',filename='site.webmanifest') }}">
   <title>{% block title %}Livenza Back Office{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.4.8">
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.4.9">
 </head>
 <body>
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
@@ -99,7 +99,12 @@
         <span class="assistant-orb">✦</span><span><b>Ask Livenza</b><small>Features, workflows & help</small></span><span class="assistant-arrow">↑</span>
       </button>
       <div id="assistantPanel" class="assistant-panel liquid-card" hidden>
-        <div class="assistant-head"><div><span class="assistant-mini-orb">✦</span><span><b>Livenza Assistant</b><small>Operations Cloud guide</small></span></div><button type="button" id="assistantClose" aria-label="Close assistant">×</button></div>
+        <div class="assistant-head">
+          <div><span class="assistant-mini-orb">✦</span><span><b>Livenza Assistant</b><small>Operations Cloud guide</small></span></div>
+          <button type="button" id="assistantClose" class="assistant-close" aria-label="Close chat" title="Close chat">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
         <div id="assistantMessages" class="assistant-messages" aria-live="polite">
           <div class="assistant-message bot"><b>Hi.</b> Ask me how to use Agreements, Rooms, Queries, Reviews, Billing, Video Wall, user access, fullscreen or any other feature.</div>
         </div>
@@ -141,7 +146,7 @@
     <button type="button" role="menuitem" data-view-mode="270"><span class="view-menu-icon">↺</span><div><b>Rotate 270°</b><small>Vertical screen, left</small></div></button>
   </div>
 
-  <script src="{{url_for('static',filename='app.js')}}?v=1.4.8"></script>
+  <script src="{{url_for('static',filename='app.js')}}?v=1.4.9"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

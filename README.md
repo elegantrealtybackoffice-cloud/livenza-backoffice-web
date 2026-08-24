@@ -1,4 +1,10 @@
-# Livenza Life Operations Cloud — Web 1.4.8
+# Livenza Life Operations Cloud — Web 1.4.9
+
+## Web 1.4.9 addition
+- The Livenza Assistant now has a high-contrast cross icon that remains visible after messages are added.
+- The chat can also be closed with the Escape key, and keyboard focus returns to the Ask Livenza launcher.
+- Food partner websites now use a reliable secure launchpad instead of a blank or blocked iframe.
+- Swiggy and Zomato default portal URLs were refreshed to their current official partner-login destinations.
 
 ## Web 1.4.8 additions
 - Home LIVE/ONLINE disc replaced by the Livenza logo with an animated AI-style light running around its border, orbiting indicators, halo and soft visual sweeps.
