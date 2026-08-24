@@ -302,3 +302,309 @@ html.site-rotation-active,html.site-rotation-active body{width:100%!important;he
   *,*:before,*:after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}
   .page-transition{display:none!important}
 }
+
+/* ===== Web 1.4.4 • fullscreen stability + live motion ===== */
+/* Fullscreen is intentionally a normal scrolling document. The old rotated
+   fixed viewport is suppressed while fullscreen is active. */
+body:fullscreen,
+body:-webkit-full-screen{
+  width:100vw!important;
+  height:100vh!important;
+  min-height:100vh!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  margin:0!important;
+  background:#f5f5f7!important;
+}
+html.fullscreen-stable,
+html.fullscreen-stable body{
+  width:100%!important;
+  min-height:100%!important;
+  height:auto!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior-y:auto!important;
+}
+html.fullscreen-stable .app-viewport,
+body:fullscreen .app-viewport,
+body:-webkit-full-screen .app-viewport{
+  position:relative!important;
+  inset:auto!important;
+  left:auto!important;
+  top:auto!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:100vh!important;
+  max-width:none!important;
+  margin:0!important;
+  transform:none!important;
+  transform-origin:initial!important;
+  overflow:visible!important;
+  background:transparent!important;
+}
+html.fullscreen-stable .topbar,
+body:fullscreen .topbar,
+body:-webkit-full-screen .topbar{position:sticky!important;top:0!important;z-index:5000!important}
+html.fullscreen-stable .shell,
+body:fullscreen .shell,
+body:-webkit-full-screen .shell{overflow:visible!important}
+html.fullscreen-stable .page-transition{display:none!important}
+html.fullscreen-stable.site-rotation-active,
+html.fullscreen-stable.site-rotation-active body{overflow-y:auto!important;height:auto!important}
+html.fullscreen-stable .view-rot-90,
+html.fullscreen-stable .view-rot-180,
+html.fullscreen-stable .view-rot-270{position:relative!important;width:100%!important;height:auto!important;transform:none!important;overflow:visible!important}
+
+/* Clean brand header: no secondary operations-cloud subtitle. */
+.brand>span:last-child{justify-content:center!important}
+.brand>span:last-child small{display:none!important}
+.brand b{letter-spacing:-.018em!important;font-weight:650!important}
+
+/* Live ambient layer. Decorative particles never capture pointer input. */
+.live-motion-layer{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;contain:strict}
+.live-particle{
+  position:absolute;left:var(--x);bottom:-30px;width:var(--size);height:var(--size);border-radius:999px;
+  background:rgba(0,113,227,.16);box-shadow:0 0 18px rgba(0,113,227,.14),inset 0 0 0 1px rgba(255,255,255,.7);
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
+  animation:liveParticleRise var(--duration) linear var(--delay) infinite;will-change:transform,opacity;
+}
+.live-particle:nth-child(3n+2){background:rgba(175,82,222,.13);box-shadow:0 0 18px rgba(175,82,222,.13),inset 0 0 0 1px rgba(255,255,255,.7)}
+.live-particle:nth-child(3n+3){background:rgba(52,199,89,.12);box-shadow:0 0 18px rgba(52,199,89,.12),inset 0 0 0 1px rgba(255,255,255,.7)}
+
+/* Moving glass sheen and gentle idle life. */
+.liquid-nav:after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:linear-gradient(105deg,transparent 20%,rgba(255,255,255,.48) 42%,transparent 61%);transform:translateX(-125%);animation:navGlassSweep 8s cubic-bezier(.2,.8,.2,1) infinite}
+.brand-glass{animation:brandBreathe 4.8s ease-in-out infinite!important}
+.core-ring{animation:coreLivePulse 3.2s ease-in-out infinite!important}
+.user-chip span,.user-chip img{animation:userLiveFloat 5.5s ease-in-out infinite}
+.topbar nav a{position:relative;transition:transform .22s cubic-bezier(.2,.8,.2,1),background .2s ease,color .2s ease!important}
+.topbar nav a:hover{transform:translateY(-2px)}
+.topbar nav a:after{content:"";position:absolute;left:20%;right:20%;bottom:3px;height:2px;border-radius:10px;background:linear-gradient(90deg,#0071e3,#af52de);transform:scaleX(0);transition:transform .22s ease}
+.topbar nav a:hover:after{transform:scaleX(1)}
+.module-card:nth-child(odd){animation:moduleIdleA 7s ease-in-out infinite}
+.module-card:nth-child(even){animation:moduleIdleB 8.5s ease-in-out infinite}
+.module-card:hover{animation-play-state:paused}
+.site-footer{animation:footerArrive .7s cubic-bezier(.2,.8,.2,1) both}
+
+/* Cursor-responsive ambient glow on fine-pointer desktops. */
+body:after{content:"";position:fixed;left:var(--pointer-x,-400px);top:var(--pointer-y,-400px);width:280px;height:280px;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;z-index:-2;background:radial-gradient(circle,rgba(0,113,227,.075),rgba(175,82,222,.025) 45%,transparent 72%);transition:left .08s linear,top .08s linear}
+
+@keyframes liveParticleRise{0%{transform:translate3d(0,0,0) scale(.72);opacity:0}10%{opacity:.75}55%{transform:translate3d(var(--drift),-52vh,0) scale(1.12);opacity:.45}100%{transform:translate3d(calc(var(--drift) * -.35),-112vh,0) scale(.8);opacity:0}}
+@keyframes navGlassSweep{0%,70%,100%{transform:translateX(-125%);opacity:0}78%{opacity:.7}92%{transform:translateX(125%);opacity:0}}
+@keyframes brandBreathe{0%,100%{transform:translateY(0) scale(1);box-shadow:0 10px 30px rgba(0,113,227,.08)}50%{transform:translateY(-2px) scale(1.025);box-shadow:0 16px 40px rgba(0,113,227,.16)}}
+@keyframes coreLivePulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(0,113,227,.08)}50%{transform:scale(1.025);box-shadow:0 0 0 13px rgba(0,113,227,0)}}
+@keyframes userLiveFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
+@keyframes moduleIdleA{0%,100%{translate:0 0}50%{translate:0 -2px}}
+@keyframes moduleIdleB{0%,100%{translate:0 0}50%{translate:0 2px}}
+@keyframes footerArrive{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+@media(max-width:900px){
+  .module-card:nth-child(n){animation:none!important}
+  .live-motion-layer{opacity:.65}
+}
+@media(prefers-reduced-motion:reduce){
+  .live-motion-layer{display:none!important}
+  body:after{display:none!important}
+}
+/* Portrait preview remains available in fullscreen without transforms. */
+html.fullscreen-stable .app-viewport.view-portrait,
+body:fullscreen .app-viewport.view-portrait,
+body:-webkit-full-screen .app-viewport.view-portrait{
+  width:min(560px,100%)!important;
+  margin-inline:auto!important;
+  box-shadow:0 0 0 1px rgba(0,0,0,.05),0 25px 90px rgba(0,0,0,.10)!important;
+}
+
+/* =====================================================================
+   Web 1.4.5 — professional white UI lock, aligned navigation & View menu
+   ===================================================================== */
+:root{
+  color-scheme:light only;
+  --livenza-navy:#0a2540;
+  --livenza-black:#1d1d1f;
+  --livenza-white:#ffffff;
+  --livenza-soft:#f5f5f7;
+  --livenza-blue:#0071e3;
+}
+html,body{color-scheme:light!important}
+
+/* Native browser controls: force Windows/Edge select popups into light mode. */
+input,textarea,select,option,optgroup,
+input[type="date"],input[type="time"],input[type="datetime-local"],input[type="month"],input[type="number"]{
+  color-scheme:light!important;
+  background-color:#fff!important;
+  color:var(--livenza-black)!important;
+}
+select{accent-color:var(--livenza-blue)!important}
+select option,select optgroup{
+  background:#fff!important;
+  color:var(--livenza-black)!important;
+  font-family:var(--apple-font)!important;
+}
+select option:checked{background:#e8f2ff!important;color:var(--livenza-navy)!important}
+select[multiple]{background:#fff!important;color:var(--livenza-black)!important}
+select[multiple] option{padding:7px 9px;background:#fff!important;color:var(--livenza-black)!important}
+select[multiple] option:checked{background:#e8f2ff linear-gradient(0deg,#e8f2ff,#e8f2ff)!important;color:var(--livenza-navy)!important}
+::selection{background:#d9ecff;color:var(--livenza-navy)}
+
+/* All custom menus/popovers remain white, black type, navy/blue accents. */
+.view-menu-global,[role="menu"],.rotate-menu,.rotate-menu-global,.dropdown-menu,.popover,.menu-panel{
+  background:rgba(255,255,255,.94)!important;
+  color:var(--livenza-black)!important;
+  border-color:rgba(10,37,64,.10)!important;
+}
+.view-menu-global button,[role="menu"] button,.dropdown-menu button,.dropdown-menu a,.popover button,.popover a{
+  color:var(--livenza-black)!important;
+}
+.view-menu-global small,[role="menu"] small{color:#6e6e73!important}
+details,details[open],summary{color:var(--livenza-black)!important}
+.form-card summary{background:transparent!important;color:var(--livenza-navy)!important}
+.festive-stop{background:var(--livenza-navy)!important;color:#fff!important}
+
+/* Neat, non-wrapping desktop header. Application tabs have their own lane;
+   View is a separate utility control and never sits between module tabs. */
+.topbar{
+  display:grid!important;
+  grid-template-columns:auto minmax(360px,1fr) auto auto!important;
+  align-items:center!important;
+  column-gap:14px!important;
+  row-gap:0!important;
+  min-height:74px!important;
+  height:auto!important;
+  padding:8px 14px!important;
+  overflow:visible!important;
+}
+.brand{min-width:205px!important;max-width:235px!important;white-space:nowrap!important}
+.brand>span:last-child{min-width:0}.brand b{font-size:13px!important;white-space:nowrap!important}
+.main-nav{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:3px!important;
+  flex-wrap:nowrap!important;
+  min-width:0!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  scrollbar-width:none!important;
+  padding:3px!important;
+  border-radius:999px!important;
+  background:rgba(245,245,247,.66)!important;
+  border:1px solid rgba(0,0,0,.045)!important;
+}
+.main-nav::-webkit-scrollbar{display:none}
+.main-nav a{
+  flex:0 0 auto!important;
+  padding:8px 10px!important;
+  white-space:nowrap!important;
+  line-height:1!important;
+  border-radius:999px!important;
+  color:var(--livenza-black)!important;
+}
+.main-nav a.active{
+  background:#fff!important;
+  color:var(--livenza-navy)!important;
+  box-shadow:0 4px 14px rgba(0,0,0,.07),inset 0 0 0 1px rgba(10,37,64,.06)!important;
+}
+.main-nav a.active:after{transform:scaleX(1)!important;background:var(--livenza-blue)!important}
+.header-view{display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.view-menu-toggle{
+  appearance:none!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;
+  min-height:38px!important;padding:9px 12px!important;border-radius:999px!important;
+  background:#fff!important;color:var(--livenza-navy)!important;border:1px solid rgba(10,37,64,.09)!important;
+  box-shadow:0 5px 18px rgba(0,0,0,.055),inset 0 1px 0 #fff!important;white-space:nowrap!important;
+}
+.view-menu-toggle:hover,.view-menu-toggle[aria-expanded="true"]{background:#f8fbff!important;box-shadow:0 9px 28px rgba(0,113,227,.12)!important;transform:translateY(-1px)}
+.view-menu-toggle .tool-icon{font-size:16px;color:var(--livenza-blue)}
+.view-menu-toggle b{font-size:11px;font-weight:650}.view-menu-toggle .tool-chevron{font-size:11px;transition:transform .18s ease}.view-menu-toggle[aria-expanded="true"] .tool-chevron{transform:rotate(180deg)}
+.acct{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:4px!important;white-space:nowrap!important;min-width:0!important}
+.acct>a{padding:8px 9px!important}
+.user-chip{max-width:165px!important}.user-chip b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Unified View popover */
+.view-menu-global{
+  position:fixed!important;z-index:2147483000!important;width:min(326px,calc(100vw - 20px))!important;
+  padding:10px!important;border-radius:24px!important;
+  background:rgba(255,255,255,.96)!important;
+  border:1px solid rgba(10,37,64,.09)!important;
+  box-shadow:0 28px 85px rgba(10,37,64,.18),inset 0 1px 0 #fff!important;
+  backdrop-filter:blur(34px) saturate(190%)!important;-webkit-backdrop-filter:blur(34px) saturate(190%)!important;
+  transform:translateY(-7px) scale(.98);opacity:0;transform-origin:top right;
+  transition:opacity .15s ease,transform .19s cubic-bezier(.2,.8,.2,1)!important;
+  overflow:hidden!important;
+}
+.view-menu-global.open{opacity:1;transform:translateY(0) scale(1)}
+.view-menu-global[hidden]{display:none!important}
+.view-menu-head{display:flex;flex-direction:column;gap:2px;padding:10px 12px 11px}.view-menu-head b{font-size:14px;color:var(--livenza-navy);letter-spacing:-.02em}.view-menu-head small{font-size:11px;color:#6e6e73}
+.view-menu-divider{height:1px;background:rgba(10,37,64,.08);margin:5px 8px}
+.view-menu-section-label{padding:7px 12px 5px;color:#86868b;font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase}
+.view-menu-global>button{
+  display:grid!important;grid-template-columns:34px minmax(0,1fr) auto!important;align-items:center!important;gap:9px!important;
+  width:100%!important;text-align:left!important;padding:10px 11px!important;border-radius:14px!important;
+  background:#fff!important;color:var(--livenza-black)!important;border:0!important;box-shadow:none!important;
+  transition:background .16s ease,transform .16s ease,color .16s ease!important;
+}
+.view-menu-global>button:hover,.view-menu-global>button.selected{background:#edf6ff!important;color:var(--livenza-navy)!important;transform:translateX(2px)}
+.view-menu-global>button.active{background:#eef8f2!important;color:#176b34!important}
+.view-menu-global>button>div{display:flex;flex-direction:column;gap:1px;min-width:0}.view-menu-global>button b{font-size:12px;font-weight:650}.view-menu-global>button small{font-size:10px;color:#6e6e73!important;white-space:normal}
+.view-menu-icon{display:grid;place-items:center;width:31px;height:31px;border-radius:10px;background:#eef6ff;color:var(--livenza-blue);font-size:16px}.view-shortcut{font-size:9px;color:#9a9a9f;background:#f5f5f7;padding:3px 5px;border-radius:6px}.view-menu-global>button.selected:after{content:"✓";color:var(--livenza-blue);font-size:13px;font-weight:800}
+
+/* Footer credit is explicit and permanently visible. */
+.site-footer{min-height:74px!important;color:var(--livenza-black)!important;background:rgba(255,255,255,.86)!important}
+.footer-created{display:flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;color:#3a3a3c!important;visibility:visible!important;opacity:1!important}
+.footer-created strong{display:inline!important;color:var(--livenza-navy)!important;font-weight:700!important;visibility:visible!important;opacity:1!important}
+.footer-company b{color:var(--livenza-navy)!important}.footer-company small,.footer-time{color:#6e6e73!important}
+
+/* Professional live motion: restrained, responsive and click-safe. */
+@view-transition{navigation:auto}
+::view-transition-old(root){animation:livenzaPageOut .18s ease both}
+::view-transition-new(root){animation:livenzaPageIn .34s cubic-bezier(.2,.8,.2,1) both}
+.reveal-ready{opacity:0;transform:translateY(18px) scale(.992);transition:opacity .55s cubic-bezier(.2,.8,.2,1) var(--reveal-delay,0ms),transform .55s cubic-bezier(.2,.8,.2,1) var(--reveal-delay,0ms)!important}
+.reveal-ready.reveal-in{opacity:1;transform:none}
+.topbar{transition:box-shadow .28s ease,background .28s ease!important}
+.topbar:hover{box-shadow:0 14px 42px rgba(10,37,64,.10),inset 0 1px 0 #fff!important}
+.main-nav a{transition:background .2s ease,color .2s ease,box-shadow .2s ease,transform .2s cubic-bezier(.2,.8,.2,1)!important}
+.main-nav a:hover{transform:translateY(-1px)!important}
+.module-card,.city-card,.query-card,.screen-card,.media-card{will-change:transform}
+.module-card:hover,.city-card:hover,.query-card:hover,.screen-card:hover,.media-card:hover{filter:saturate(1.02)}
+.page-head h1{animation:titleSettle .62s cubic-bezier(.2,.8,.2,1) both}
+.page-head .eyebrow{animation:eyebrowSlide .5s cubic-bezier(.2,.8,.2,1) both}
+.site-footer:before{content:"";position:absolute;left:10%;right:10%;bottom:0;height:1px;background:linear-gradient(90deg,transparent,#0071e3,#0a2540,transparent);opacity:.28;animation:footerLine 5s ease-in-out infinite}
+@keyframes livenzaPageOut{to{opacity:.72;transform:scale(.997)}}
+@keyframes livenzaPageIn{from{opacity:0;transform:translateY(7px) scale(.998)}to{opacity:1;transform:none}}
+@keyframes titleSettle{from{opacity:0;transform:translateY(12px);letter-spacing:-.05em}to{opacity:1;transform:none}}
+@keyframes eyebrowSlide{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+@keyframes footerLine{0%,100%{transform:scaleX(.45);opacity:.14}50%{transform:scaleX(1);opacity:.35}}
+
+/* Header breakpoints: never haphazard, never hide the module navigation. */
+@media(max-width:1320px){
+  .topbar{grid-template-columns:auto minmax(300px,1fr) auto auto!important;column-gap:8px!important}
+  .brand{min-width:180px!important}.brand b{font-size:12px!important}
+  .main-nav a{padding-inline:8px!important;font-size:11px!important}
+  .acct>a{padding-inline:7px!important;font-size:11px!important}.user-chip{max-width:125px!important}
+}
+@media(max-width:1050px){
+  .topbar{grid-template-columns:minmax(0,1fr) auto auto!important;grid-template-rows:auto auto!important;padding:8px 10px!important}
+  .brand{grid-column:1;grid-row:1;min-width:0!important;max-width:none!important}
+  .header-view{grid-column:2;grid-row:1}.acct{grid-column:3;grid-row:1}
+  .main-nav{grid-column:1/-1;grid-row:2;width:100%;justify-content:flex-start!important;margin-top:5px!important;display:flex!important}
+  .topbar nav{display:flex!important}
+}
+@media(max-width:720px){
+  .brand>span:last-child{display:flex!important}.brand b{font-size:11px!important}
+  .brand-glass{width:38px!important;height:38px!important}.brand-glass img{width:30px!important;height:30px!important}
+  .acct>a:not(.danger):not(.user-chip){display:none!important}.acct .user-chip{display:flex!important}.acct .user-chip b{display:none!important}
+  .acct .danger{display:flex!important;padding-inline:7px!important}
+  .view-menu-toggle{width:38px!important;height:38px!important;padding:0!important}.view-menu-toggle b,.view-menu-toggle .tool-chevron{display:none!important}
+  .main-nav{padding:4px!important;gap:2px!important}.main-nav a{font-size:10px!important;padding:8px 9px!important}
+  .site-footer{grid-template-columns:1fr!important;text-align:center!important}.footer-created,.footer-time{justify-content:center!important;text-align:center!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .reveal-ready{opacity:1!important;transform:none!important}.site-footer:before{animation:none!important}
+}
+
+/* Navy is the only decorative UI accent in the operational interface. */
+.eyebrow,.module-card .access,.module-card span,.link,.small-link,.form-card summary{color:var(--livenza-navy)!important}
+.primary{background:var(--livenza-navy)!important;color:#fff!important;box-shadow:0 8px 22px rgba(10,37,64,.18)!important}.primary:hover{background:#12395d!important}
+input:focus,select:focus,textarea:focus{border-color:var(--livenza-navy)!important;box-shadow:0 0 0 4px rgba(10,37,64,.10)!important}
+.view-menu-icon,.view-menu-global>button.selected:after,.view-menu-toggle .tool-icon{color:var(--livenza-navy)!important}
+.view-menu-icon{background:#f0f4f8!important}.view-menu-global>button:hover,.view-menu-global>button.selected{background:#f0f4f8!important}
+.main-nav a:after{background:var(--livenza-navy)!important}.main-nav a.active:after{background:var(--livenza-navy)!important}

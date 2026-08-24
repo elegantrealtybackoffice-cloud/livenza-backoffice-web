@@ -1,18 +1,21 @@
-# Livenza Back Office Web 1.4.3
+# Livenza Back Office Web 1.4.5
 
-Stability and visual polish release.
+UI refinement and deployment-safe polish release.
 
 ## Changes
-- Footer now clearly shows `Created by Rishabh Kothari`, Livenza Life LLP copyright, Head Office address, live date/time and build version.
-- Apple-inspired system typography using the native Apple/system font stack, tighter display letter spacing and Apple-like heading weights.
-- More liquid-glass motion: page entrance, aurora drift, glass spotlight, card lift, icon float, button sheen and a subtle navigation progress transition.
-- Rotate menu rebuilt as a global fixed liquid-glass popover so it cannot be clipped by the top navigation.
-- Rotate modes: Auto, Portrait, Landscape, 90°, 180° and 270°. Fullscreen still attempts native device orientation lock where the browser supports it.
-- Database navigation resilience added for Render + Supabase Session Pooler: pre-ping, connection recycling, timeout controls and failed-request rollback cleanup.
-- Removed duplicated admin route decorator.
-- Cache-busting updated to 1.4.3.
+- Footer credit is explicitly rendered on every normal page: **Created by Rishabh Kothari**.
+- Footer retains Livenza Life LLP copyright and Head Office address.
+- Every native select/option control is forced into `color-scheme: light`, with white menu background and black/navy text to prevent Windows/Edge black-on-black dropdowns.
+- Custom popovers and menus are locked to the same white/black/navy palette.
+- Top navigation is rebuilt into fixed lanes: Brand | application tabs | View | account controls.
+- Application tabs never wrap haphazardly; on smaller displays they become a neat horizontal scrolling row.
+- Full Screen + Rotate are consolidated into a separate **View** pull-down.
+- Active application tab gets a clean white/navy state.
+- Adds progressive cross-page View Transitions, intersection-based content reveals, title transitions, footer motion and refined glass interactions.
+- Keeps fullscreen stability and fullscreen-safe navigation from v1.4.4.
+- CSS/JS cache key bumped to 1.4.5.
 
 ## Deploy
-Upload the contents of the ROOT UPLOAD zip to the root of the existing GitHub repository, replacing matching files. Commit to `main` and allow Render to redeploy.
+Upload the contents of the DIRECT ROOT FILES package to the root of the existing `livenza-backoffice-web` GitHub repository, replace matching files, and commit to `main`.
 
-Verify `/version` returns `Web 1.4.3` after deployment.
+Verify `/version` returns `Web 1.4.5` after Render redeploys.

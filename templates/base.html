@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f5f5f7">
+  <meta name="color-scheme" content="light">
   <meta name="application-name" content="Livenza Back Office">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -16,10 +17,11 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static',filename='apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static',filename='site.webmanifest') }}">
   <title>{% block title %}Livenza Back Office{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.4.3">
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.4.5">
 </head>
 <body>
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
+  <div id="liveMotionLayer" class="live-motion-layer" aria-hidden="true"></div>
   <div id="pageTransition" class="page-transition" aria-hidden="true"><span></span></div>
 
   <div id="appViewport" class="app-viewport view-auto">
@@ -27,26 +29,23 @@
     <header class="topbar liquid-nav">
       <a class="brand" href="{{url_for('dashboard')}}" aria-label="Livenza Back Office home">
         <span class="glass-icon brand-glass"><img src="{{url_for('static',filename='livenza_logo.png')}}" alt="Livenza Life"></span>
-        <span><b>LIVENZA BACK OFFICE</b><small>LIQUID OPERATIONS CLOUD</small></span>
+        <span><b>LIVENZA BACK OFFICE</b></span>
       </a>
 
-      <nav aria-label="Main navigation">
-        <a href="{{url_for('dashboard')}}">Home</a>
-        {% if can_access('agreements') %}<a href="{{url_for('agreements')}}">Agreements</a>{% endif %}
-        {% if can_access('rooms') %}<a href="{{url_for('rooms')}}">Rooms</a><a href="{{url_for('tenants')}}">Tenants</a>{% endif %}
-        {% if can_access('reviews') %}<a href="{{url_for('reviews')}}">Reviews</a>{% endif %}
-        {% if can_access('queries') %}<a href="{{url_for('queries')}}">Queries</a>{% endif %}
-        {% if can_access('video_wall') %}<a href="{{url_for('video_wall')}}">Video Wall</a>{% endif %}
-        {% if can_access('food') %}<a href="{{url_for('food')}}">Food</a>{% endif %}
-        {% if can_access('rentok') %}<a href="{{url_for('billing')}}">Billing</a>{% endif %}
+      <nav class="main-nav" aria-label="Main navigation">
+        <a class="{% if request.endpoint=='dashboard' %}active{% endif %}" href="{{url_for('dashboard')}}">Home</a>
+        {% if can_access('agreements') %}<a class="{% if request.endpoint in ['agreements','agreement_new','agreement_edit','agreement_preview'] %}active{% endif %}" href="{{url_for('agreements')}}">Agreements</a>{% endif %}
+        {% if can_access('rooms') %}<a class="{% if request.endpoint=='rooms' %}active{% endif %}" href="{{url_for('rooms')}}">Rooms</a><a class="{% if request.endpoint=='tenants' %}active{% endif %}" href="{{url_for('tenants')}}">Tenants</a>{% endif %}
+        {% if can_access('reviews') %}<a class="{% if request.endpoint=='reviews' %}active{% endif %}" href="{{url_for('reviews')}}">Reviews</a>{% endif %}
+        {% if can_access('queries') %}<a class="{% if request.endpoint=='queries' %}active{% endif %}" href="{{url_for('queries')}}">Queries</a>{% endif %}
+        {% if can_access('video_wall') %}<a class="{% if request.endpoint=='video_wall' %}active{% endif %}" href="{{url_for('video_wall')}}">Video Wall</a>{% endif %}
+        {% if can_access('food') %}<a class="{% if request.endpoint=='food' %}active{% endif %}" href="{{url_for('food')}}">Food</a>{% endif %}
+        {% if can_access('rentok') %}<a class="{% if request.endpoint=='billing' %}active{% endif %}" href="{{url_for('billing')}}">Billing</a>{% endif %}
       </nav>
 
-      <div class="view-controls no-print">
-        <button type="button" id="fullscreenToggle" class="top-tool" title="Enter fullscreen">
-          <span class="tool-icon">⛶</span><b class="tool-label">Full Screen</b>
-        </button>
-        <button type="button" id="rotateMenuToggle" class="top-tool" aria-haspopup="menu" aria-expanded="false" aria-controls="rotateMenu" title="Change website orientation">
-          <span class="tool-icon">↻</span><b class="tool-label">Rotate</b><span class="tool-chevron">⌄</span>
+      <div class="header-view no-print">
+        <button type="button" id="viewMenuToggle" class="view-menu-toggle" aria-haspopup="menu" aria-expanded="false" aria-controls="viewMenu" title="Display options">
+          <span class="tool-icon">◫</span><b>View</b><span class="tool-chevron">⌄</span>
         </button>
       </div>
 
@@ -68,28 +67,33 @@
       {% block content %}{% endblock %}
     </main>
 
-    <footer class="site-footer liquid-footer">
+    <footer class="site-footer liquid-footer" data-livenza-footer="true">
       <div class="footer-company">
         <b>© <span id="footerYear"></span> Livenza Life LLP. All rights reserved.</b>
         <small>Head Office: 325 G, Sector 38, Gurugram, Haryana - 122001</small>
       </div>
-      <div class="footer-created">Created by <b>Rishabh Kothari</b><small>{{app_version}}</small></div>
+      <div class="footer-created"><span>Created by</span> <strong>Rishabh Kothari</strong></div>
       <div class="footer-time"><span id="footerClock">--</span></div>
     </footer>
   </div>
 
-  <!-- Kept outside the sticky header so the submenu can never be clipped. -->
-  <div id="rotateMenu" class="rotate-menu rotate-menu-global liquid-card" role="menu" hidden>
-    <div class="rotate-menu-head"><b>Display orientation</b><small>Choose how Livenza is viewed</small></div>
-    <button type="button" role="menuitem" data-view-mode="auto"><span>◉</span><div><b>Auto</b><small>Normal browser view</small></div></button>
-    <button type="button" role="menuitem" data-view-mode="portrait"><span>▯</span><div><b>Portrait</b><small>Phone-style narrow view</small></div></button>
-    <button type="button" role="menuitem" data-view-mode="landscape"><span>▭</span><div><b>Landscape</b><small>Wide-screen view</small></div></button>
-    <button type="button" role="menuitem" data-view-mode="90"><span>↻</span><div><b>Rotate 90°</b><small>Vertical screen, right</small></div></button>
-    <button type="button" role="menuitem" data-view-mode="180"><span>↕</span><div><b>Rotate 180°</b><small>Upside-down installation</small></div></button>
-    <button type="button" role="menuitem" data-view-mode="270"><span>↺</span><div><b>Rotate 270°</b><small>Vertical screen, left</small></div></button>
+  <!-- One clean View menu keeps Full Screen and Rotate away from application tabs. -->
+  <div id="viewMenu" class="view-menu-global liquid-card" role="menu" hidden>
+    <div class="view-menu-head"><b>Display</b><small>Fullscreen & orientation</small></div>
+    <button type="button" id="fullscreenToggle" class="view-menu-action" role="menuitem">
+      <span class="view-menu-icon">⛶</span><div><b class="tool-label">Full Screen</b><small>Use the whole display</small></div><span class="view-shortcut">1 click</span>
+    </button>
+    <div class="view-menu-divider"></div>
+    <div class="view-menu-section-label">Orientation</div>
+    <button type="button" role="menuitem" data-view-mode="auto"><span class="view-menu-icon">◉</span><div><b>Auto</b><small>Normal browser view</small></div></button>
+    <button type="button" role="menuitem" data-view-mode="portrait"><span class="view-menu-icon">▯</span><div><b>Portrait</b><small>Phone-style narrow view</small></div></button>
+    <button type="button" role="menuitem" data-view-mode="landscape"><span class="view-menu-icon">▭</span><div><b>Landscape</b><small>Wide-screen view</small></div></button>
+    <button type="button" role="menuitem" data-view-mode="90"><span class="view-menu-icon">↻</span><div><b>Rotate 90°</b><small>Vertical screen, right</small></div></button>
+    <button type="button" role="menuitem" data-view-mode="180"><span class="view-menu-icon">↕</span><div><b>Rotate 180°</b><small>Upside-down installation</small></div></button>
+    <button type="button" role="menuitem" data-view-mode="270"><span class="view-menu-icon">↺</span><div><b>Rotate 270°</b><small>Vertical screen, left</small></div></button>
   </div>
 
-  <script src="{{url_for('static',filename='app.js')}}?v=1.4.3"></script>
+  <script src="{{url_for('static',filename='app.js')}}?v=1.4.5"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

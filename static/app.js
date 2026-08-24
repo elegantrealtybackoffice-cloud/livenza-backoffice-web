@@ -114,126 +114,184 @@ if(extractAadhaarBtn){
   });
 }
 
-// ===== Web 1.4.3 • Fullscreen + reliable orientation popover =====
+// ===== Web 1.4.5 • unified View menu + stable fullscreen/orientation =====
 (function(){
   const viewport=document.getElementById('appViewport');
+  const viewBtn=document.getElementById('viewMenuToggle');
   const fsBtn=document.getElementById('fullscreenToggle');
-  const rotateBtn=document.getElementById('rotateMenuToggle');
-  const menu=document.getElementById('rotateMenu');
+  const menu=document.getElementById('viewMenu');
   if(!viewport) return;
 
   const modes=['auto','portrait','landscape','90','180','270'];
-  const labels={auto:'Rotate',portrait:'Portrait',landscape:'Landscape','90':'90°','180':'180°','270':'270°'};
+  const viewClasses=['view-auto','view-portrait','view-landscape','view-rot-90','view-rot-180','view-rot-270'];
+  let currentMode='auto';
+
   function fullscreenElement(){return document.fullscreenElement||document.webkitFullscreenElement||null}
+  function isFullscreen(){return !!fullscreenElement()}
+
   function updateFullscreenButton(){
     if(!fsBtn)return;
-    const active=!!fullscreenElement();
+    const active=isFullscreen();
     const label=fsBtn.querySelector('.tool-label');
     if(label)label.textContent=active?'Exit Full Screen':'Full Screen';
     fsBtn.classList.toggle('active',active);
     fsBtn.setAttribute('aria-pressed',String(active));
-    fsBtn.title=active?'Exit fullscreen':'Enter fullscreen';
+    document.documentElement.classList.toggle('fullscreen-stable',active);
+    document.body.classList.toggle('fullscreen-stable',active);
   }
+
+  function clearViewClasses(){
+    viewClasses.forEach(c=>viewport.classList.remove(c));
+    document.documentElement.classList.remove('site-rotation-active');
+  }
+  async function unlockOrientation(){try{screen.orientation?.unlock?.()}catch(e){}}
+
+  function updateOrientationUi(mode){
+    document.querySelectorAll('#viewMenu [data-view-mode]').forEach(b=>{
+      const selected=b.dataset.viewMode===mode;
+      b.classList.toggle('selected',selected);
+      b.setAttribute('aria-current',selected?'true':'false');
+    });
+  }
+
+  async function tryNativeOrientation(mode){
+    if(!screen.orientation?.lock||!isFullscreen())return false;
+    try{
+      if(mode==='portrait'){await screen.orientation.lock('portrait-primary');return true}
+      if(mode==='landscape'){await screen.orientation.lock('landscape-primary');return true}
+    }catch(e){}
+    return false;
+  }
+
+  async function applyViewMode(mode,save=true){
+    if(!modes.includes(mode))mode='auto';
+    currentMode=mode;
+
+    // Fullscreen remains a normal scrollable document. Native orientation is
+    // attempted only for portrait/landscape; custom angles exit fullscreen.
+    if(isFullscreen()){
+      clearViewClasses();
+      viewport.classList.add(mode==='portrait'?'view-portrait':'view-auto');
+      if(mode==='auto')await unlockOrientation();
+      else if(mode==='portrait'||mode==='landscape')await tryNativeOrientation(mode);
+      updateOrientationUi(mode);
+      if(save){try{localStorage.setItem('livenza_view_mode',mode)}catch(e){}}
+      return;
+    }
+
+    await unlockOrientation();
+    clearViewClasses();
+    const cls=mode==='90'?'view-rot-90':mode==='180'?'view-rot-180':mode==='270'?'view-rot-270':`view-${mode}`;
+    viewport.classList.add(cls);
+    if(['90','180','270'].includes(mode))document.documentElement.classList.add('site-rotation-active');
+    updateOrientationUi(mode);
+    if(save){try{localStorage.setItem('livenza_view_mode',mode)}catch(e){}}
+  }
+
   async function toggleFullscreen(){
     try{
-      if(fullscreenElement()){
+      closeViewMenu();
+      if(isFullscreen()){
         if(document.exitFullscreen)await document.exitFullscreen();
         else if(document.webkitExitFullscreen)document.webkitExitFullscreen();
       }else{
-        const target=document.documentElement;
+        // Always enter fullscreen from a clean non-transformed state.
+        clearViewClasses();viewport.classList.add('view-auto');
+        document.documentElement.classList.add('fullscreen-requesting');
+        const target=document.body;
         if(target.requestFullscreen)await target.requestFullscreen({navigationUI:'hide'});
         else if(target.webkitRequestFullscreen)target.webkitRequestFullscreen();
         else alert('Fullscreen is not supported by this browser.');
       }
     }catch(err){console.warn('Fullscreen request was blocked:',err)}
-  }
-
-  function clearViewClasses(){
-    ['view-auto','view-portrait','view-landscape','view-rot-90','view-rot-180','view-rot-270'].forEach(c=>viewport.classList.remove(c));
-    document.documentElement.classList.remove('site-rotation-active');
-  }
-  async function tryOrientationLock(mode){
-    if(!window.screen?.orientation)return;
-    try{
-      if(mode==='auto'){screen.orientation.unlock?.();return;}
-      if(!fullscreenElement()||!screen.orientation.lock)return;
-      if(mode==='portrait')await screen.orientation.lock('portrait-primary');
-      if(mode==='landscape')await screen.orientation.lock('landscape-primary');
-    }catch(err){/* CSS simulation below remains available on desktop browsers. */}
-  }
-  function applyViewMode(mode,save=true){
-    if(!modes.includes(mode))mode='auto';
-    clearViewClasses();
-    const cls=mode==='90'?'view-rot-90':mode==='180'?'view-rot-180':mode==='270'?'view-rot-270':`view-${mode}`;
-    viewport.classList.add(cls);
-    if(['90','180','270'].includes(mode))document.documentElement.classList.add('site-rotation-active');
-    document.querySelectorAll('[data-view-mode]').forEach(b=>{
-      const selected=b.dataset.viewMode===mode;
-      b.classList.toggle('selected',selected);
-      b.setAttribute('aria-current',selected?'true':'false');
-    });
-    if(rotateBtn){
-      const label=rotateBtn.querySelector('.tool-label');
-      if(label)label.textContent=labels[mode]||'Rotate';
-      rotateBtn.dataset.mode=mode;
-      rotateBtn.classList.toggle('active',mode!=='auto');
+    finally{
+      document.documentElement.classList.remove('fullscreen-requesting');
+      updateFullscreenButton();
     }
-    if(save){try{localStorage.setItem('livenza_view_mode',mode)}catch(e){}}
-    tryOrientationLock(mode);
   }
 
-  function positionRotateMenu(){
-    if(!menu||menu.hidden||!rotateBtn)return;
-    const r=rotateBtn.getBoundingClientRect();
-    const gap=10,pad=10;
-    // Make measurable before calculating final placement.
+  function positionViewMenu(){
+    if(!menu||menu.hidden||!viewBtn)return;
+    const r=viewBtn.getBoundingClientRect(),gap=10,pad=10;
     menu.style.left='0px';menu.style.top='0px';
-    const mw=menu.offsetWidth||280,mh=menu.offsetHeight||420;
-    let left=Math.min(window.innerWidth-mw-pad,Math.max(pad,r.right-mw));
+    const mw=menu.offsetWidth||320,mh=menu.offsetHeight||520;
+    const left=Math.min(window.innerWidth-mw-pad,Math.max(pad,r.right-mw));
     let top=r.bottom+gap;
     if(top+mh>window.innerHeight-pad)top=Math.max(pad,r.top-mh-gap);
-    menu.style.left=`${Math.round(left)}px`;
-    menu.style.top=`${Math.round(top)}px`;
+    menu.style.left=`${Math.round(left)}px`;menu.style.top=`${Math.round(top)}px`;
   }
-  function openRotateMenu(){
-    if(!menu||!rotateBtn)return;
+  function openViewMenu(){
+    if(!menu||!viewBtn)return;
     menu.hidden=false;
-    menu.classList.add('open');
-    rotateBtn.setAttribute('aria-expanded','true');
-    requestAnimationFrame(positionRotateMenu);
+    requestAnimationFrame(()=>{menu.classList.add('open');positionViewMenu()});
+    viewBtn.setAttribute('aria-expanded','true');
   }
-  function closeRotateMenu(){
-    if(!menu||!rotateBtn)return;
-    menu.classList.remove('open');
-    rotateBtn.setAttribute('aria-expanded','false');
+  function closeViewMenu(){
+    if(!menu||!viewBtn)return;
+    menu.classList.remove('open');viewBtn.setAttribute('aria-expanded','false');
     window.setTimeout(()=>{if(!menu.classList.contains('open'))menu.hidden=true},150);
   }
-  function toggleRotateMenu(){
-    if(!menu)return;
-    if(menu.hidden||!menu.classList.contains('open'))openRotateMenu();else closeRotateMenu();
-  }
+  function toggleViewMenu(){if(!menu)return;(menu.hidden||!menu.classList.contains('open'))?openViewMenu():closeViewMenu()}
 
-  fsBtn?.addEventListener('click',toggleFullscreen);
-  document.addEventListener('fullscreenchange',()=>{updateFullscreenButton();applyViewMode(rotateBtn?.dataset.mode||'auto',false);positionRotateMenu()});
-  document.addEventListener('webkitfullscreenchange',updateFullscreenButton);
-  rotateBtn?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();toggleRotateMenu()});
-  menu?.addEventListener('click',e=>{
+  fsBtn?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();toggleFullscreen()});
+  viewBtn?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();toggleViewMenu()});
+  menu?.addEventListener('click',async e=>{
     const btn=e.target.closest('[data-view-mode]');if(!btn)return;
-    applyViewMode(btn.dataset.viewMode);closeRotateMenu();
+    const mode=btn.dataset.viewMode;closeViewMenu();
+    if(isFullscreen()&&['90','180','270'].includes(mode)){
+      try{
+        if(document.exitFullscreen)await document.exitFullscreen();
+        else if(document.webkitExitFullscreen)document.webkitExitFullscreen();
+      }catch(err){}
+      window.setTimeout(()=>applyViewMode(mode),80);return;
+    }
+    await applyViewMode(mode);
   });
-  document.addEventListener('pointerdown',e=>{if(menu&&!menu.hidden&&!menu.contains(e.target)&&e.target!==rotateBtn&&!rotateBtn?.contains(e.target))closeRotateMenu()});
-  window.addEventListener('keydown',e=>{if(e.key==='Escape')closeRotateMenu()});
-  window.addEventListener('resize',positionRotateMenu,{passive:true});
-  window.addEventListener('scroll',positionRotateMenu,{passive:true,capture:true});
+  document.addEventListener('pointerdown',e=>{if(menu&&!menu.hidden&&!menu.contains(e.target)&&!viewBtn?.contains(e.target))closeViewMenu()});
+  window.addEventListener('keydown',e=>{if(e.key==='Escape')closeViewMenu()});
+  window.addEventListener('resize',positionViewMenu,{passive:true});
+  window.addEventListener('scroll',positionViewMenu,{passive:true,capture:true});
+
+  async function onFullscreenChange(){
+    updateFullscreenButton();
+    await applyViewMode(currentMode,false);
+    positionViewMenu();
+  }
+  document.addEventListener('fullscreenchange',onFullscreenChange);
+  document.addEventListener('webkitfullscreenchange',onFullscreenChange);
 
   let initial='auto';try{initial=localStorage.getItem('livenza_view_mode')||'auto'}catch(e){}
-  applyViewMode(initial,false);updateFullscreenButton();
+  currentMode=modes.includes(initial)?initial:'auto';
+  applyViewMode(currentMode,false);updateFullscreenButton();
+
+  window.LivenzaDisplay={
+    isFullscreen,
+    closeViewMenu,
+    closeRotateMenu:closeViewMenu,
+    resetForNavigation:()=>{clearViewClasses();viewport.classList.add('view-auto')}
+  };
 })();
 
-// ===== Web 1.4.3 • lively Apple-style motion + safe page navigation =====
+// ===== Web 1.4.5 • professional motion + fullscreen-safe navigation =====
 (function(){
   const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const transition=document.getElementById('pageTransition');
+  const motionLayer=document.getElementById('liveMotionLayer');
+
+  // Lightweight live particles: decorative only, no canvas and no layout work.
+  if(motionLayer&&!reduce){
+    const count=window.innerWidth<700?7:14;
+    for(let i=0;i<count;i++){
+      const p=document.createElement('i');
+      p.className='live-particle';
+      p.style.setProperty('--x',`${Math.round(Math.random()*100)}vw`);
+      p.style.setProperty('--size',`${4+Math.round(Math.random()*8)}px`);
+      p.style.setProperty('--delay',`${(-Math.random()*16).toFixed(2)}s`);
+      p.style.setProperty('--duration',`${12+Math.round(Math.random()*12)}s`);
+      p.style.setProperty('--drift',`${-55+Math.round(Math.random()*110)}px`);
+      motionLayer.appendChild(p);
+    }
+  }
 
   // Liquid spotlight follows the pointer without changing layout.
   if(!reduce && window.matchMedia?.('(pointer:fine)').matches){
@@ -244,19 +302,51 @@ if(extractAadhaarBtn){
         el.style.setProperty('--my',`${ev.clientY-r.top}px`);
       },{passive:true});
     });
+    document.addEventListener('pointermove',ev=>{
+      document.documentElement.style.setProperty('--pointer-x',`${ev.clientX}px`);
+      document.documentElement.style.setProperty('--pointer-y',`${ev.clientY}px`);
+    },{passive:true});
   }
 
-  // Native navigation stays native (no SPA interception), avoiding stale-page
-  // state. The overlay is purely visual and cannot block the next request.
-  document.addEventListener('click',ev=>{
+  // Internal navigation remains native. In fullscreen we first leave the
+  // Fullscreen API, then navigate once. This prevents Chromium/Edge from
+  // leaving the old fullscreen document half-active while the next page loads.
+  document.addEventListener('click',async ev=>{
     const a=ev.target.closest('a[href]');
     if(!a||ev.defaultPrevented||ev.button!==0||ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.altKey)return;
     const href=a.getAttribute('href')||'';
     if(!href||href.startsWith('#')||href.startsWith('javascript:')||a.target==='_blank'||a.hasAttribute('download'))return;
     let u;try{u=new URL(a.href,location.href)}catch(e){return;}
     if(u.origin!==location.origin)return;
-    if(transition&&!reduce){transition.classList.add('leaving');}
+
+    if(transition&&!reduce)transition.classList.add('leaving');
+    if(window.LivenzaDisplay?.isFullscreen?.()){
+      ev.preventDefault();
+      window.LivenzaDisplay.closeViewMenu?.();
+      window.LivenzaDisplay.resetForNavigation?.();
+      try{
+        if(document.exitFullscreen)await document.exitFullscreen();
+        else if(document.webkitExitFullscreen)document.webkitExitFullscreen();
+      }catch(e){}
+      // Let fullscreen teardown finish before replacing the document.
+      window.setTimeout(()=>location.assign(u.href),45);
+    }
   },true);
 
-  window.addEventListener('pageshow',()=>{transition?.classList.remove('leaving')});
+  window.addEventListener('pageshow',()=>{
+    transition?.classList.remove('leaving');
+    document.documentElement.classList.remove('fullscreen-requesting');
+    document.documentElement.classList.remove('fullscreen-stable');
+    document.body.classList.remove('fullscreen-stable');
+  });
+
+  // Reveal content as it enters the viewport. This is decorative and never
+  // blocks clicks, scrolling or form interaction.
+  if(!reduce && 'IntersectionObserver' in window){
+    const revealItems=document.querySelectorAll('.module-card,.stats>div,.city-card,.form-card,.table-card,.query-card,.review-card,.screen-card,.media-card');
+    const io=new IntersectionObserver(entries=>{
+      entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('reveal-in');io.unobserve(entry.target)}});
+    },{threshold:.08,rootMargin:'0px 0px -30px 0px'});
+    revealItems.forEach((el,i)=>{el.classList.add('reveal-ready');el.style.setProperty('--reveal-delay',`${Math.min(i%8,7)*32}ms`);io.observe(el)});
+  }
 })();
