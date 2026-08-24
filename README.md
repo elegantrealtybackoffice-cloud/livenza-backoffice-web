@@ -44,3 +44,18 @@ The Windows build used desktop UI automation. A cloud web server cannot safely a
 
 ## Food platforms
 CSV import/manual ledger work immediately. Live Swiggy/Zomato/Toing order feeds depend on partner credentials, approved APIs or webhooks. The `/webhooks/food/<platform>` endpoint accepts normalized partner events when a `food_webhook_token` is configured in Settings.
+
+## Free deployment path (Render + external Postgres)
+
+This package intentionally uses a **Free Render Web Service** and does not create a Render database.
+Set `DATABASE_URL` to a persistent external PostgreSQL connection string (recommended: Supabase Free during testing/small internal use).
+
+Why: Render Free PostgreSQL expires after 30 days, so it is not appropriate for tenant/agreement production records. The web service itself can run on Render's Free plan.
+
+### Render Blueprint values
+- Service plan: `free`
+- `DATABASE_URL`: paste your external PostgreSQL pooled connection string
+- `ADMIN_PASSWORD`: choose a strong password
+- `OPENAI_API_KEY`: optional; leave blank if you do not want online AI reviews yet
+
+For Supabase, use the **session pooler** connection string for a persistent IPv4-compatible backend.
