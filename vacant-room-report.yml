@@ -1,0 +1,14 @@
+name: Vacant Rooms WhatsApp Scheduler
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check configured Livenza report time and send if due
+        run: |
+          curl --fail --silent --show-error \
+            -H "X-Livenza-Job-Token: ${{ secrets.VACANT_REPORT_JOB_TOKEN }}" \
+            "https://backoffice.livenza.life/jobs/vacant-room-report"

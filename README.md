@@ -1,23 +1,48 @@
-# Livenza Back Office Web 1.2
+# Livenza Back Office Web 1.3
 
-Major online-suite upgrade.
+Live web back-office for Livenza Life.
 
-## Added / fixed
-- Google Review Generator now requires a Google Business review-request link, shows a live QR, opens the Google review page, downloads the QR and copies the draft before opening Google.
-- Agreement Studio now exposes the complete desktop data set (122 legal/operational fields plus City), including stamp/e-stamp, notary, witnesses, regulatory, foreign-client, licence and financial fields.
-- Material agreement fields are validated before save; corporate and foreign-client presets add additional mandatory fields.
-- Agreement presets now change agreement type, policies and the preset-specific legal format profile/clauses.
-- Agreement PDF download plus WhatsApp handoff: opens the tenant's saved WhatsApp chat with a signed 7-day PDF download link.
-- City master in Admin and city dashboard on Home.
-- Separate manager login IDs with per-application access permissions enforced server-side.
-- Colourful animated live theme.
-- Footer: Created by Rishabh Kothari + live browser date/time.
+## Web 1.3 additions
+- Liquid-glass visual system with responsive glass icons and motion.
+- Sixth suite: **Live Queries Manager** for Meta/Facebook, Google, OTA/PMS, Airbnb-approved software feeds, direct and manual enquiries.
+- Hot / Live query PDF sheets and CSV exports.
+- Query status, heat, score, assignment, follow-up and WhatsApp reply templates.
+- Generic live-query webhook, Google lead webhook and Meta lead webhook adapter.
+- Optional WhatsApp Cloud API automatic replies when credentials are configured.
+- User profile photos stored in the central database as resized data URIs.
+- Masked Aadhaar profile fields + provider-ready verification workflow. Full Aadhaar/VID is not persisted by the app.
+- Daily vacant-room WhatsApp PDF automation settings and scheduler endpoint.
+- GitHub Actions hourly trigger included; add repository secret `VACANT_REPORT_JOB_TOKEN` and the same Render env var.
+- Footer: copyright, Livenza Life LLP head-office address, creator, version, live date/time.
 
-## Production database
-The Supabase production project has already received the v1.2 schema migration. `migrations/web_v1_2.sql` is included for reference/other environments.
+## Important Aadhaar note
+Production Aadhaar authentication is not a public unauthenticated API. Configure `AADHAAR_AUTH_URL` and `AADHAAR_AUTH_TOKEN` only for an authorized AUA/KUA/Sub-AUA/provider integration. Otherwise use UIDAI Paperless Offline e-KYC / Secure QR verification and record only the verification reference / last 4 digits.
 
-## Deploy
-Upload/replace the contents of this package in the existing `livenza-backoffice-web` GitHub repository and commit to `main`. Render should automatically redeploy the live application.
+## Query webhooks
+- Generic: `POST /webhooks/queries/<source>` with `X-Livenza-Webhook-Token` matching Admin Settings / `QUERY_WEBHOOK_TOKEN`.
+- Google lead form: `POST /webhooks/google/leads` (optional `GOOGLE_LEAD_WEBHOOK_SECRET`).
+- Meta Lead Ads: `GET/POST /webhooks/meta/leads`; configure `META_VERIFY_TOKEN` and `META_PAGE_ACCESS_TOKEN` to retrieve lead details by leadgen ID.
+- Airbnb/OTA: use approved PMS/channel-manager/API access or send normalized events to the generic OTA webhook. Airbnb API access is subject to Airbnb API program approval.
 
-### Important WhatsApp note
-A normal website cannot silently attach a local PDF into a WhatsApp chat. The web-safe implementation generates the agreement PDF on the server and opens the tenant's WhatsApp chat with a signed, seven-day PDF download link. True automatic document attachment/sending requires approved WhatsApp Business Cloud API credentials.
+## Automatic vacant-room reports
+1. Add Render env vars `WHATSAPP_CLOUD_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `VACANT_REPORT_JOB_TOKEN`.
+2. In Back Office > Settings configure recipients and time (IST), then enable the schedule.
+3. In GitHub > Settings > Secrets and variables > Actions add `VACANT_REPORT_JOB_TOKEN` matching Render.
+4. The included hourly GitHub Action calls `/jobs/vacant-room-report`; the app itself sends only when the configured IST hour is due and once per day.
+
+
+# Web 1.4 — Video Wall Studio
+
+The seventh suite adds multi-screen signage control. Each TV gets a unique player URL, can run its own media/playlist, rotation (0–359°), fit mode, loop behavior, and mute setting. A Festive Takeover button temporarily pushes one commercial to every enabled TV, after which screens return to their individual content. Player pages heartbeat back to the control panel for ONLINE/OFFLINE status.
+
+## Persistent media uploads
+
+The database tables and the public Supabase bucket `video-wall-media` are already created by `migrations/web_v1_4.sql`. To enable direct file upload from the Back Office, add this Render secret:
+
+- `SUPABASE_SERVICE_ROLE_KEY` — Supabase Project Settings → API keys → service role/secret key. Keep it server-side only.
+
+The app derives the Supabase project reference from `DATABASE_URL`. External/CDN media URLs work even without the service-role key. On the current Supabase Free plan, individual Storage files are limited to 50 MB; use compressed signage videos or external/CDN URLs for larger files.
+
+## TV setup
+
+Open Video Wall Studio, register a screen, copy its unique Player URL, and open that URL in the smart-TV browser, signage mini-PC, Fire TV browser, or attached computer. Keep the page open. Media changes and festive takeover commands are picked up automatically.

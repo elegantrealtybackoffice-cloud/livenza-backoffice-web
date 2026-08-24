@@ -1,2 +1,1 @@
-Livenza Back Office Web 1.2.1
-Release: permissions-cities-agreements-reviews-theme
+Web 1.4
