@@ -249,7 +249,7 @@ MODULES = {
     'rooms': 'Room Status & Tenants',
     'reviews': 'Google Review Generator',
     'food': 'Food Delivery Hub',
-    'rentok': 'RentOK Manager',
+    'rentok': 'Livenza Billing Suite',
     'queries': 'Live Queries Manager',
     'video_wall': 'Video Wall Studio',
 }
@@ -682,16 +682,47 @@ def all_form_data(preset_name=None):
 @app.context_processor
 def inject_common():
     return dict(
-        current_user=current_user(), app_version='Web 1.4',
+        current_user=current_user(), app_version='Web 1.4.2',
         can_access=can_access, module_labels=MODULES,
         is_admin=bool(current_user() and (current_user().role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar
     )
 
 @app.route('/health')
-def health(): return jsonify(status='ok', service='livenza-back-office-web', version='1.4')
+def health(): return jsonify(status='ok', service='livenza-back-office-web', version='1.4.1')
+
+@app.after_request
+def livenza_no_cache(response):
+    # Back Office is an operational web app. During active deployment cycles we
+    # deliberately prevent stale HTML/CSS/JS from masking a successful release.
+    if request.path.startswith('/static/') or response.mimetype in ('text/html','text/css','application/javascript','text/javascript'):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    response.headers['X-Livenza-Build'] = 'Web 1.4.2'
+    return response
+
+@app.route('/diagnostics')
+def diagnostics():
+    route_names = {rule.endpoint for rule in app.url_map.iter_rules()}
+    checks = {
+        'version': 'Web 1.4.2',
+        'video_wall_route_loaded': 'video_wall' in route_names,
+        'video_wall_player_loaded': 'wall_player' in route_names,
+        'video_wall_template_exists': os.path.exists(os.path.join(BASE_DIR,'templates','video_wall.html')),
+        'wall_player_template_exists': os.path.exists(os.path.join(BASE_DIR,'templates','wall_player.html')),
+        'apple_theme_css_exists': os.path.exists(os.path.join(BASE_DIR,'static','style.css')),
+        'billing_route_loaded': 'billing' in route_names,
+    }
+    try:
+        checks['video_wall_tables_ready'] = db.session.execute(db.text("select count(*) from video_screen")).scalar() is not None
+    except Exception as exc:
+        checks['video_wall_tables_ready'] = False
+        checks['database_error'] = str(exc)[:180]
+        db.session.rollback()
+    return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version='Web 1.4', features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover'])
+def version(): return jsonify(version='Web 1.4.2', features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics'])
 
 @app.route('/login', methods=['GET','POST'])
 def login():
@@ -1320,9 +1351,13 @@ def wall_heartbeat(token):
     sc.last_seen_at=datetime.datetime.utcnow(); sc.last_ip=(request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:120]; db.session.commit()
     return jsonify(ok=True)
 
-@app.route('/rentok')
+@app.route('/billing')
 @permission_required('rentok')
-def rentok(): return render_template('rentok.html',url='https://manager.rentok.com/')
+def billing(): return render_template('rentok.html',url='https://manager.rentok.com/')
+
+@app.route('/rentok')
+def rentok_legacy():
+    return redirect(url_for('billing'))
 
 @app.route('/settings', methods=['GET','POST'])
 @admin_required

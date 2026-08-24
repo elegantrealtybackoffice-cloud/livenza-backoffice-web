@@ -1,0 +1,5 @@
+After Render deploy:
+1. Open /version -> must say Web 1.4.2
+2. Open /diagnostics -> video_wall_route_loaded, video_wall_template_exists and video_wall_tables_ready must be true
+3. Dashboard shows BUILD WEB 1.4.2 • VIDEO WALL READY in bottom-right.
+4. Use Ctrl+F5 once.
