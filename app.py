@@ -6,6 +6,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import func
 from dateutil.relativedelta import relativedelta
 import requests
+import qrcode
 
 from agreement_core import PRESETS, DEFAULTS, FIELDS, build_agreement_text, build_agreement_text_hindi
 
@@ -89,6 +90,7 @@ class Review(db.Model):
     experience = db.Column(db.Text, default='')
     output = db.Column(db.Text, default='')
     language = db.Column(db.String(40), default='English')
+    google_review_url = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
 class FoodOrder(db.Model):
@@ -340,6 +342,39 @@ def offline_review(business, business_type, experience, tone, language):
     return [f"I had a positive experience with {business or business_type}. {base} The process felt organized and professional throughout.", f"A smooth and dependable experience with {business or business_type}. {base} Communication was clear and the overall service was well managed.", f"Overall, my experience with {business or business_type} was very good. {base} I appreciated the professional approach and would consider using the service again."]
 
 
+def normalize_google_review_url(value):
+    value=(value or '').strip()
+    if not value:
+        return ''
+    if not value.lower().startswith(('http://','https://')):
+        value='https://' + value
+    try:
+        u=urllib.parse.urlparse(value)
+    except Exception:
+        return ''
+    host=(u.hostname or '').lower()
+    allowed=(
+        host == 'g.page' or host.endswith('.g.page') or
+        host == 'google.com' or host.endswith('.google.com') or
+        host == 'google.co.in' or host.endswith('.google.co.in') or
+        host == 'maps.app.goo.gl' or host.endswith('.maps.app.goo.gl')
+    )
+    if u.scheme not in ('http','https') or not host or not allowed:
+        return ''
+    return urllib.parse.urlunparse((u.scheme,u.netloc,u.path,u.params,u.query,u.fragment))
+
+@app.route('/reviews/qr.png')
+@login_required
+def review_qr():
+    review_url=normalize_google_review_url(request.args.get('url',''))
+    if not review_url:
+        abort(400, 'A valid Google Review URL is required.')
+    qr=qrcode.QRCode(version=None,error_correction=qrcode.constants.ERROR_CORRECT_M,box_size=10,border=3)
+    qr.add_data(review_url); qr.make(fit=True)
+    img=qr.make_image(fill_color='black',back_color='white')
+    buf=io.BytesIO(); img.save(buf,format='PNG'); buf.seek(0)
+    return send_file(buf,mimetype='image/png',download_name='Livenza_Google_Review_QR.png')
+
 def online_reviews(form):
     key=os.getenv('OPENAI_API_KEY','').strip()
     if not key: return None
@@ -354,16 +389,24 @@ def online_reviews(form):
 @login_required
 def reviews():
     generated=[]
+    review_url=setting('default_google_review_url','')
+    form_data={}
     if request.method=='POST':
-        form=request.form.to_dict()
+        form=request.form.to_dict(); form_data=form
+        submitted_url=(form.get('google_review_url') or '').strip()
+        review_url=normalize_google_review_url(submitted_url) if submitted_url else ''
+        if submitted_url and not review_url:
+            flash('Google Review Link is not valid. Paste the direct Google review-request link from your Google Business Profile.','warning')
+        if review_url and form.get('save_review_link')=='1':
+            set_setting('default_google_review_url',review_url)
         try: generated=online_reviews(form) or offline_review(form.get('business_name',''),form.get('business_type',''),form.get('experience',''),form.get('tone',''),form.get('language','English'))
         except Exception as e:
             flash(f'Online AI unavailable; offline drafting used. ({e})','warning'); generated=offline_review(form.get('business_name',''),form.get('business_type',''),form.get('experience',''),form.get('tone',''),form.get('language','English'))
         for out in generated:
-            db.session.add(Review(business_name=form.get('business_name',''),business_type=form.get('business_type',''),experience=form.get('experience',''),output=out,language=form.get('language','English')))
+            db.session.add(Review(business_name=form.get('business_name',''),business_type=form.get('business_type',''),experience=form.get('experience',''),output=out,language=form.get('language','English'),google_review_url=review_url))
         db.session.commit()
     hist=Review.query.order_by(Review.created_at.desc()).limit(20).all()
-    return render_template('reviews.html',generated=generated,history=hist)
+    return render_template('reviews.html',generated=generated,history=hist,review_url=review_url,form_data=form_data)
 
 @app.route('/food', methods=['GET','POST'])
 @login_required
