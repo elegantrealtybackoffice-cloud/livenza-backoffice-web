@@ -18,7 +18,7 @@
 {%- endmacro %}
 {% block content %}
 <div class="page-head"><div><p class="eyebrow">COMPLETE AGREEMENT BUILDER</p><h1>{{'Edit Agreement' if ag else 'New Agreement'}}</h1><p class="muted">All Agreement Studio fields are optional. Complete only the information relevant to the transaction; presets still change the agreement format, policies and clauses.</p></div></div>
-<form method="post" enctype="multipart/form-data" class="form-card agreement-builder" id="agreementForm">
+<form method="post" enctype="multipart/form-data" class="form-card agreement-builder" id="agreementForm" data-preset-url="{{url_for('preset_api',name='__NAME__')}}">
   <datalist id="cityList">{% for c in city_names %}<option value="{{c}}">{% endfor %}</datalist>
   <section class="preset-console">
     <div>{{render_field('agreement_template')}}</div>
@@ -43,4 +43,4 @@
   <div class="sticky-actions"><button name="save_lang" value="en" class="primary">Save & Preview English</button><button name="save_lang" value="hi" class="secondary">Save & Preview हिंदी</button></div>
 </form>
 {% endblock %}
-{% block scripts %}<script>window.PRESET_URL='{{url_for("preset_api",name="__NAME__")}}';</script>{% endblock %}
+

@@ -1,3 +1,16 @@
+# Livenza Life Operations Cloud — Web 1.4.8
+
+## Web 1.4.8 additions
+- Home LIVE/ONLINE disc replaced by the Livenza logo with an animated AI-style light running around its border, orbiting indicators, halo and soft visual sweeps.
+- Food Delivery Hub now includes partner Integrations and Live Partner Websites.
+- Official Swiggy Restaurant Partner, Zomato Restaurant Partner and Toing web destinations are pre-configured.
+- Automatic food-order ingestion supports incoming webhook feeds and approved API endpoints supplied by partners.
+- Partner account passwords/OTPs are never stored by Livenza; API secrets stay in Render environment variables.
+
+See `README_v1.4.8.md` for deployment and connector details.
+
+---
+
 # Livenza Back Office Web 1.3
 
 Live web back-office for Livenza Life.

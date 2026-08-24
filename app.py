@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.4.6'
+APP_VERSION = 'Web 1.4.8'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -145,6 +145,131 @@ class FoodOrder(db.Model):
     net = db.Column(db.Float, default=0)
     settlement_status = db.Column(db.String(50), default='Pending')
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
+class FoodIntegration(db.Model):
+    __tablename__ = 'food_integration'
+    id = db.Column(db.Integer, primary_key=True)
+    platform = db.Column(db.String(60), nullable=False, default='Other')
+    display_name = db.Column(db.String(160), default='')
+    outlet_id = db.Column(db.String(180), default='')
+    account_identifier = db.Column(db.String(180), default='')
+    portal_url = db.Column(db.Text, default='')
+    developer_url = db.Column(db.Text, default='')
+    api_base_url = db.Column(db.Text, default='')
+    api_token_env = db.Column(db.String(120), default='')
+    api_key_env = db.Column(db.String(120), default='')
+    webhook_enabled = db.Column(db.Boolean, default=True)
+    api_enabled = db.Column(db.Boolean, default=False)
+    active = db.Column(db.Boolean, default=True)
+    last_sync_at = db.Column(db.DateTime, nullable=True)
+    last_sync_status = db.Column(db.Text, default='')
+    last_sync_count = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+OFFICIAL_FOOD_PORTALS = {
+    'Swiggy': {
+        'portal_url': 'https://partner.swiggy.com/v2/',
+        'developer_url': 'https://developers.swiggy.com/login',
+    },
+    'Zomato': {
+        'portal_url': 'https://www.zomato.com/partners',
+        'developer_url': 'https://www.zomato.com/business/merchant-app',
+    },
+    'Toing': {
+        'portal_url': 'https://www.toingit.com/',
+        'developer_url': '',
+    },
+}
+
+
+def ensure_default_food_integrations():
+    # Seed the three official starting portals only for a brand-new database.
+    # Once the user has configured/removed integrations, respect that choice.
+    if FoodIntegration.query.count():
+        return
+    for platform,urls in OFFICIAL_FOOD_PORTALS.items():
+        db.session.add(FoodIntegration(
+            platform=platform,
+            display_name=f'{platform} Restaurant Partner',
+            portal_url=urls.get('portal_url',''),
+            developer_url=urls.get('developer_url',''),
+            webhook_enabled=True,
+            active=True,
+        ))
+    db.session.commit()
+
+
+def _food_float(value):
+    try:
+        if isinstance(value,str): value=value.replace(',','').replace('₹','').strip()
+        return float(value or 0)
+    except Exception:
+        return 0.0
+
+
+def _food_get(row, *keys, default=''):
+    if not isinstance(row,dict): return default
+    for key in keys:
+        cur=row
+        ok=True
+        for part in str(key).split('.'):
+            if isinstance(cur,dict) and part in cur:
+                cur=cur.get(part)
+            else:
+                ok=False;break
+        if ok and cur not in (None,''):
+            return cur
+    return default
+
+
+def _food_records(payload):
+    if isinstance(payload,list): return [x for x in payload if isinstance(x,dict)]
+    if not isinstance(payload,dict): return []
+    for key in ('orders','records','results','items','data'):
+        val=payload.get(key)
+        if isinstance(val,list): return [x for x in val if isinstance(x,dict)]
+        if isinstance(val,dict):
+            for nested in ('orders','records','results','items','data'):
+                n=val.get(nested)
+                if isinstance(n,list): return [x for x in n if isinstance(x,dict)]
+    return [payload]
+
+
+def _upsert_food_order(platform, row, default_outlet=''):
+    platform=(platform or 'Direct').strip()[:50]
+    order_id=str(_food_get(row,'order_id','orderId','orderID','id','order.id','order.uuid',default=''))[:120]
+    outlet=str(_food_get(row,'outlet','outlet_name','restaurant_name','restaurant.name','store.name',default=default_outlet))[:180]
+    customer=str(_food_get(row,'customer','customer_name','customer.name','user.name',default=''))[:180]
+    order_time=str(_food_get(row,'order_time','ordered_at','created_at','createdAt','order.created_at',default=''))[:60]
+    status=str(_food_get(row,'status','order_status','order.status',default='New'))[:50]
+    payment_mode=str(_food_get(row,'payment_mode','paymentMode','payment.method','payment_type',default=''))[:50]
+    gross=_food_float(_food_get(row,'gross','amount','order_total','orderTotal','total','bill.total','order.amount',default=0))
+    commission=_food_float(_food_get(row,'commission','commission_amount','charges.commission',default=0))
+    fees=_food_float(_food_get(row,'fees','fee','platform_fee','charges.fees',default=0))
+    taxes=_food_float(_food_get(row,'taxes','tax','gst','charges.taxes',default=0))
+    net=_food_float(_food_get(row,'net','net_amount','netAmount','settlement_amount','payout_amount',default=0))
+    if not net: net=gross-commission-fees-taxes
+    settlement=str(_food_get(row,'settlement_status','settlementStatus','payout_status',default='Pending'))[:50]
+    obj=None
+    if order_id:
+        obj=FoodOrder.query.filter(func.lower(FoodOrder.platform)==platform.lower(),FoodOrder.order_id==order_id).first()
+    if not obj:
+        obj=FoodOrder(platform=platform,order_id=order_id)
+        db.session.add(obj)
+    obj.outlet=outlet;obj.customer=customer;obj.order_time=order_time;obj.status=status;obj.payment_mode=payment_mode
+    obj.gross=gross;obj.commission=commission;obj.fees=fees;obj.taxes=taxes;obj.net=net;obj.settlement_status=settlement
+    return obj
+
+
+def _ingest_food_payload(platform,payload,default_outlet=''):
+    rows=_food_records(payload);count=0
+    for row in rows:
+        _upsert_food_order(platform,row,default_outlet=default_outlet);count+=1
+    if count: db.session.commit()
+    return count
 
 
 class VideoAsset(db.Model):
@@ -744,7 +869,7 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions'])
 
 @app.route('/login', methods=['GET','POST'])
 def login():
@@ -1116,14 +1241,76 @@ def reviews():
 @app.route('/food', methods=['GET','POST'])
 @permission_required('food')
 def food():
+    ensure_default_food_integrations()
     if request.method=='POST':
         f=request.form
-        gross=float(f.get('gross') or 0); commission=float(f.get('commission') or 0); fees=float(f.get('fees') or 0); taxes=float(f.get('taxes') or 0)
-        net=float(f.get('net') or (gross-commission-fees-taxes))
+        gross=_food_float(f.get('gross')); commission=_food_float(f.get('commission')); fees=_food_float(f.get('fees')); taxes=_food_float(f.get('taxes'))
+        net=_food_float(f.get('net')) or (gross-commission-fees-taxes)
         db.session.add(FoodOrder(platform=f.get('platform','Direct'),order_id=f.get('order_id',''),outlet=f.get('outlet',''),customer=f.get('customer',''),order_time=f.get('order_time',''),status=f.get('status','New'),payment_mode=f.get('payment_mode',''),gross=gross,commission=commission,fees=fees,taxes=taxes,net=net,settlement_status=f.get('settlement_status','Pending')))
         db.session.commit(); flash('Order saved.','success'); return redirect(url_for('food'))
     items=FoodOrder.query.order_by(FoodOrder.created_at.desc()).all(); sums=db.session.query(func.sum(FoodOrder.gross),func.sum(FoodOrder.net)).first()
-    return render_template('food.html',items=items,total_gross=sums[0] or 0,total_net=sums[1] or 0)
+    integrations=FoodIntegration.query.filter_by(active=True).order_by(FoodIntegration.platform,FoodIntegration.display_name).all()
+    return render_template('food.html',items=items,total_gross=sums[0] or 0,total_net=sums[1] or 0,integrations=integrations)
+
+@app.route('/food/integrations')
+@permission_required('food')
+def food_integrations():
+    ensure_default_food_integrations()
+    rows=FoodIntegration.query.order_by(FoodIntegration.platform,FoodIntegration.display_name,FoodIntegration.id).all()
+    return render_template('food_integrations.html',integrations=rows,webhook_token_configured=bool(setting('food_webhook_token','')),official=OFFICIAL_FOOD_PORTALS)
+
+@app.route('/food/integrations/save',methods=['POST'])
+@permission_required('food')
+def food_integration_save():
+    iid=request.form.get('id','').strip(); row=db.session.get(FoodIntegration,int(iid)) if iid.isdigit() else FoodIntegration()
+    if not iid: db.session.add(row)
+    row.platform=(request.form.get('platform') or 'Other').strip()[:60]
+    row.display_name=(request.form.get('display_name') or f'{row.platform} Integration').strip()[:160]
+    row.outlet_id=(request.form.get('outlet_id') or '').strip()[:180]
+    row.account_identifier=(request.form.get('account_identifier') or '').strip()[:180]
+    row.portal_url=(request.form.get('portal_url') or '').strip()
+    row.developer_url=(request.form.get('developer_url') or '').strip()
+    row.api_base_url=(request.form.get('api_base_url') or '').strip()
+    row.api_token_env=(request.form.get('api_token_env') or '').strip()[:120]
+    row.api_key_env=(request.form.get('api_key_env') or '').strip()[:120]
+    row.webhook_enabled=request.form.get('webhook_enabled')=='1'; row.api_enabled=request.form.get('api_enabled')=='1'; row.active=request.form.get('active')=='1'
+    for attr in ('portal_url','developer_url','api_base_url'):
+        val=getattr(row,attr) or ''
+        if val and not re.match(r'^https?://',val,re.I):
+            flash(f'{attr.replace("_"," ").title()} must start with https:// or http://','danger');return redirect(url_for('food_integrations'))
+    db.session.commit();flash('Food partner integration saved.','success');return redirect(url_for('food_integrations'))
+
+@app.route('/food/integrations/<int:iid>/delete',methods=['POST'])
+@permission_required('food')
+def food_integration_delete(iid):
+    row=db.session.get(FoodIntegration,iid) or abort(404);db.session.delete(row);db.session.commit();flash('Integration removed.','success');return redirect(url_for('food_integrations'))
+
+@app.route('/food/integrations/<int:iid>/sync',methods=['POST'])
+@permission_required('food')
+def food_integration_sync(iid):
+    row=db.session.get(FoodIntegration,iid) or abort(404)
+    if not row.active or not row.api_enabled or not (row.api_base_url or '').strip():
+        flash('Enable API Sync and add the official/API endpoint supplied by the platform first.','warning');return redirect(url_for('food_integrations'))
+    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.4.8'}
+    bearer=os.getenv((row.api_token_env or '').strip(),'').strip() if row.api_token_env else ''
+    api_key=os.getenv((row.api_key_env or '').strip(),'').strip() if row.api_key_env else ''
+    if bearer: headers['Authorization']=f'Bearer {bearer}'
+    if api_key: headers['X-API-Key']=api_key
+    try:
+        resp=requests.get(row.api_base_url,headers=headers,timeout=35);resp.raise_for_status();payload=resp.json();count=_ingest_food_payload(row.platform,payload,default_outlet=row.display_name or row.outlet_id)
+        row.last_sync_at=datetime.datetime.utcnow();row.last_sync_count=count;row.last_sync_status=f'OK • {count} record(s) received';db.session.commit();flash(f'{row.platform} sync completed: {count} order record(s).','success')
+    except Exception as e:
+        db.session.rollback();row=db.session.get(FoodIntegration,iid);row.last_sync_at=datetime.datetime.utcnow();row.last_sync_count=0;row.last_sync_status=f'ERROR • {str(e)[:300]}';db.session.commit();flash(f'{row.platform} API sync failed. Check the endpoint, partner access and Render environment credentials.','danger')
+    return redirect(url_for('food_integrations'))
+
+@app.route('/food/portals')
+@permission_required('food')
+def food_portals():
+    ensure_default_food_integrations(); rows=FoodIntegration.query.filter_by(active=True).order_by(FoodIntegration.platform,FoodIntegration.display_name).all()
+    selected_id=request.args.get('id','');selected=None
+    if selected_id.isdigit(): selected=db.session.get(FoodIntegration,int(selected_id))
+    if not selected and rows: selected=rows[0]
+    return render_template('food_portals.html',integrations=rows,selected=selected)
 
 @app.route('/food/import', methods=['POST'])
 @permission_required('food')
@@ -1132,20 +1319,23 @@ def food_import():
     if not file: flash('Choose a CSV file.','danger'); return redirect(url_for('food'))
     text=io.TextIOWrapper(file.stream,encoding='utf-8-sig'); reader=csv.DictReader(text); n=0
     for row in reader:
-        def num(k):
-            try:return float(row.get(k,0) or 0)
-            except:return 0
-        gross=num('gross'); commission=num('commission'); fees=num('fees'); taxes=num('taxes'); net=num('net') or gross-commission-fees-taxes
-        db.session.add(FoodOrder(platform=row.get('platform','Direct'),order_id=row.get('order_id',''),outlet=row.get('outlet',''),customer=row.get('customer',''),order_time=row.get('order_time',''),status=row.get('status','New'),payment_mode=row.get('payment_mode',''),gross=gross,commission=commission,fees=fees,taxes=taxes,net=net,settlement_status=row.get('settlement_status','Pending'))); n+=1
+        _upsert_food_order(row.get('platform','Direct'),row,default_outlet=row.get('outlet','')); n+=1
     db.session.commit(); flash(f'Imported {n} orders.','success'); return redirect(url_for('food'))
 
 @app.route('/webhooks/food/<platform>', methods=['POST'])
 def food_webhook(platform):
     token=request.headers.get('X-Livenza-Webhook-Token','')
-    if not setting('food_webhook_token') or token!=setting('food_webhook_token'): abort(401)
-    payload=request.get_json(silent=True) or {}; gross=float(payload.get('gross') or payload.get('amount') or 0)
-    db.session.add(FoodOrder(platform=platform.title(),order_id=str(payload.get('order_id','')),outlet=str(payload.get('outlet','')),customer=str(payload.get('customer','')),order_time=str(payload.get('order_time','')),status=str(payload.get('status','New')),payment_mode=str(payload.get('payment_mode','')),gross=gross,net=float(payload.get('net') or gross),settlement_status=str(payload.get('settlement_status','Pending')))); db.session.commit()
-    return jsonify(ok=True)
+    configured=setting('food_webhook_token','')
+    if not configured or not secrets.compare_digest(token,configured): abort(401)
+    payload=request.get_json(silent=True)
+    if payload is None: return jsonify(ok=False,error='JSON payload required'),400
+    integration=FoodIntegration.query.filter(func.lower(FoodIntegration.platform)==platform.lower(),FoodIntegration.active.is_(True)).first()
+    if integration and not integration.webhook_enabled: abort(403)
+    display=(integration.platform if integration else platform.replace('-',' ').title())
+    count=_ingest_food_payload(display,payload,default_outlet=(integration.display_name if integration else ''))
+    if integration:
+        integration.last_sync_at=datetime.datetime.utcnow();integration.last_sync_count=count;integration.last_sync_status=f'WEBHOOK • {count} record(s)';db.session.commit()
+    return jsonify(ok=True,platform=display,records=count)
 
 @app.route('/queries', methods=['GET','POST'])
 @permission_required('queries')
@@ -1162,6 +1352,55 @@ def queries():
     if term: qry=qry.filter(or_(QueryLead.customer_name.ilike(f'%{term}%'),QueryLead.mobile.ilike(f'%{term}%'),QueryLead.query_text.ilike(f'%{term}%'),QueryLead.property_name.ilike(f'%{term}%')))
     items=qry.order_by(QueryLead.updated_at.desc()).all()
     return render_template('queries.html',items=items,templates=QueryTemplate.query.filter_by(active=True).order_by(QueryTemplate.name).all(),users=User.query.filter_by(active=True).order_by(User.full_name,User.username).all(),cities=City.query.filter_by(active=True).order_by(City.name).all(),cloud_whatsapp=whatsapp_cloud_configured())
+
+
+@app.route('/queries/sheet')
+@permission_required('queries')
+def query_sheet():
+    term=request.args.get('q','').strip()
+    qry=QueryLead.query
+    if term:
+        qry=qry.filter(or_(
+            QueryLead.customer_name.ilike(f'%{term}%'),
+            QueryLead.mobile.ilike(f'%{term}%'),
+            QueryLead.whatsapp.ilike(f'%{term}%'),
+            QueryLead.city.ilike(f'%{term}%'),
+            QueryLead.property_name.ilike(f'%{term}%'),
+            QueryLead.query_text.ilike(f'%{term}%')
+        ))
+    items=qry.order_by(QueryLead.updated_at.desc()).limit(750).all()
+    return render_template('query_sheet.html',items=items,cities=City.query.filter_by(active=True).order_by(City.name).all())
+
+
+def _query_sheet_apply(q, payload):
+    allowed=('source','city','property_name','customer_name','mobile','whatsapp','email','query_text','budget','move_in_date','stay_type','status','heat','next_follow_up','notes')
+    for k in allowed:
+        if k in payload:
+            setattr(q,k,str(payload.get(k) or '').strip())
+    if 'score' in payload:
+        try:q.score=max(0,min(100,int(payload.get('score') or 0)))
+        except Exception:pass
+    q.updated_at=datetime.datetime.utcnow()
+    return q
+
+@app.route('/api/queries',methods=['POST'])
+@permission_required('queries')
+def query_sheet_create():
+    payload=request.get_json(silent=True) or {}
+    q=QueryLead(source='Manual',status='Live',heat='Warm',score=50)
+    _query_sheet_apply(q,payload)
+    if not q.whatsapp:q.whatsapp=q.mobile
+    db.session.add(q);db.session.flush();query_log(q,'Created','Created from spreadsheet view',current_user());db.session.commit()
+    return jsonify(ok=True,id=q.id,updated_at=q.updated_at.isoformat() if q.updated_at else '')
+
+@app.route('/api/queries/<int:qid>',methods=['PATCH'])
+@permission_required('queries')
+def query_sheet_patch(qid):
+    q=db.session.get(QueryLead,qid) or abort(404)
+    payload=request.get_json(silent=True) or {}
+    _query_sheet_apply(q,payload)
+    query_log(q,'Spreadsheet update','Updated from spreadsheet view',current_user());db.session.commit()
+    return jsonify(ok=True,id=q.id,updated_at=q.updated_at.isoformat() if q.updated_at else '')
 
 @app.route('/queries/<int:qid>/update',methods=['POST'])
 @permission_required('queries')
@@ -1380,6 +1619,70 @@ def billing(): return render_template('rentok.html',url='https://manager.rentok.
 @app.route('/rentok')
 def rentok_legacy():
     return redirect(url_for('billing'))
+
+
+HELP_FEATURES = {
+    'agreement': 'Open Operations → Agreements. Create a new agreement, choose a preset, optionally upload Aadhaar to auto-fill tenant details, complete any fields you need, then save and preview in English or Hindi. All agreement fields are optional.',
+    'room': 'Open Operations → Rooms to maintain room inventory, occupancy and vacant-room reporting. Vacancy reports can also be scheduled to pre-fed WhatsApp recipients when the WhatsApp Cloud configuration is available.',
+    'tenant': 'Open Operations → Tenants to maintain resident records, room allocation, contact information, tariff, security deposit, joining/leaving dates and agreement references.',
+    'review': 'Open Reviews. Paste the direct Google Business review link, enter the genuine customer experience, generate review drafts, then copy the review and open the Google review page or scan/download its QR code.',
+    'query': 'Open Queries for the live lead manager. Use card view for follow-up workflow or Spreadsheet View for direct Excel-style editing. Queries can come from manual entry, Google/Meta webhooks and OTA integrations.',
+    'spreadsheet': 'In Queries, click Spreadsheet View. Edit cells directly like a sheet. Existing rows auto-save when a cell changes; use + New Row to create a fresh enquiry line.',
+    'video': 'Open Video Wall. Add media, create TV/screen endpoints, assign a different playlist to each TV, set rotation/fit/loop options, or start a Festive Takeover to run one commercial across all enabled screens.',
+    'billing': 'Open Billing for the Livenza Billing Suite. It embeds the configured billing manager when the external service allows embedding and otherwise provides a direct-open fallback.',
+    'food': 'Open Food for orders and settlements. Use Integrations to configure Swiggy, Zomato, Toing or another partner using webhook/API details, and Live Partner Websites to open their official restaurant portals inside Operations Cloud when embedding is allowed.',
+    'fullscreen': 'Open View → Full Screen. While fullscreen is active, top navigation uses in-place page switching so moving between modules does not exit fullscreen.',
+    'rotate': 'Open View and choose Auto, Portrait, Landscape, 90°, 180° or 270°. Portrait/Landscape can use device orientation on supported fullscreen mobile/tablet browsers; desktop custom angles rotate the application viewport.',
+    'user': 'Admins can open the profile menu → Admin to create user IDs, passwords, profile photos and module-by-module access permissions.',
+    'city': 'Admins can manage operating cities from the Admin panel. City data is then available across the dashboard, rooms, tenants, agreements and queries.'
+}
+
+def _local_help_answer(question):
+    q=(question or '').strip().lower()
+    if not q:return 'Ask me about any Livenza Operations Cloud feature or workflow.'
+    aliases=[
+        (('agreement','rent agreement','lease','stamp'), 'agreement'),
+        (('vacant','vacancy','room','occupancy'), 'room'),
+        (('tenant','resident'), 'tenant'),
+        (('review','google review','qr'), 'review'),
+        (('spreadsheet','excel','sheet','grid'), 'spreadsheet'),
+        (('query','lead','enquiry','inquiry','meta','facebook','airbnb','ota'), 'query'),
+        (('video wall','tv','screen','festive','playlist'), 'video'),
+        (('food','swiggy','zomato','toing','restaurant partner','delivery order'), 'food'),
+        (('billing','rentok','rent ok'), 'billing'),
+        (('fullscreen','full screen','f11'), 'fullscreen'),
+        (('rotate','portrait','landscape','orientation'), 'rotate'),
+        (('user','permission','login','password','access'), 'user'),
+        (('city','location'), 'city'),
+    ]
+    for words,key in aliases:
+        if any(w in q for w in words):return HELP_FEATURES[key]
+    return 'I can guide you through Agreements, Rooms, Tenants, Reviews, Queries and Spreadsheet View, Video Wall, Billing, Fullscreen/Rotate, users/permissions and city setup. Ask a specific question about the feature you want to use.'
+
+@app.route('/api/help',methods=['POST'])
+@login_required
+def help_assistant():
+    payload=request.get_json(silent=True) or {}
+    question=str(payload.get('message') or '')[:1200].strip()
+    if not question:return jsonify(ok=False,error='Type a question first.'),400
+    fallback=_local_help_answer(question)
+    key=os.getenv('OPENAI_API_KEY','').strip()
+    if not key:return jsonify(ok=True,answer=fallback,mode='local')
+    try:
+        from openai import OpenAI
+        client=OpenAI(api_key=key)
+        feature_text='\n'.join(f'- {k}: {v}' for k,v in HELP_FEATURES.items())
+        prompt=(
+            'You are the embedded help assistant for Livenza Life Operations Cloud. '
+            'Answer only questions about how to use this web application. Be concise, practical and never invent a capability. '
+            'If the question is outside the application, say you can only help with Operations Cloud features. '
+            'Available feature guide:\n'+feature_text+'\n\nUser question: '+question
+        )
+        resp=client.responses.create(model=os.getenv('OPENAI_HELP_MODEL',os.getenv('OPENAI_REVIEW_MODEL','gpt-5.6-luna')),input=prompt)
+        answer=(getattr(resp,'output_text','') or '').strip() or fallback
+        return jsonify(ok=True,answer=answer[:4000],mode='ai')
+    except Exception:
+        return jsonify(ok=True,answer=fallback,mode='local')
 
 @app.route('/settings', methods=['GET','POST'])
 @admin_required

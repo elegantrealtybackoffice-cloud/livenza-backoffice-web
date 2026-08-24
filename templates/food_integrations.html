@@ -1,0 +1,33 @@
+{% extends 'base.html' %}{% block title %}Food Integrations • Livenza Life{% endblock %}{% block content %}
+<div class="page-head food-page-head"><div><p class="eyebrow">PARTNER CONNECTIVITY</p><h1>Food Partner Integrations</h1><p class="muted">Configure official partner access, incoming webhooks and approved API feeds without storing restaurant passwords or OTPs in Livenza.</p></div><div class="actions"><a class="secondary btn" href="{{url_for('food_portals')}}" data-app-nav>Live Partner Websites</a></div></div>
+<nav class="food-subnav liquid-card" aria-label="Food Delivery Hub sections"><a href="{{url_for('food')}}" data-app-nav><span>▦</span> Orders & Settlements</a><a class="active" href="{{url_for('food_integrations')}}" data-app-nav><span>⌁</span> Integrations</a><a href="{{url_for('food_portals')}}" data-app-nav><span>◫</span> Live Partner Websites</a></nav>
+<div class="integration-intro liquid-card"><div class="integration-pulse"><span></span><span></span><span></span></div><div><b>Live order feed architecture</b><p>Use the webhook URL when the delivery partner can push orders to you. If your approved partner account provides an API endpoint, enable API Sync and keep the actual token/key in Render environment variables.</p></div><div class="integration-token-state {% if webhook_token_configured %}ready{% endif %}"><span></span>{{'Webhook security token configured' if webhook_token_configured else 'Configure Food Webhook Token in Settings'}}</div></div>
+
+<section class="integration-grid">
+{% for i in integrations %}
+<article class="integration-card liquid-card platform-{{i.platform|lower|replace(' ','-')}}">
+  <div class="integration-card-head"><div class="platform-mark">{{i.platform[:1]|upper}}</div><div><p class="eyebrow">{{i.platform|upper}}</p><h2>{{i.display_name or (i.platform ~ ' Integration')}}</h2></div><span class="integration-state {% if i.active %}on{% endif %}">{{'ACTIVE' if i.active else 'OFF'}}</span></div>
+  <div class="integration-metrics"><div><small>Last feed</small><b>{{i.last_sync_at.strftime('%d %b %H:%M') if i.last_sync_at else 'Not yet'}}</b></div><div><small>Records</small><b>{{i.last_sync_count or 0}}</b></div><div><small>Status</small><b>{{(i.last_sync_status or 'Ready')[:42]}}</b></div></div>
+  <form method="post" action="{{url_for('food_integration_save')}}" class="form-grid integration-form">
+    <input type="hidden" name="id" value="{{i.id}}">
+    <label>Platform<input name="platform" value="{{i.platform}}"></label>
+    <label>Integration / Outlet Name<input name="display_name" value="{{i.display_name}}" placeholder="Livenza Retreat - Swiggy"></label>
+    <label>Restaurant / Outlet ID<input name="outlet_id" value="{{i.outlet_id}}" placeholder="Partner-issued restaurant ID"></label>
+    <label>Account Email / Phone<input name="account_identifier" value="{{i.account_identifier}}" placeholder="For reference only"></label>
+    <label class="span2">Official Partner Portal URL<input name="portal_url" value="{{i.portal_url}}" placeholder="https://..."></label>
+    <label class="span2">Developer / API Portal URL<input name="developer_url" value="{{i.developer_url}}" placeholder="https://..."></label>
+    <label class="span2">Approved Orders API Endpoint<input name="api_base_url" value="{{i.api_base_url}}" placeholder="Only if supplied/approved by the platform"></label>
+    <label>Bearer Token ENV Name<input name="api_token_env" value="{{i.api_token_env}}" placeholder="SWIGGY_API_TOKEN"></label>
+    <label>API Key ENV Name<input name="api_key_env" value="{{i.api_key_env}}" placeholder="SWIGGY_API_KEY"></label>
+    <div class="span2 integration-switches"><label class="check-row"><input type="checkbox" name="active" value="1" {% if i.active %}checked{% endif %}> Active</label><label class="check-row"><input type="checkbox" name="webhook_enabled" value="1" {% if i.webhook_enabled %}checked{% endif %}> Accept webhook feed</label><label class="check-row"><input type="checkbox" name="api_enabled" value="1" {% if i.api_enabled %}checked{% endif %}> Enable API Sync</label></div>
+    <div class="span2 webhook-box"><small>Incoming Webhook</small><code>{{request.url_root.rstrip('/')}}/webhooks/food/{{i.platform|lower|replace(' ','-')}}</code><p>Send JSON with header <b>X-Livenza-Webhook-Token</b>. The parser accepts single orders or lists under <code>orders</code>, <code>data</code>, <code>items</code>, <code>records</code> or <code>results</code>.</p></div>
+    <div class="span2 actions"><button class="primary" type="submit">Save Integration</button>{% if i.api_enabled and i.api_base_url %}<button class="secondary" type="submit" formaction="{{url_for('food_integration_sync',iid=i.id)}}">Sync Now</button>{% endif %}<a class="secondary btn" href="{{url_for('food_portals',id=i.id)}}" data-app-nav>Open Live Portal</a></div>
+  </form>
+  <form method="post" action="{{url_for('food_integration_delete',iid=i.id)}}" class="integration-delete" onsubmit="return confirm('Remove this integration?')"><button class="link danger">Remove integration</button></form>
+</article>
+{% endfor %}
+</section>
+
+<details class="form-card liquid-card add-integration-card"><summary>+ Add Another Partner / Outlet</summary><form method="post" action="{{url_for('food_integration_save')}}" class="form-grid"><label>Platform<input name="platform" placeholder="Swiggy / Zomato / Toing / Other"></label><label>Integration / Outlet Name<input name="display_name"></label><label>Restaurant / Outlet ID<input name="outlet_id"></label><label>Account Email / Phone<input name="account_identifier"></label><label class="span2">Partner Portal URL<input name="portal_url" placeholder="https://..."></label><label class="span2">Developer / API Portal URL<input name="developer_url" placeholder="https://..."></label><label class="span2">Approved Orders API Endpoint<input name="api_base_url" placeholder="https://..."></label><label>Bearer Token ENV Name<input name="api_token_env"></label><label>API Key ENV Name<input name="api_key_env"></label><div class="span2 integration-switches"><label class="check-row"><input type="checkbox" name="active" value="1" checked> Active</label><label class="check-row"><input type="checkbox" name="webhook_enabled" value="1" checked> Accept webhook feed</label><label class="check-row"><input type="checkbox" name="api_enabled" value="1"> Enable API Sync</label></div><button class="primary">Add Integration</button></form></details>
+<div class="note liquid-card"><b>Security:</b> Livenza does not ask for or store Swiggy/Zomato/Toing account passwords or OTPs. Sign-in stays inside the official partner website. API tokens and keys should be saved as Render environment variables and referenced above by ENV name.</div>
+{% endblock %}

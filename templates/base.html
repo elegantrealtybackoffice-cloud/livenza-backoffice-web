@@ -17,7 +17,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static',filename='apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static',filename='site.webmanifest') }}">
   <title>{% block title %}Livenza Back Office{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.4.6">
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.4.8">
 </head>
 <body>
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
@@ -32,7 +32,7 @@
       </a>
 
       <nav class="main-nav reference-nav" aria-label="Main navigation">
-        <a class="{% if request.endpoint=='dashboard' %}active{% endif %}" href="{{url_for('dashboard')}}">Home</a>
+        <a class="{% if request.endpoint=='dashboard' %}active{% endif %}" href="{{url_for('dashboard')}}" data-app-nav>Home</a>
 
         {% if can_access('agreements') or can_access('rooms') %}
         <details class="nav-dropdown operations-dropdown {% if request.endpoint in ['agreements','agreement_new','agreement_edit','agreement_preview','rooms','tenants'] %}active{% endif %}">
@@ -40,21 +40,21 @@
           <div class="nav-dropdown-menu liquid-card" role="menu">
             <div class="nav-dropdown-title"><b>Core Operations</b><small>Property & resident workflows</small></div>
             {% if can_access('agreements') %}
-            <a role="menuitem" class="{% if request.endpoint in ['agreements','agreement_new','agreement_edit','agreement_preview'] %}active{% endif %}" href="{{url_for('agreements')}}"><span class="menu-symbol">▤</span><span><b>Agreements</b><small>Create & manage agreements</small></span></a>
+            <a role="menuitem" class="{% if request.endpoint in ['agreements','agreement_new','agreement_edit','agreement_preview'] %}active{% endif %}" href="{{url_for('agreements')}}" data-app-nav><span class="menu-symbol">▤</span><span><b>Agreements</b><small>Create & manage agreements</small></span></a>
             {% endif %}
             {% if can_access('rooms') %}
-            <a role="menuitem" class="{% if request.endpoint=='rooms' %}active{% endif %}" href="{{url_for('rooms')}}"><span class="menu-symbol">▦</span><span><b>Rooms</b><small>Occupancy & vacant inventory</small></span></a>
-            <a role="menuitem" class="{% if request.endpoint=='tenants' %}active{% endif %}" href="{{url_for('tenants')}}"><span class="menu-symbol">◉</span><span><b>Tenants</b><small>Resident master records</small></span></a>
+            <a role="menuitem" class="{% if request.endpoint=='rooms' %}active{% endif %}" href="{{url_for('rooms')}}" data-app-nav><span class="menu-symbol">▦</span><span><b>Rooms</b><small>Occupancy & vacant inventory</small></span></a>
+            <a role="menuitem" class="{% if request.endpoint=='tenants' %}active{% endif %}" href="{{url_for('tenants')}}" data-app-nav><span class="menu-symbol">◉</span><span><b>Tenants</b><small>Resident master records</small></span></a>
             {% endif %}
           </div>
         </details>
         {% endif %}
 
-        {% if can_access('reviews') %}<a class="{% if request.endpoint=='reviews' %}active{% endif %}" href="{{url_for('reviews')}}">Reviews</a>{% endif %}
-        {% if can_access('queries') %}<a class="{% if request.endpoint=='queries' %}active{% endif %}" href="{{url_for('queries')}}">Queries</a>{% endif %}
-        {% if can_access('video_wall') %}<a class="{% if request.endpoint=='video_wall' %}active{% endif %}" href="{{url_for('video_wall')}}">Video Wall</a>{% endif %}
-        {% if can_access('food') %}<a class="{% if request.endpoint=='food' %}active{% endif %}" href="{{url_for('food')}}">Food</a>{% endif %}
-        {% if can_access('rentok') %}<a class="{% if request.endpoint=='billing' %}active{% endif %}" href="{{url_for('billing')}}">Billing</a>{% endif %}
+        {% if can_access('reviews') %}<a class="{% if request.endpoint=='reviews' %}active{% endif %}" href="{{url_for('reviews')}}" data-app-nav>Reviews</a>{% endif %}
+        {% if can_access('queries') %}<a class="{% if request.endpoint in ['queries','query_sheet'] %}active{% endif %}" href="{{url_for('queries')}}" data-app-nav>Queries</a>{% endif %}
+        {% if can_access('video_wall') %}<a class="{% if request.endpoint=='video_wall' %}active{% endif %}" href="{{url_for('video_wall')}}" data-app-nav>Video Wall</a>{% endif %}
+        {% if can_access('food') %}<a class="{% if request.endpoint in ['food','food_integrations','food_portals'] %}active{% endif %}" href="{{url_for('food')}}" data-app-nav>Food</a>{% endif %}
+        {% if can_access('rentok') %}<a class="{% if request.endpoint=='billing' %}active{% endif %}" href="{{url_for('billing')}}" data-app-nav>Billing</a>{% endif %}
       </nav>
 
       <div class="header-actions no-print">
@@ -86,12 +86,34 @@
     </div>
     {% endif %}
 
-    <main class="shell {% if not current_user %}login-shell{% endif %}">
+    <main id="appMain" class="shell {% if not current_user %}login-shell{% endif %}">
       {% with msgs=get_flashed_messages(with_categories=true) %}
         {% for cat,msg in msgs %}<div class="flash liquid-card {{cat}}">{{msg}}</div>{% endfor %}
       {% endwith %}
       {% block content %}{% endblock %}
     </main>
+
+    {% if current_user %}
+    <section class="footer-assistant-zone no-print" aria-label="Livenza website assistant">
+      <button type="button" id="assistantLauncher" class="assistant-launcher liquid-card" aria-expanded="false" aria-controls="assistantPanel">
+        <span class="assistant-orb">✦</span><span><b>Ask Livenza</b><small>Features, workflows & help</small></span><span class="assistant-arrow">↑</span>
+      </button>
+      <div id="assistantPanel" class="assistant-panel liquid-card" hidden>
+        <div class="assistant-head"><div><span class="assistant-mini-orb">✦</span><span><b>Livenza Assistant</b><small>Operations Cloud guide</small></span></div><button type="button" id="assistantClose" aria-label="Close assistant">×</button></div>
+        <div id="assistantMessages" class="assistant-messages" aria-live="polite">
+          <div class="assistant-message bot"><b>Hi.</b> Ask me how to use Agreements, Rooms, Queries, Reviews, Billing, Video Wall, user access, fullscreen or any other feature.</div>
+        </div>
+        <div class="assistant-suggestions">
+          <button type="button" data-help-prompt="How do I create an agreement?">Agreements</button>
+          <button type="button" data-help-prompt="How does the Query Manager work?">Queries</button>
+          <button type="button" data-help-prompt="How do I use Video Wall Studio?">Video Wall</button>
+        </div>
+        <form id="assistantForm" class="assistant-form"><input id="assistantInput" autocomplete="off" placeholder="Ask about any feature…"><button class="primary" type="submit">Send</button></form>
+      </div>
+    </section>
+    <button type="button" id="livenzaEasterEgg" class="livenza-easter-egg no-print" title="A little Livenza touch" aria-label="Livenza easter egg"><img src="{{url_for('static',filename='livenza_logo.png')}}" alt=""></button>
+    <div id="easterToast" class="easter-toast no-print" hidden>Live the Livenza Life ✦</div>
+    {% endif %}
 
     <footer class="site-footer liquid-footer" data-livenza-footer="true">
       <div class="footer-company">
@@ -119,7 +141,7 @@
     <button type="button" role="menuitem" data-view-mode="270"><span class="view-menu-icon">↺</span><div><b>Rotate 270°</b><small>Vertical screen, left</small></div></button>
   </div>
 
-  <script src="{{url_for('static',filename='app.js')}}?v=1.4.6"></script>
+  <script src="{{url_for('static',filename='app.js')}}?v=1.4.8"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
