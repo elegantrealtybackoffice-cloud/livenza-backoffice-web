@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.4.5'
+APP_VERSION = 'Web 1.4.6'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -744,7 +744,7 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown'])
 
 @app.route('/login', methods=['GET','POST'])
 def login():

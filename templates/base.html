@@ -17,7 +17,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static',filename='apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static',filename='site.webmanifest') }}">
   <title>{% block title %}Livenza Back Office{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.4.5">
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.4.6">
 </head>
 <body>
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
@@ -26,16 +26,30 @@
 
   <div id="appViewport" class="app-viewport view-auto">
     {% if current_user %}
-    <header class="topbar liquid-nav">
-      <a class="brand" href="{{url_for('dashboard')}}" aria-label="Livenza Back Office home">
+    <header class="topbar liquid-nav reference-header">
+      <a class="brand brand-logo-only" href="{{url_for('dashboard')}}" aria-label="Livenza Life Operations Cloud home">
         <span class="glass-icon brand-glass"><img src="{{url_for('static',filename='livenza_logo.png')}}" alt="Livenza Life"></span>
-        <span><b>LIVENZA BACK OFFICE</b></span>
       </a>
 
-      <nav class="main-nav" aria-label="Main navigation">
+      <nav class="main-nav reference-nav" aria-label="Main navigation">
         <a class="{% if request.endpoint=='dashboard' %}active{% endif %}" href="{{url_for('dashboard')}}">Home</a>
-        {% if can_access('agreements') %}<a class="{% if request.endpoint in ['agreements','agreement_new','agreement_edit','agreement_preview'] %}active{% endif %}" href="{{url_for('agreements')}}">Agreements</a>{% endif %}
-        {% if can_access('rooms') %}<a class="{% if request.endpoint=='rooms' %}active{% endif %}" href="{{url_for('rooms')}}">Rooms</a><a class="{% if request.endpoint=='tenants' %}active{% endif %}" href="{{url_for('tenants')}}">Tenants</a>{% endif %}
+
+        {% if can_access('agreements') or can_access('rooms') %}
+        <details class="nav-dropdown operations-dropdown {% if request.endpoint in ['agreements','agreement_new','agreement_edit','agreement_preview','rooms','tenants'] %}active{% endif %}">
+          <summary>Operations <span class="nav-caret">⌄</span></summary>
+          <div class="nav-dropdown-menu liquid-card" role="menu">
+            <div class="nav-dropdown-title"><b>Core Operations</b><small>Property & resident workflows</small></div>
+            {% if can_access('agreements') %}
+            <a role="menuitem" class="{% if request.endpoint in ['agreements','agreement_new','agreement_edit','agreement_preview'] %}active{% endif %}" href="{{url_for('agreements')}}"><span class="menu-symbol">▤</span><span><b>Agreements</b><small>Create & manage agreements</small></span></a>
+            {% endif %}
+            {% if can_access('rooms') %}
+            <a role="menuitem" class="{% if request.endpoint=='rooms' %}active{% endif %}" href="{{url_for('rooms')}}"><span class="menu-symbol">▦</span><span><b>Rooms</b><small>Occupancy & vacant inventory</small></span></a>
+            <a role="menuitem" class="{% if request.endpoint=='tenants' %}active{% endif %}" href="{{url_for('tenants')}}"><span class="menu-symbol">◉</span><span><b>Tenants</b><small>Resident master records</small></span></a>
+            {% endif %}
+          </div>
+        </details>
+        {% endif %}
+
         {% if can_access('reviews') %}<a class="{% if request.endpoint=='reviews' %}active{% endif %}" href="{{url_for('reviews')}}">Reviews</a>{% endif %}
         {% if can_access('queries') %}<a class="{% if request.endpoint=='queries' %}active{% endif %}" href="{{url_for('queries')}}">Queries</a>{% endif %}
         {% if can_access('video_wall') %}<a class="{% if request.endpoint=='video_wall' %}active{% endif %}" href="{{url_for('video_wall')}}">Video Wall</a>{% endif %}
@@ -43,21 +57,33 @@
         {% if can_access('rentok') %}<a class="{% if request.endpoint=='billing' %}active{% endif %}" href="{{url_for('billing')}}">Billing</a>{% endif %}
       </nav>
 
-      <div class="header-view no-print">
-        <button type="button" id="viewMenuToggle" class="view-menu-toggle" aria-haspopup="menu" aria-expanded="false" aria-controls="viewMenu" title="Display options">
-          <span class="tool-icon">◫</span><b>View</b><span class="tool-chevron">⌄</span>
+      <div class="header-actions no-print">
+        <button type="button" id="viewMenuToggle" class="header-action-button view-menu-toggle" aria-haspopup="menu" aria-expanded="false" aria-controls="viewMenu" title="Display options">
+          <span class="tool-icon">◫</span><span>View</span><span class="tool-chevron">⌄</span>
         </button>
-      </div>
 
-      <div class="acct">
-        {% if is_admin %}<a href="{{url_for('admin_panel')}}">Admin</a><a href="{{url_for('settings_page')}}">Settings</a>{% endif %}
-        <a class="user-chip" href="{{url_for('account')}}">
-          {% if current_user.photo_data_uri %}<img src="{{current_user.photo_data_uri}}" alt="Profile">{% else %}<span>{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}
-          <b>{{current_user.full_name or current_user.username}}</b>
-        </a>
-        <a class="danger" href="{{url_for('logout')}}">Logout</a>
+        <details class="nav-dropdown profile-dropdown">
+          <summary class="profile-toggle" aria-label="Account menu">
+            {% if current_user.photo_data_uri %}<img src="{{current_user.photo_data_uri}}" alt="Profile">{% else %}<span class="profile-initial">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}
+            <span class="profile-name">{{current_user.full_name or current_user.username}}</span>
+            <span class="nav-caret">⌄</span>
+          </summary>
+          <div class="nav-dropdown-menu account-dropdown-menu liquid-card" role="menu">
+            <div class="nav-dropdown-title"><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}}</small></div>
+            <a role="menuitem" href="{{url_for('account')}}"><span class="menu-symbol">◉</span><span><b>My Account</b><small>Profile & identity</small></span></a>
+            {% if is_admin %}<a role="menuitem" href="{{url_for('admin_panel')}}"><span class="menu-symbol">⌘</span><span><b>Admin</b><small>Users & access</small></span></a><a role="menuitem" href="{{url_for('settings_page')}}"><span class="menu-symbol">⚙</span><span><b>Settings</b><small>System configuration</small></span></a>{% endif %}
+            <div class="nav-dropdown-divider"></div>
+            <a role="menuitem" class="logout-menu-item" href="{{url_for('logout')}}"><span class="menu-symbol">↗</span><span><b>Logout</b><small>End this session</small></span></a>
+          </div>
+        </details>
       </div>
     </header>
+
+    <div class="operations-marquee" aria-label="Livenza Life Operations Cloud">
+      <div class="operations-marquee-track">
+        <span>LIVENZA LIFE OPERATIONS CLOUD</span><i>◆</i><span>LIVENZA LIFE OPERATIONS CLOUD</span><i>◆</i><span>LIVENZA LIFE OPERATIONS CLOUD</span><i>◆</i><span>LIVENZA LIFE OPERATIONS CLOUD</span><i>◆</i><span>LIVENZA LIFE OPERATIONS CLOUD</span><i>◆</i><span>LIVENZA LIFE OPERATIONS CLOUD</span><i>◆</i>
+      </div>
+    </div>
     {% endif %}
 
     <main class="shell {% if not current_user %}login-shell{% endif %}">
@@ -93,7 +119,7 @@
     <button type="button" role="menuitem" data-view-mode="270"><span class="view-menu-icon">↺</span><div><b>Rotate 270°</b><small>Vertical screen, left</small></div></button>
   </div>
 
-  <script src="{{url_for('static',filename='app.js')}}?v=1.4.5"></script>
+  <script src="{{url_for('static',filename='app.js')}}?v=1.4.6"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

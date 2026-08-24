@@ -114,7 +114,7 @@ if(extractAadhaarBtn){
   });
 }
 
-// ===== Web 1.4.5 • unified View menu + stable fullscreen/orientation =====
+// ===== Web 1.4.6 • unified View menu + stable fullscreen/orientation =====
 (function(){
   const viewport=document.getElementById('appViewport');
   const viewBtn=document.getElementById('viewMenuToggle');
@@ -272,7 +272,7 @@ if(extractAadhaarBtn){
   };
 })();
 
-// ===== Web 1.4.5 • professional motion + fullscreen-safe navigation =====
+// ===== Web 1.4.6 • professional motion + fullscreen-safe navigation =====
 (function(){
   const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const transition=document.getElementById('pageTransition');
@@ -349,4 +349,19 @@ if(extractAadhaarBtn){
     },{threshold:.08,rootMargin:'0px 0px -30px 0px'});
     revealItems.forEach((el,i)=>{el.classList.add('reveal-ready');el.style.setProperty('--reveal-delay',`${Math.min(i%8,7)*32}ms`);io.observe(el)});
   }
+})();
+
+// ===== Web 1.4.6 • clean reference header dropdown discipline =====
+(()=>{
+  const header=document.querySelector('.reference-header');
+  if(!header)return;
+  const dropdowns=[...header.querySelectorAll('details.nav-dropdown')];
+  dropdowns.forEach(d=>d.addEventListener('toggle',()=>{
+    if(!d.open)return;
+    dropdowns.forEach(other=>{if(other!==d)other.open=false});
+  }));
+  document.addEventListener('pointerdown',e=>{
+    dropdowns.forEach(d=>{if(d.open&&!d.contains(e.target))d.open=false});
+  });
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')dropdowns.forEach(d=>d.open=false)});
 })();
