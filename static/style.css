@@ -200,3 +200,105 @@ body:before{background:linear-gradient(125deg,#f5f5f7 0%,#ffffff 38%,#f0f7ff 70%
 .module-card:hover{transform:translateY(-6px) scale(1.008)!important;box-shadow:0 26px 70px rgba(0,0,0,.11)!important}
 .module-5{background:linear-gradient(145deg,rgba(229,249,255,.96),rgba(248,238,255,.80))!important;border-color:rgba(0,113,227,.12)!important}
 .site-footer{background:rgba(255,255,255,.76)!important;color:#1d1d1f!important;border-color:rgba(0,0,0,.07)!important;backdrop-filter:blur(24px) saturate(180%)!important}.site-footer small{color:#6e6e73!important}
+
+/* =====================================================================
+   Web 1.4.3 — Apple-like typography, richer liquid motion, reliable UI
+   ===================================================================== */
+:root{
+  --apple-font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue","Segoe UI",Arial,sans-serif;
+  --apple-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue","Segoe UI",Arial,sans-serif;
+  --apple-black:#1d1d1f;
+  --apple-grey:#6e6e73;
+  --apple-blue:#0071e3;
+}
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;scroll-behavior:smooth}
+body,input,select,textarea,button{font-family:var(--apple-font)!important}
+body{font-size:15px!important;font-weight:400!important;line-height:1.47059!important;color:var(--apple-black)!important}
+h1,h2,h3,h4,.hero h1,.page-head h1,.section-title,.module-card h3,.stats b,.core-ring div{
+  font-family:var(--apple-display)!important;color:var(--apple-black)!important;font-weight:600!important;letter-spacing:-.035em!important;
+}
+.hero h1{font-size:clamp(44px,5vw,72px)!important;line-height:1.03!important;letter-spacing:-.055em!important}
+.page-head h1{font-size:clamp(34px,3.5vw,52px)!important;line-height:1.06!important}
+.section-title{font-size:28px!important;line-height:1.12!important}
+h2{letter-spacing:-.03em!important} h3{letter-spacing:-.022em!important}
+p,.muted,.module-card p,.note,.history p{letter-spacing:-.012em!important}
+.eyebrow{font-size:11px!important;font-weight:600!important;letter-spacing:.08em!important;text-transform:uppercase!important}
+.topbar nav a,.acct>a,.top-tool{font-weight:500!important;letter-spacing:-.01em!important}
+input,select,textarea{font-size:14px!important;letter-spacing:-.01em!important}
+button,.btn,.primary,.secondary{font-weight:600!important;letter-spacing:-.012em!important}
+
+/* Page shell stays stable and the footer is always the last visual element. */
+html,body{min-height:100%!important}
+body{min-height:100vh!important}
+.app-viewport{min-height:100vh!important;display:flex!important;flex-direction:column!important}
+.app-viewport>.shell{flex:1 0 auto!important}
+.site-footer{
+  margin-top:auto!important;position:relative!important;bottom:auto!important;
+  display:grid!important;grid-template-columns:1.25fr 1fr 1fr!important;align-items:center!important;
+  padding:19px 24px!important;border-radius:24px!important;overflow:hidden;
+}
+.footer-company{display:flex;flex-direction:column;gap:4px}.footer-created{text-align:center;font-size:13px;font-weight:500}.footer-created>b{font-weight:650}.footer-created small{display:block;margin-top:4px;color:#86868b}.footer-time{text-align:right;font-size:12px;color:#6e6e73;font-variant-numeric:tabular-nums}
+.site-footer:after{content:"";position:absolute;left:8%;right:8%;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,113,227,.28),rgba(175,82,222,.25),transparent)}
+
+/* Header and controls. Fixed popover is outside the header, so it cannot clip. */
+.topbar{overflow:visible!important;animation:headerDrop .58s cubic-bezier(.2,.8,.2,1) both}
+.view-controls{overflow:visible!important;z-index:60!important}
+.top-tool{border-radius:999px!important;min-height:38px!important;transition:transform .22s cubic-bezier(.2,.8,.2,1),box-shadow .22s ease,background .22s ease!important}
+.top-tool:active{transform:scale(.955)!important}.tool-chevron{font-size:12px;color:#86868b;transition:transform .2s ease}.top-tool[aria-expanded="true"] .tool-chevron{transform:rotate(180deg)}
+.rotate-menu-global{
+  position:fixed!important;z-index:2147483000!important;width:min(310px,calc(100vw - 20px))!important;
+  padding:10px!important;border-radius:24px!important;background:rgba(255,255,255,.88)!important;
+  border:1px solid rgba(255,255,255,.98)!important;box-shadow:0 30px 90px rgba(0,0,0,.18),inset 0 1px 0 #fff!important;
+  backdrop-filter:blur(34px) saturate(190%)!important;-webkit-backdrop-filter:blur(34px) saturate(190%)!important;
+  transform:translateY(-7px) scale(.975);opacity:0;transform-origin:top right;transition:opacity .15s ease,transform .18s cubic-bezier(.2,.8,.2,1)!important;
+}
+.rotate-menu-global.open{opacity:1;transform:translateY(0) scale(1)}
+.rotate-menu-global[hidden]{display:none!important}
+.rotate-menu-head{padding:10px 12px 12px;display:flex;flex-direction:column;gap:2px;border-bottom:1px solid rgba(0,0,0,.06);margin-bottom:5px}.rotate-menu-head b{font-size:14px;letter-spacing:-.02em}.rotate-menu-head small{color:#86868b;font-size:11px}
+.rotate-menu-global>button{display:grid!important;grid-template-columns:32px 1fr auto;align-items:center;gap:9px;width:100%;text-align:left;padding:10px 11px!important;border-radius:14px!important;background:transparent!important;color:#1d1d1f!important;border:0!important;box-shadow:none!important;transition:background .15s ease,transform .15s ease!important}
+.rotate-menu-global>button>span{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:rgba(0,113,227,.07);color:#0071e3;font-size:16px}.rotate-menu-global>button>div{display:flex;flex-direction:column;gap:1px}.rotate-menu-global>button b{font-size:12px;font-weight:600}.rotate-menu-global>button small{font-size:10px;color:#86868b}.rotate-menu-global>button:hover{background:rgba(0,113,227,.075)!important;transform:translateX(2px)}.rotate-menu-global>button.selected{background:rgba(0,113,227,.10)!important}.rotate-menu-global>button.selected:after{content:"✓";color:#0071e3;font-weight:800;font-size:13px}
+
+/* Reliable orientation simulations. Native orientation lock is attempted in JS
+   when the browser permits it in fullscreen. */
+.app-viewport.view-auto,.app-viewport.view-landscape{width:100%!important;max-width:none!important;margin:0!important;transform:none!important}
+.app-viewport.view-portrait{width:min(560px,100%)!important;max-width:560px!important;margin-inline:auto!important;background:rgba(245,245,247,.92)!important;box-shadow:0 0 0 1px rgba(0,0,0,.05),0 30px 110px rgba(0,0,0,.12)!important}
+html.site-rotation-active,html.site-rotation-active body{width:100%!important;height:100%!important;min-height:100%!important;overflow:hidden!important}
+.app-viewport.view-rot-90,.app-viewport.view-rot-180,.app-viewport.view-rot-270{position:fixed!important;left:50%!important;top:50%!important;z-index:500!important;margin:0!important;max-width:none!important;min-height:0!important;background:#f5f5f7!important;overflow:auto!important;overscroll-behavior:contain;transform-origin:center center!important}
+.app-viewport.view-rot-90{width:100vh!important;height:100vw!important;transform:translate(-50%,-50%) rotate(90deg)!important}
+.app-viewport.view-rot-180{width:100vw!important;height:100vh!important;transform:translate(-50%,-50%) rotate(180deg)!important}
+.app-viewport.view-rot-270{width:100vh!important;height:100vw!important;transform:translate(-50%,-50%) rotate(270deg)!important}
+
+/* Liquid-glass spotlight and active motion. */
+.liquid-card,.module-card,.form-card,.table-card,.query-card,.stats>div{isolation:isolate;position:relative}
+.liquid-card:after,.module-card:after,.form-card:after,.query-card:after,.stats>div:after{
+  content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;
+  background:radial-gradient(260px circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.86),rgba(255,255,255,.18) 42%,transparent 68%);
+  opacity:0;transition:opacity .28s ease;
+}
+.liquid-card:hover:after,.module-card:hover:after,.form-card:hover:after,.query-card:hover:after,.stats>div:hover:after{opacity:.72}
+.module-card{transition:transform .36s cubic-bezier(.2,.8,.2,1),box-shadow .36s ease,border-color .36s ease!important}
+.module-card:hover{transform:translateY(-8px) scale(1.012)!important;box-shadow:0 28px 80px rgba(0,0,0,.12)!important}.module-card:hover .glass-icon,.module-card:hover img{animation:iconFloat 1.8s ease-in-out infinite}
+.stats>div{transition:transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .3s ease!important}.stats>div:hover{transform:translateY(-5px)!important;box-shadow:0 22px 55px rgba(0,0,0,.10)!important}
+.primary,.secondary,.btn,button{position:relative;overflow:hidden;transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .2s ease,filter .2s ease!important}.primary:hover,.secondary:hover,.btn:hover{transform:translateY(-2px)}.primary:active,.secondary:active,.btn:active,button:active{transform:scale(.975)}
+.primary:before,.secondary:before,.btn:before{content:"";position:absolute;top:-120%;left:-35%;width:45%;height:340%;transform:rotate(22deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.48),transparent);transition:left .62s cubic-bezier(.2,.8,.2,1);pointer-events:none}.primary:hover:before,.secondary:hover:before,.btn:hover:before{left:120%}
+
+/* Page entrance / navigation transition. */
+.shell>*{animation:contentRise .52s cubic-bezier(.2,.8,.2,1) both}.shell>*:nth-child(2){animation-delay:.035s}.shell>*:nth-child(3){animation-delay:.07s}.shell>*:nth-child(4){animation-delay:.105s}.shell>*:nth-child(5){animation-delay:.14s}
+.page-transition{position:fixed;inset:0;z-index:2147482000;pointer-events:none;opacity:0;background:rgba(245,245,247,.18);backdrop-filter:blur(0);-webkit-backdrop-filter:blur(0);transition:opacity .16s ease,backdrop-filter .16s ease}.page-transition:before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,#0071e3,#5ac8fa,#af52de,#ff2d55);transform:scaleX(0);transform-origin:left;transition:transform .35s cubic-bezier(.2,.8,.2,1)}.page-transition.leaving{opacity:1;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}.page-transition.leaving:before{transform:scaleX(1)}
+.aurora{will-change:transform;animation-duration:18s!important}.a1{animation-name:auroraOne!important}.a2{animation-name:auroraTwo!important}.a3{animation-name:auroraThree!important}
+
+@keyframes headerDrop{from{opacity:0;transform:translateY(-14px) scale(.992)}to{opacity:1;transform:none}}
+@keyframes contentRise{from{opacity:0;transform:translateY(16px) scale(.995)}to{opacity:1;transform:none}}
+@keyframes iconFloat{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-5px) rotate(1.2deg)}}
+@keyframes auroraOne{0%,100%{transform:translate3d(-2%,0,0) scale(1)}50%{transform:translate3d(12%,8%,0) scale(1.12)}}
+@keyframes auroraTwo{0%,100%{transform:translate3d(0,0,0) scale(1.05)}50%{transform:translate3d(-13%,10%,0) scale(.94)}}
+@keyframes auroraThree{0%,100%{transform:translate3d(0,2%,0) scale(.96)}50%{transform:translate3d(8%,-12%,0) scale(1.10)}}
+
+@media(max-width:900px){
+  .site-footer{grid-template-columns:1fr!important;text-align:center!important;gap:10px!important}.footer-time{text-align:center!important}.footer-created{text-align:center!important}
+  .topbar{padding-inline:10px!important}.view-controls{margin-left:auto!important}.tool-chevron{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*:before,*:after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}
+  .page-transition{display:none!important}
+}

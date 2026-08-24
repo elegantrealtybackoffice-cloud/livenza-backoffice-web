@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+APP_VERSION = 'Web 1.4.3'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -22,6 +23,17 @@ raw_db = os.getenv('DATABASE_URL', '')
 if raw_db.startswith('postgres://'):
     raw_db = raw_db.replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = raw_db or ('sqlite:///' + os.path.join(BASE_DIR, 'instance', 'livenza_web.db'))
+# Render + Supabase Session Pooler resilience. pool_pre_ping prevents the first
+# navigation after an idle/stale pooled connection from throwing a transient 500.
+if raw_db.startswith('postgresql'):
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 180,
+        'pool_timeout': 20,
+        'pool_size': 3,
+        'max_overflow': 3,
+        'pool_use_lifo': True,
+    }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_UPLOAD_MB','55')) * 1024 * 1024
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -682,13 +694,13 @@ def all_form_data(preset_name=None):
 @app.context_processor
 def inject_common():
     return dict(
-        current_user=current_user(), app_version='Web 1.4.2',
+        current_user=current_user(), app_version=APP_VERSION,
         can_access=can_access, module_labels=MODULES,
         is_admin=bool(current_user() and (current_user().role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar
     )
 
 @app.route('/health')
-def health(): return jsonify(status='ok', service='livenza-back-office-web', version='1.4.1')
+def health(): return jsonify(status='ok', service='livenza-back-office-web', version=APP_VERSION)
 
 @app.after_request
 def livenza_no_cache(response):
@@ -698,14 +710,24 @@ def livenza_no_cache(response):
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
-    response.headers['X-Livenza-Build'] = 'Web 1.4.2'
+    response.headers['X-Livenza-Build'] = APP_VERSION
     return response
+
+@app.teardown_request
+def livenza_request_cleanup(exc=None):
+    # Flask-SQLAlchemy removes sessions at app-context teardown. Rolling back on
+    # failed requests ensures a broken transaction never poisons the next page.
+    if exc is not None:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
 
 @app.route('/diagnostics')
 def diagnostics():
     route_names = {rule.endpoint for rule in app.url_map.iter_rules()}
     checks = {
-        'version': 'Web 1.4.2',
+        'version': APP_VERSION,
         'video_wall_route_loaded': 'video_wall' in route_names,
         'video_wall_player_loaded': 'wall_player' in route_names,
         'video_wall_template_exists': os.path.exists(os.path.join(BASE_DIR,'templates','video_wall.html')),
@@ -722,7 +744,7 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version='Web 1.4.2', features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience'])
 
 @app.route('/login', methods=['GET','POST'])
 def login():
