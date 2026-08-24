@@ -340,7 +340,7 @@ def all_form_data(preset_name=None):
 @app.context_processor
 def inject_common():
     return dict(
-        current_user=current_user(), app_version='Web 1.2',
+        current_user=current_user(), app_version='Web 1.2.1',
         can_access=can_access, module_labels=MODULES,
         is_admin=bool(current_user() and (current_user().role or '').lower()=='admin')
     )

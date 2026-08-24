@@ -1,1 +1,35 @@
-{% extends 'base.html' %}{% block content %}<div class="page-head"><div><p class="eyebrow">ONLINE AI + OFFLINE FALLBACK</p><h1>Google Review Generator</h1></div></div><div class="two-col"><form method="post" class="form-card"><div class="form-grid"><label>Business Name<input name="business_name" required></label><label>Industry / Business Type<input name="business_type"></label><label>Rating<select name="rating"><option>5</option><option>4</option><option>3</option></select></label><label>Tone<select name="tone"><option>Professional</option><option>Warm</option><option>Natural</option><option>Concise</option></select></label><label>Vocabulary<select name="vocabulary"><option>Natural</option><option>Simple</option><option>Premium</option></select></label><label>Language<select name="language"><option>English</option><option>Hindi</option><option>Hinglish</option></select></label><label>Length<select name="length"><option>Medium</option><option>Short</option><option>Detailed</option></select></label><label class="span2">Genuine Experience Details<textarea name="experience" rows="7" placeholder="Enter what the customer actually experienced. The AI is instructed not to invent facts."></textarea></label></div><button class="primary">Generate 3 Reviews</button></form><div>{% if generated %}{% for g in generated %}<div class="review-card"><textarea readonly>{{g}}</textarea><button class="secondary copy-btn" data-copy="{{loop.index0}}">Copy Review</button></div>{% endfor %}{% else %}<div class="placeholder">Generated reviews will appear here.</div>{% endif %}</div></div><h2 class="section-title">Recent Drafts</h2><div class="history">{% for h in history %}<div><b>{{h.business_name}}</b><p>{{h.output}}</p><small>{{h.created_at.strftime('%d %b %Y %H:%M')}}</small></div>{% endfor %}</div>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-head"><div><p class="eyebrow">ONLINE AI + QR REVIEW ACCESS</p><h1>Google Review Generator</h1><p class="muted">The Google Business review-request link is mandatory so every review draft can be paired with a scannable QR and direct review-page button.</p></div></div>
+<div class="two-col review-layout">
+  <form method="post" class="form-card colourful-card">
+    <div class="review-link-callout">
+      <span class="step-badge">STEP 1</span>
+      <label class="span2">Google Business Review Link <em>* required</em><input id="googleReviewUrl" name="google_review_url" required value="{{ form_data.get('google_review_url', review_url) }}" placeholder="Example: https://g.page/r/.../review or Google Business Profile review-request link"></label>
+      <small>Paste the direct “Ask for reviews” link from the business’s Google Business Profile. The QR and Open Google buttons use this exact link.</small>
+      <label class="check-row"><input type="checkbox" name="save_review_link" value="1" {% if review_url %}checked{% endif %}> Save this as the default Google Review link</label>
+    </div>
+    <div class="form-grid">
+      <label>Business Name<input name="business_name" required value="{{ form_data.get('business_name','') }}"></label>
+      <label>Industry / Business Type<input name="business_type" value="{{ form_data.get('business_type','') }}"></label>
+      <label>Rating<select name="rating">{% for x in ['5','4','3'] %}<option {% if form_data.get('rating','5')==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></label>
+      <label>Tone<select name="tone">{% for x in ['Professional','Warm','Natural','Concise'] %}<option {% if form_data.get('tone','Professional')==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></label>
+      <label>Vocabulary<select name="vocabulary">{% for x in ['Natural','Simple','Premium'] %}<option {% if form_data.get('vocabulary','Natural')==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></label>
+      <label>Language<select name="language">{% for x in ['English','Hindi','Hinglish'] %}<option {% if form_data.get('language','English')==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></label>
+      <label>Length<select name="length">{% for x in ['Medium','Short','Detailed'] %}<option {% if form_data.get('length','Medium')==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></label>
+      <label class="span2">Genuine Experience Details<textarea name="experience" rows="7" required placeholder="Enter what the customer actually experienced. The AI is instructed not to invent facts.">{{ form_data.get('experience','') }}</textarea></label>
+    </div>
+    <button class="primary">Generate 3 Reviews + QR</button>
+  </form>
+
+  <div>
+    <div class="qr-panel {% if not review_url %}qr-awaiting{% endif %}" id="reviewQrPanel">
+      <div><p class="eyebrow">SCAN TO REVIEW</p><h2>Google Review QR</h2><p class="muted">Scan to open the saved Google review page directly.</p><div class="qr-actions"><a id="openGoogleReview" class="primary link-button {% if not review_url %}disabled-link{% endif %}" href="{{ review_url or '#' }}" target="_blank" rel="noopener">Open Google Review Page</a><a id="downloadReviewQr" class="secondary link-button {% if not review_url %}disabled-link{% endif %}" href="{% if review_url %}{{url_for('review_qr',url=review_url)}}{% else %}#{% endif %}" download="Livenza_Google_Review_QR.png">Download QR</a></div></div>
+      <div class="qr-wrap">{% if review_url %}<img id="reviewQrImage" src="{{url_for('review_qr',url=review_url)}}" alt="Google Review QR code">{% else %}<div id="qrPlaceholder">Paste a Google review link to activate QR</div><img id="reviewQrImage" style="display:none" alt="Google Review QR code">{% endif %}</div>
+    </div>
+
+    {% if generated %}{% for g in generated %}<div class="review-card" data-review-url="{{ review_url }}"><textarea readonly>{{g}}</textarea><div class="review-actions"><button class="secondary copy-btn" type="button">Copy Review</button><button class="primary copy-open-btn" type="button" data-url="{{ review_url }}">Copy Review + Open Google</button></div></div>{% endfor %}{% else %}<div class="placeholder">Generated reviews will appear here.</div>{% endif %}
+  </div>
+</div>
+<h2 class="section-title">Recent Drafts</h2><div class="history">{% for h in history %}<div><b>{{h.business_name}}</b><p>{{h.output}}</p>{% if h.google_review_url %}<a class="small-link" href="{{h.google_review_url}}" target="_blank" rel="noopener">Open Google Review Page</a>{% endif %}<small>{{h.created_at.strftime('%d %b %Y %H:%M')}}</small></div>{% endfor %}</div>
+{% endblock %}
