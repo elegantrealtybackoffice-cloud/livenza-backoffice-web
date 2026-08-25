@@ -1,13 +1,28 @@
 {% macro app_icon(glyph, icon='') -%}
-  {% if icon %}<img src="{{url_for('static',filename=icon)}}" alt="">{% elif glyph=='queries' %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19v-7m5 7V5m5 14v-4m5 4V8"></path></svg>{% elif glyph=='food' %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8m-3-8v5a3 3 0 0 0 6 0V3m-3 8v10m7-18v18m0-18c3 2 4 5 4 8h-4"></path></svg>{% else %}<span>{{glyph}}</span>{% endif %}
+  {% if icon %}<img src="{{url_for('static',filename=icon)}}" alt="">
+  {% elif glyph=='queries' %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19v-7m5 7V5m5 14v-4m5 4V8"></path></svg>
+  {% elif glyph=='food' %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8m-3-8v5a3 3 0 0 0 6 0V3m-3 8v10m7-18v18m0-18c3 2 4 5 4 8h-4"></path></svg>
+  {% elif glyph in ['⌂','home'] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"></path><path d="M5 10v10h14V10M9 20v-6h6v6"></path></svg>
+  {% elif glyph in ['◉','account'] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4.5 21a7.5 7.5 0 0 1 15 0"></path></svg>
+  {% elif glyph in ['▦','rooms'] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="M8 7h3v3H8zm5 0h3v3h-3zM8 13h3v3H8zm5 0h3v3h-3z"></path></svg>
+  {% elif glyph in ['✉','mail'] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg>
+  {% elif glyph in ['☁','drive'] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 .8-7.9A6 6 0 0 0 6.4 8.5 4.5 4.5 0 0 0 7 18Z"></path></svg>
+  {% elif glyph in ['⚡','electricity'] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m13 2-7 12h6l-1 8 7-12h-6z"></path></svg>
+  {% elif glyph in ['₹','billing'] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h12M6 9h12M7 5h5a4 4 0 0 1 0 8H8l8 7"></path></svg>
+  {% elif glyph in ['▶','video'] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="m10 8 6 4-6 4z"></path></svg>
+  {% elif glyph in ['★','reviews'] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"></path></svg>
+  {% elif glyph in ['✎','document'] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"></path></svg>
+  {% elif glyph in ['⌁','integrations'] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8M6 8a4 4 0 1 0 0 8h3m9-8a4 4 0 1 1 0 8h-3"></path></svg>
+  {% elif glyph in ['⚙','settings'] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l-2.83 2.83a1.7 1.7 0 0 0-1.88-.34A1.7 1.7 0 0 0 14 21h-4a1.7 1.7 0 0 0-1.03-1.63 1.7 1.7 0 0 0-1.88.34l-2.83-2.83A1.7 1.7 0 0 0 4.6 15 1.7 1.7 0 0 0 3 14v-4a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.34-1.88l2.83-2.83A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3h4a1.7 1.7 0 0 0 1 1.63 1.7 1.7 0 0 0 1.88-.34l2.83 2.83A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 21 10v4a1.7 1.7 0 0 0-1.6 1Z"></path></svg>
+  {% else %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"></rect><rect x="14" y="4" width="6" height="6" rx="1.5"></rect><rect x="4" y="14" width="6" height="6" rx="1.5"></rect><rect x="14" y="14" width="6" height="6" rx="1.5"></rect></svg>{% endif %}
 {%- endmacro %}
 
 {% macro app_item(surface, title, desc, endpoint, perm='', glyph='✦', icon='', media='livenza_360_lifestyle_bg.jpg') -%}
   {% if (not perm) or can_access(perm) %}
     {% if surface == 'drawer' %}
-      <a class="grouped-app-item {% if request.endpoint==endpoint %}active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav><i>{{app_icon(glyph,icon)}}</i><span><b>{{title}}</b><small>{{desc}}</small></span><em aria-hidden="true">→</em></a>
+      <a class="grouped-app-item lg-app-tile lg-control {% if request.endpoint==endpoint %}active is-active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav><i>{{app_icon(glyph,icon)}}</i><span><b>{{title}}</b><small>{{desc}}</small></span><em aria-hidden="true">→</em></a>
     {% else %}
-      <a class="home-app-card liquid-card" href="{{url_for(endpoint)}}" data-app-nav>
+      <a class="home-app-card liquid-card lg-app-tile" href="{{url_for(endpoint)}}" data-app-nav>
         <span class="home-app-media"><img src="{{url_for('static',filename=media)}}" alt="" loading="lazy" decoding="async"><i>{{app_icon(glyph,icon)}}</i></span>
         <span class="home-app-copy"><small>AUTHORIZED APP</small><b>{{title}}</b><span>{{desc}}</span><em>Open module →</em></span>
       </a>
@@ -55,13 +70,13 @@
 {% macro render_application_groups(surface) -%}
   {% set group_id = 'apps-drawer-categories' if surface == 'drawer' else 'home-app-categories' %}
   <div class="application-groups application-groups-{{surface}}">
-    <nav class="app-category-tabs safe-tabs safe-scroll-tabs" role="tablist" aria-label="Application categories">
-      <button type="button" class="safe-tab active" data-tv-tab="{{surface}}-core" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-core" aria-selected="true">Core</button>
-      <button type="button" class="safe-tab" data-tv-tab="{{surface}}-operations" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-operations" aria-selected="false">Operations</button>
-      <button type="button" class="safe-tab" data-tv-tab="{{surface}}-finance" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-finance" aria-selected="false">Finance & Utilities</button>
-      <button type="button" class="safe-tab" data-tv-tab="{{surface}}-communication" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-communication" aria-selected="false">Communication & Content</button>
-      <button type="button" class="safe-tab" data-tv-tab="{{surface}}-connections" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-connections" aria-selected="false">Connections</button>
-      {% if is_admin %}<button type="button" class="safe-tab" data-tv-tab="{{surface}}-administration" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-administration" aria-selected="false">Administration</button>{% endif %}
+    <nav class="app-category-tabs safe-tabs safe-scroll-tabs lg-segment" role="tablist" aria-label="Application categories">
+      <button type="button" class="safe-tab active is-active lg-control" data-tv-tab="{{surface}}-core" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-core" aria-selected="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2"></rect><rect x="13" y="4" width="7" height="7" rx="2"></rect><rect x="4" y="13" width="7" height="7" rx="2"></rect><rect x="13" y="13" width="7" height="7" rx="2"></rect></svg><span>Core</span></button>
+      <button type="button" class="safe-tab lg-control" data-tv-tab="{{surface}}-operations" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-operations" aria-selected="false"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path><circle cx="8" cy="7" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="10" cy="17" r="1"></circle></svg><span>Operations</span></button>
+      <button type="button" class="safe-tab lg-control" data-tv-tab="{{surface}}-finance" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-finance" aria-selected="false"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18V8m5 10V5m5 13v-7m5 7V3"></path></svg><span>Finance & Utilities</span></button>
+      <button type="button" class="safe-tab lg-control" data-tv-tab="{{surface}}-communication" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-communication" aria-selected="false"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path><path d="M8 9h8M8 12h5"></path></svg><span>Communication & Content</span></button>
+      <button type="button" class="safe-tab lg-control" data-tv-tab="{{surface}}-connections" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-connections" aria-selected="false"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8M6 8a4 4 0 1 0 0 8h3m9-8a4 4 0 1 1 0 8h-3"></path></svg><span>Connections</span></button>
+      {% if is_admin %}<button type="button" class="safe-tab lg-control" data-tv-tab="{{surface}}-administration" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-administration" aria-selected="false"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"></path><circle cx="12" cy="12" r="7"></circle></svg><span>Administration</span></button>{% endif %}
     </nav>
     <div class="app-category-stage">
       {{ category_panel(surface,'core','Core') }}

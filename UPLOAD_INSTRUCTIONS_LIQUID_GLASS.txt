@@ -1,0 +1,14 @@
+Livenza Life Operations Cloud — Web 1.9.0 Liquid Glass Maintenance
+
+For an existing genuine Web 1.9.0 deployment, upload the files from the GitHub browser update ZIP while preserving every directory path.
+
+Important:
+1. Keep DEPLOY_VERSION.txt as Web 1.9.0.
+2. This maintenance does not require a database migration.
+3. Clear CDN/browser caches after replacing static/style.css and static/app.js so the new material and animation rules load.
+4. Ensure static/livenza_liquid_wallpaper.webp and static/livenza_companion_mascot_v2.png are deployed.
+5. After deploy, open /version and confirm liquid-glass-v190, imac-5k-layout and persistent-blue-mascot-live-updates.
+6. Verify Home, Account, Settings, Integrations, Agreements, Electricity, Letterhead Studio and Queries on at least one desktop and one mobile browser.
+
+7. Mascot verification: confirm the blue robot remains visible and animated while navigating authenticated pages, its LIVE panel refreshes operations/weather, and Ask Livenza opens from the mascot.
+8. On iMac/large displays, confirm the workspace remains centered and bounded rather than stretching cards/text edge-to-edge.

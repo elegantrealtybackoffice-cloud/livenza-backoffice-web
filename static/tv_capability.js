@@ -70,14 +70,17 @@
     }
   }
   function classifyBase() {
-    var severe = !result.webgl || (result.maxTextureSize > 0 && result.maxTextureSize < 4096);
+    // WebGL is now informational. The default Livenza blue mascot and core UI
+    // are lightweight DOM/CSS, so a missing GPU context must not downgrade the
+    // entire site into low-capability mode.
+    var severe = false;
     var moderate = false;
     if (result.hardwareConcurrency && result.hardwareConcurrency <= 2) severe = true;
     else if (result.hardwareConcurrency && result.hardwareConcurrency < 4) moderate = true;
     if (result.deviceMemory && result.deviceMemory <= 2) severe = true;
     else if (result.deviceMemory && result.deviceMemory < 4) moderate = true;
     if (severe) return 'low';
-    if (result.webgl && result.maxTextureSize >= 8192 && !moderate) return 'high';
+    if (!moderate && ((result.hardwareConcurrency && result.hardwareConcurrency >= 8) || (result.deviceMemory && result.deviceMemory >= 8))) return 'high';
     return 'medium';
   }
   function finishFrameSample(ms, callback) {

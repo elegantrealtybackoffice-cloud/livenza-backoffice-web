@@ -2527,6 +2527,7 @@ def version_v1513():
         'live-payment-reminders','bbps-adapter','utility-portal-fallback','electricity-payment-status',
         'admin-electricity-controls','electricity-audit-log','ai-live-mascot','no-photo-mascot-fallback',
         'blue-robot-default-mascot','mascot-native-settings','categorized-app-navigation','shared-home-menu-catalog','no-default-webgl-runtime',
+        'liquid-glass-v190','imac-5k-layout','persistent-blue-mascot-live-updates','sitewide-text-fit-audit','custom-svg-state-icons',
         'letterhead-studio','ask-livenza-document-ai','letterhead-template-library','protected-letterhead-signatures',
         'mandatory-final-review','immutable-letterhead-pdf','letterhead-document-vault','letterhead-email-delivery',
         'letterhead-whatsapp-delivery','letterhead-connected-data-drafting',
@@ -2674,12 +2675,14 @@ def companion_pulse():
     weather=_companion_weather(city) if setting('companion_weather_enabled','1')=='1' else {'available':False,'city':city,'effect':'none','forecast':[]}
     try: effect_seconds=max(7,min(20,int(setting('companion_effect_seconds','11') or 11)))
     except Exception: effect_seconds=11
+    operations=_companion_operations() if setting('companion_operations_enabled','1')=='1' else []
+    operation_summary={str(item.get('label','Live')):str(item.get('value','—')) for item in operations}
     return jsonify(
         ok=True,enabled=enabled,weather=weather,
         weather_effects=setting('companion_weather_effects','1')=='1',effect_seconds=effect_seconds,
-        operations=_companion_operations() if setting('companion_operations_enabled','1')=='1' else [],
+        operations=operations,operation_summary=operation_summary,
         quotes=COMPANION_QUOTES if setting('companion_quotes_enabled','1')=='1' else [],
-        locations=list(COMPANION_LOCATIONS.keys()),refresh_seconds=600,
+        locations=list(COMPANION_LOCATIONS.keys()),refresh_seconds=120,
         updated_at=datetime.datetime.now(ZoneInfo('Asia/Kolkata')).isoformat(),
     )
 

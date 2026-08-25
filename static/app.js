@@ -599,12 +599,13 @@ initPageFeatures(document);
 
 // ===== Web 1.4.6 • professional motion + fullscreen-safe navigation =====
 (function(){
-  const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||livenzaMobilePerformance();
+  const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const performanceBudget=livenzaMobilePerformance();
   const transition=document.getElementById('pageTransition');
   const motionLayer=document.getElementById('liveMotionLayer');
 
   // Lightweight live particles: decorative only, no canvas and no layout work.
-  if(motionLayer&&!reduce){
+  if(motionLayer&&!reduce&&!performanceBudget){
     const count=14;
     for(let i=0;i<count;i++){
       const p=document.createElement('i');
@@ -619,7 +620,7 @@ initPageFeatures(document);
   }
 
   // Liquid spotlight follows the pointer without changing layout.
-  if(!reduce && window.matchMedia?.('(pointer:fine)').matches){
+  if(!reduce&&!performanceBudget && window.matchMedia?.('(pointer:fine)').matches){
     document.querySelectorAll('.liquid-card,.module-card,.form-card,.table-card,.query-card,.stats>div').forEach(el=>{
       el.addEventListener('pointermove',ev=>{
         const r=el.getBoundingClientRect();
@@ -708,7 +709,7 @@ initPageFeatures(document);
 
 // ===== Web 1.4.7 • dynamic page polish, Query Sheet, assistant & easter egg =====
 (()=>{
-  const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||livenzaMobilePerformance();
+  const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   function animateDynamicRoot(root=document){
     if(reduce)return;
@@ -812,10 +813,23 @@ initPageFeatures(document);
     if(item.url){const link=document.createElement('a');link.href=item.url;link.target='_blank';link.rel='noopener';link.title='Open source';link.appendChild(span);return link}
     return span;
   }
+  function buildMarqueeGroup(items){
+    const group=document.createElement('span');group.className='marquee-loop-group';group.setAttribute('aria-hidden','false');
+    items.forEach(item=>{group.appendChild(tickerNode(item));const gem=document.createElement('i');gem.textContent='◆';group.appendChild(gem)});
+    return group;
+  }
+  function restartMarqueeAnimation(){
+    if(!ticker)return;const first=ticker.querySelector('.marquee-loop-group');if(!first)return;
+    const shift=Math.ceil(first.getBoundingClientRect().width);if(shift>0)ticker.style.setProperty('--marquee-shift',`${shift}px`);
+    ticker.style.setProperty('animation','none','important');void ticker.offsetWidth;ticker.style.removeProperty('animation');
+  }
   function renderTicker(items){
     if(!ticker||!items?.length)return;ticker.replaceChildren();
-    for(let copy=0;copy<2;copy++)items.forEach(item=>{ticker.appendChild(tickerNode(item));const gem=document.createElement('i');gem.textContent='◆';ticker.appendChild(gem)});
+    const first=buildMarqueeGroup(items),second=buildMarqueeGroup(items);second.setAttribute('aria-hidden','true');ticker.append(first,second);
+    requestAnimationFrame(()=>restartMarqueeAnimation());
   }
+  let marqueeResizeFrame=0;
+  window.addEventListener('resize',()=>{if(!ticker||marqueeResizeFrame)return;marqueeResizeFrame=requestAnimationFrame(()=>{marqueeResizeFrame=0;restartMarqueeAnimation()})},{passive:true});
   async function refreshTicker(){
     if(!ticker)return;let delay=60000;
     try{const r=await fetch('/api/marquee',{credentials:'same-origin',headers:{Accept:'application/json'}}),d=await r.json();if(r.ok&&d.ok){renderTicker(d.items);delay=Math.max(30000,Math.min(600000,(d.refresh_seconds||60)*1000))}}catch(e){console.warn('Live marquee refresh failed',e)}
@@ -829,7 +843,7 @@ initPageFeatures(document);
   const welcome=document.getElementById('loginMascotWelcome');
   if(!welcome)return;
   const skip=document.getElementById('mascotWelcomeSkip');
-  const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||livenzaMobilePerformance();
+  const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   let danceTimer,leaveTimer,removeTimer,departed=false;
 
   function depart(){
@@ -863,6 +877,7 @@ initPageFeatures(document);
   const mobilePerformance=livenzaMobilePerformance();
   let currentCity=companion.dataset.defaultCity||'Gurugram';
   let pulse=null,quoteIndex=0,nudgeIndex=0,nudgeTimer=null,refreshTimer=null,sceneTimer=null;
+  let previousOperationSnapshot='',lastPulseAt=0;
 
   function setParked(parked){companion.classList.toggle('is-parked',parked)}
   if(document.getElementById('loginMascotWelcome'))setParked(false);else requestAnimationFrame(()=>setParked(true));
@@ -881,7 +896,7 @@ initPageFeatures(document);
   }
   // Mode tab activation is handled by tv_compat so older TV engines keep working.
   document.addEventListener('click',event=>{const tab=event.target.closest?.('[data-companion-tab]');if(tab)showMode(tab.dataset.companionTab,true)});
-  window.LivenzaCompanion={open:(mode='live')=>{setPanel(true);showMode(mode,mode==='chat')},close:()=>setPanel(false,true),showMode};
+  window.LivenzaCompanion={open:(mode='live')=>{setPanel(true);showMode(mode,mode==='chat')},close:()=>setPanel(false,true),showMode,refresh:()=>loadPulse(currentCity,false)};
   showMode('live');
   let scrollFrame=0;
   function syncCompanionCollapse(){companion.classList.toggle('scroll-collapsed',window.scrollY>140&&Boolean(panel?.hidden))}
@@ -961,8 +976,22 @@ initPageFeatures(document);
   }
   replay?.addEventListener('click',()=>{if(pulse?.weather?.available)playWeatherScene(pulse.weather.effect,pulse.effect_seconds,true)});
 
+  function operationSnapshot(operations=[]){return operations.map(item=>`${item.label||''}=${item.value||''}`).sort().join('|')}
+  function setCompanionFreshness(state='live'){
+    const live=state==='live';companion.classList.toggle('is-live',live);companion.classList.toggle('is-stale',!live);
+    const chip=document.getElementById('mascotWeatherChip');if(!live&&chip)chip.textContent='STALE';
+  }
+  function reactToOperationChanges(operations=[]){
+    const next=operationSnapshot(operations);if(previousOperationSnapshot&&next&&next!==previousOperationSnapshot){
+      const alert=operations.some(item=>['pink','gold','red'].includes(String(item.tone||'').toLowerCase()));
+      companion.classList.remove('reaction-positive','reaction-alert');companion.classList.add('has-update',alert?'reaction-alert':'reaction-positive');
+      window.setTimeout(()=>companion.classList.remove('has-update','reaction-positive','reaction-alert'),5200);
+      if(nudge&&panel?.hidden){const text=nudge.querySelector('span');if(text)text.textContent=alert?'Live operations changed — tap for details':'Fresh Livenza update available';nudge.classList.add('show');window.setTimeout(()=>nudge.classList.remove('show'),4600)}
+    }
+    previousOperationSnapshot=next;
+  }
   function renderPulse(data,autoEffect=true){
-    pulse=data;const weather=data.weather||{};currentCity=weather.city||currentCity;
+    reactToOperationChanges(data.operations||[]);pulse=data;lastPulseAt=Date.now();setCompanionFreshness('live');const weather=data.weather||{};currentCity=weather.city||currentCity;
     const city=document.getElementById('companionWeatherCity'),temperature=document.getElementById('companionWeatherTemperature'),condition=document.getElementById('companionWeatherCondition'),icon=document.getElementById('companionWeatherIcon'),chip=document.getElementById('mascotWeatherChip');
     if(city)city.textContent=weather.city||currentCity;
     if(temperature)temperature.textContent=weather.available?`${weather.temperature}°`:'—°';
@@ -974,12 +1003,20 @@ initPageFeatures(document);
     renderLocations(data.locations||[]);renderForecast(weather);renderOperations(data.operations||[]);showQuote(0);restartNudges();
     if(autoEffect&&data.weather_effects&&companion.dataset.weatherEffects!=='0'&&weather.available)playWeatherScene(weather.effect,data.effect_seconds,false);
   }
+  function scheduleCompanionPulse(delay=120000){clearTimeout(refreshTimer);refreshTimer=null;if(document.hidden)return;refreshTimer=window.setTimeout(()=>loadPulse(currentCity,false),Math.max(60000,delay))}
+  function pauseCompanionPulse(){clearTimeout(refreshTimer);refreshTimer=null}
+  function resumeCompanionPulse(){if(document.hidden)return;loadPulse(currentCity,false)}
   async function loadPulse(city=currentCity,autoEffect=true){
-    companion.classList.add('is-syncing');clearTimeout(refreshTimer);
-    try{const response=await fetch(`/api/companion/pulse?city=${encodeURIComponent(city)}`,{credentials:'same-origin',headers:{Accept:'application/json'}}),data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||'Pulse unavailable');if(data.enabled===false){companion.hidden=true;return}renderPulse(data,autoEffect);refreshTimer=window.setTimeout(()=>loadPulse(currentCity,false),Math.max(120000,(data.refresh_seconds||600)*1000))}
-    catch(error){const condition=document.getElementById('companionWeatherCondition');if(condition)condition.textContent='Live update will reconnect shortly';refreshTimer=window.setTimeout(()=>loadPulse(currentCity,false),120000)}
+    if(document.hidden){pauseCompanionPulse();return}
+    companion.classList.add('is-syncing');pauseCompanionPulse();
+    try{const response=await fetch(`/api/companion/pulse?city=${encodeURIComponent(city)}`,{credentials:'same-origin',headers:{Accept:'application/json'}}),data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||'Pulse unavailable');if(data.enabled===false){companion.hidden=true;return}companion.hidden=false;renderPulse(data,autoEffect);scheduleCompanionPulse(Math.max(60000,(data.refresh_seconds||120)*1000))}
+    catch(error){setCompanionFreshness('stale');const condition=document.getElementById('companionWeatherCondition');if(condition)condition.textContent=lastPulseAt?'Live data is temporarily stale — reconnecting':'Live update will reconnect shortly';scheduleCompanionPulse(90000)}
     finally{companion.classList.remove('is-syncing')}
   }
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseCompanionPulse();else resumeCompanionPulse()});
+  window.addEventListener('online',()=>{if(!document.hidden)loadPulse(currentCity,false)});
+  window.addEventListener('pageshow',()=>{if(!document.hidden)loadPulse(currentCity,false)});
+  window.addEventListener('pagehide',pauseCompanionPulse,{once:true});
 
   const mascotAmbientActions=['funny-wave','funny-hop','funny-peek','funny-wobble','funny-celebrate'];
   function performMascotAmbientAction(){
@@ -991,6 +1028,23 @@ initPageFeatures(document);
   if(!reduce){window.setTimeout(performMascotAmbientAction,mobilePerformance?14000:7000);window.setInterval(performMascotAmbientAction,mobilePerformance?45000:22000)}
   loadPulse(currentCity,true);
 })();
+
+// ===== Web 1.9.0 • Liquid Glass interaction state synchronization =====
+function syncLiquidControlStates(root=document){
+  root.querySelectorAll?.('[aria-selected],[aria-pressed],input[type="checkbox"],input[type="radio"]').forEach(el=>{
+    const selected=el.getAttribute?.('aria-selected');const pressed=el.getAttribute?.('aria-pressed');
+    const on=selected==='true'||pressed==='true'||((el.matches?.('input[type="checkbox"],input[type="radio"]'))&&el.checked);
+    const hasState=selected!==null||pressed!==null||el.matches?.('input[type="checkbox"],input[type="radio"]');
+    if(!hasState)return;el.classList.toggle('is-active',on);el.classList.toggle('is-on',on);el.classList.toggle('is-off',!on);
+    el.querySelector?.('.ui-icon')?.classList.toggle('is-active',on);
+  });
+}
+document.addEventListener('click',event=>{if(event.target.closest?.('[aria-selected],[aria-pressed],label,input'))requestAnimationFrame(()=>syncLiquidControlStates(document))});
+document.addEventListener('change',()=>syncLiquidControlStates(document));
+document.addEventListener('livenza:content-swapped',event=>syncLiquidControlStates(event.detail?.root||document));
+const liquidStateObserver=new MutationObserver(mutations=>{if(mutations.some(m=>m.type==='attributes'))syncLiquidControlStates(document)});
+liquidStateObserver.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['aria-selected','aria-pressed','checked']});
+syncLiquidControlStates(document);
 
 // Web 1.8.0 capability health signal.
 window.LivenzaModernReady=true;

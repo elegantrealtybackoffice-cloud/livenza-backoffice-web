@@ -2,6 +2,29 @@
 
 
 
+
+## Web 1.9.0 Maintenance — Liquid Glass UI, iMac/5K & Live Mascot
+
+- Introduces one site-wide **Livenza Liquid Glass** material system with deep navy/blue/violet wallpaper, translucent layered surfaces, white compact system typography and consistent active/inactive icon states.
+- Adds an original Livenza abstract wallpaper asset (`static/livenza_liquid_wallpaper.webp`) with a lighter low-capability rendering path; no Apple artwork, marks or proprietary icon assets are included.
+- Completes a 52-template text-fit audit: important labels, headings, cards, forms and vault values wrap and grow naturally instead of relying on ellipsis or hidden overflow.
+- Verifies responsive geometry from **390×844 through 5120×2880**, including 2560×1440, 2880×1800 and 3200×1800 iMac/large-monitor layouts. Large screens use a bounded 2160px content canvas and additional application-grid columns instead of oversized cards or excessively long text lines.
+- Keeps the original blue robot **persistently available across authenticated pages** when enabled. Lightweight idle motion remains active in mobile/low-capability/TV performance modes unless the operating system explicitly requests reduced motion.
+- Live mascot operations refresh every two minutes, pause while the page is hidden, resume on return, recover immediately after browser online/back-forward page restoration, retain the last safe state during network failures and visually react when safe operational summary values change.
+- Restores the blue robot to the login welcome experience and removes visible “3D host” labeling from current mascot settings. Compatibility setting keys remain internal so existing deployments do not require a migration.
+- Replaces primary grouped-navigation glyphs with custom `currentColor` SVG geometry and synchronizes selected/pressed/on/off state styling for Liquid Glass controls.
+- No database migration is required for this visual/interaction maintenance layer.
+
+## Web 1.9.0 Maintenance — Motion, Marquee & Text Reliability
+
+- Decouples ordinary UI capability from WebGL availability so missing WebGL no longer disables the lightweight blue-robot mascot or general interface motion.
+- Restores the blue robot, live operations marquee and lightweight card/reveal transitions in normal motion mode, including mobile/low-capability performance profiles.
+- Rebuilds the live marquee as a measured two-group seamless loop that restarts after live-data refresh and resizes without duplicated static rows.
+- Makes shared text-bearing cards, page heads, forms and status surfaces content-driven so wrapped copy grows vertically instead of being clipped or hidden.
+- Removes unsafe `content-visibility`/paint-containment optimizations from text-heavy UI while retaining clipping only for explicit media, masks and local scrolling surfaces.
+- Keeps `prefers-reduced-motion` authoritative: users who explicitly request reduced motion receive static mascot/marquee behavior with readable local marquee scrolling.
+- No database migration is required for this maintenance update.
+
 ## Web 1.9.0 Maintenance — Blue Robot & Grouped UI
 
 - Restores the original blue Livenza robot as the default live mascot and removes the WebGL 3D host runtime from the default page shell.

@@ -14,7 +14,7 @@
 </form>
 
 <form method="post" class="form-card liquid-card responsive-card" id="companion-settings">
-  <div class="settings-section-head"><div class="settings-picture companion-picture host3d-settings-mark">3D</div><div><p class="eyebrow">LIVENZA MASCOT</p><h2>Mascot, Weather & Daily Energy</h2><p class="muted">Control the blue robot mascot, forecast, live updates and weather reactions.</p></div></div>
+  <div class="settings-section-head"><div class="settings-picture companion-picture mascot-settings-mark"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="6" width="14" height="12" rx="5"></rect><circle cx="10" cy="12" r="1"></circle><circle cx="14" cy="12" r="1"></circle><path d="M9 15c1.7 1.2 4.3 1.2 6 0M12 3v3"></path></svg></div><div><p class="eyebrow">LIVENZA MASCOT</p><h2>Mascot, Weather & Daily Energy</h2><p class="muted">Control the blue robot mascot, forecast, live updates and weather reactions.</p></div></div>
   <div class="marquee-option-grid companion-option-grid">
     {% for key,label in [('companion_enabled','Show side mascot'),('companion_weather_enabled','Live weather forecast'),('companion_weather_effects','Temporary weather scenes'),('companion_operations_enabled','Operational updates'),('companion_quotes_enabled','Motivational quotes')] %}
     <label class="perm-chip"><input type="hidden" name="{{key}}" value="0"><input type="checkbox" name="{{key}}" value="1" {% if settings[key]=='1' %}checked{% endif %}><span>{{label}}</span></label>

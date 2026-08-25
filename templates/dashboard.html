@@ -10,9 +10,9 @@
       <strong>Welcome back, {{current_user.full_name or current_user.username}}!</strong>
       <span>Your workspace is ready. Let’s make today exceptional.</span>
     </div>
-    <div class="mascot-stage host3d-welcome-stage" aria-hidden="true">
+    <div class="mascot-stage blue-mascot-welcome-stage" aria-hidden="true">
       <i class="mascot-star star-one">✦</i><i class="mascot-star star-two">✦</i><i class="mascot-star star-three">•</i><i class="mascot-star star-four">✦</i>
-      <span class="mascot-spotlight"></span><div class="host3d-welcome-mark"><span>3D</span><b>LIVENZA HOST</b></div><span class="mascot-floor-shadow"></span>
+      <span class="mascot-spotlight"></span><img class="welcome-blue-mascot" src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}" alt=""><span class="welcome-blue-badge">LIVE COMPANION</span><span class="mascot-floor-shadow"></span>
     </div>
   </div>
 </section>
@@ -75,5 +75,5 @@
 </div>
 
 <div class="section-head safe-toolbar" id="applications"><div><p class="eyebrow">LIVENZA WORKSPACE</p><h2 class="section-title">Applications</h2></div><span class="section-kicker">Grouped for faster access</span></div>
-{{ appgroups.render_application_groups('home') }}
+<div class="dashboard-liquid-applications" data-component="lg-app-tile">{{ appgroups.render_application_groups('home') }}</div>
 {% endblock %}
