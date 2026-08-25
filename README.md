@@ -1,4 +1,13 @@
-# Livenza Life Operations Cloud — Web 1.5.3
+# Livenza Life Operations Cloud — Web 1.5.4
+
+## Web 1.5.4 translucent workspace refinement
+
+- The full website now sits over a soft, depth-rich hospitality backdrop with a light translucent treatment inspired by the supplied reference.
+- Every major workspace uses a large blurred outer glass shell, while cards, forms, tables, statistics, integrations and working panels use nested opacity levels for clear hierarchy.
+- The transparent top header, LIVE marquee, applications menu, account/display menus, assistant, login card and footer now share one consistent glass material system.
+- Existing Livenza typography, stationary AI-lit logo, dashboard photography, hover depth, page transitions, contextual ribbons and login mascot animation are preserved.
+- Dense data surfaces keep higher contrast, mobile devices receive a lighter blur treatment, and browsers without backdrop-filter support receive an opaque readability fallback.
+- Reduced-motion and print preferences continue to suppress decorative motion and glass effects appropriately.
 
 ## Web 1.5.3 login welcome mascot
 
@@ -43,7 +52,7 @@
 5. Configure passkeys: `WEBAUTHN_RP_ID=YOUR-SITE-HOST` and `WEBAUTHN_ORIGIN=https://YOUR-SITE`.
 6. In Admin, connect Google, assign the WhatsApp/Email/Drive permissions, enable pattern or fingerprint access per user, and optionally enable kiosk lock.
 
-See `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
+See `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
 
 ## Web 1.4.9 addition
 - The Livenza Assistant now has a high-contrast cross icon that remains visible after messages are added.
