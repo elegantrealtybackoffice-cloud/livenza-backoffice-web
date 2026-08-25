@@ -20,7 +20,7 @@
   <script>
     (()=>{const small=matchMedia('(max-width:820px)').matches,lowMemory=Number(navigator.deviceMemory||8)<=4,lowCpu=Number(navigator.hardwareConcurrency||8)<=4,saveData=Boolean(navigator.connection?.saveData);if(small||lowMemory||lowCpu||saveData)document.documentElement.classList.add('mobile-performance')})();
   </script>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.10">
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.11">
 </head>
 <body data-page="{{ request.endpoint or '' }}">
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
@@ -51,6 +51,11 @@
           <a href="{{url_for('logout')}}"><i>↗</i><span><b>Logout</b><small>End this session</small></span></a>
         </div>
       </nav>
+      <div class="view-controls header-rotation-control no-print">
+        <button type="button" id="viewMenuToggle" class="top-tool header-rotate-toggle" aria-label="Rotate website and display options" aria-controls="viewMenu" aria-expanded="false" title="Rotate website">
+          <span class="tool-icon" aria-hidden="true">↻</span><span class="tool-label">Rotate</span><span class="tool-chevron" aria-hidden="true">⌄</span>
+        </button>
+      </div>
       <div class="header-actions icon-header-actions no-print">
         <a class="header-icon-link" href="{{url_for('dashboard')}}#applications" title="Favourite applications" aria-label="Favourite applications">♥</a>
         {% if can_access('rooms') %}<a class="header-icon-link" href="{{url_for('rooms')}}" data-app-nav title="Locations and rooms" aria-label="Locations and rooms">⌖</a>{% endif %}
@@ -61,6 +66,19 @@
         </details>
       </div>
     </header>
+
+    <section id="viewMenu" class="rotate-menu-global no-print" role="dialog" aria-label="Rotate website and display options" hidden>
+      <div class="rotate-menu-head"><b>Rotate Website</b><small>Choose how the entire Livenza workspace appears on this screen.</small></div>
+      <button type="button" data-view-mode="auto"><span aria-hidden="true">A</span><div><b>Automatic</b><small>Use the browser’s natural orientation</small></div></button>
+      <button type="button" data-view-mode="portrait"><span aria-hidden="true">▯</span><div><b>Portrait</b><small>Compact upright workspace</small></div></button>
+      <button type="button" data-view-mode="landscape"><span aria-hidden="true">▭</span><div><b>Landscape</b><small>Wide screen layout</small></div></button>
+      <button type="button" data-view-mode="90"><span aria-hidden="true">↻</span><div><b>Rotate 90°</b><small>Clockwise for vertical displays</small></div></button>
+      <button type="button" data-view-mode="180"><span aria-hidden="true">↷</span><div><b>Rotate 180°</b><small>Upside-down screen mounting</small></div></button>
+      <button type="button" data-view-mode="270"><span aria-hidden="true">↺</span><div><b>Rotate 270°</b><small>Counter-clockwise vertical view</small></div></button>
+      <div class="rotate-menu-divider"></div>
+      <button type="button" id="fullscreenToggle" class="fullscreen-menu-action" aria-pressed="false"><span aria-hidden="true">⛶</span><div><b class="tool-label">Full Screen</b><small>Use browser fullscreen or safe theatre mode</small></div></button>
+      <p id="orientationStatus" class="view-orientation-status" role="status" aria-live="polite">Automatic display active.</p>
+    </section>
 
     {% if marquee_enabled %}<div class="operations-marquee live-operations-marquee" id="liveOperationsMarquee" aria-label="Live Livenza operational status"><div class="marquee-live-label"><i></i> LIVE</div><div class="operations-marquee-track" id="liveMarqueeTrack"><span><b>Livenza</b> Loading live operations…</span><i>◆</i></div>{% if is_admin %}<a href="{{url_for('settings_page')}}#marquee-settings" class="marquee-settings-link" title="Configure marquee" aria-label="Configure marquee">⚙</a>{% endif %}</div>{% endif %}
     {% endif %}
@@ -123,7 +141,7 @@
     </footer>
   </div>
 
-  <script src="{{url_for('static',filename='app.js')}}?v=1.5.10"></script>
+  <script src="{{url_for('static',filename='app.js')}}?v=1.5.11"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

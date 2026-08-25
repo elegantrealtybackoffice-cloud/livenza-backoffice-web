@@ -1871,3 +1871,21 @@ input:not([type=hidden]):not([type=checkbox]):not([type=radio]):active,select:ac
   :root{--legal-footer-height:64px}.auth-login-card{padding:24px 18px!important}.gesture-matrix.pattern-grid{grid-template-columns:repeat(3,minmax(64px,1fr))!important;grid-template-rows:repeat(3,68px)!important;padding:12px!important;gap:9px!important}.gesture-matrix.pattern-grid>button{min-width:64px!important;min-height:68px!important}.pattern-control-bar{align-items:stretch;flex-direction:column}.pattern-clear-button{width:100%}.site-footer{grid-template-columns:minmax(0,1fr) auto!important;gap:9px!important;padding:7px 10px!important}.footer-time{display:none!important}.footer-company b,.footer-company small,.footer-created,.footer-created span,.footer-created strong{font-size:7.5px!important}.footer-created{justify-content:flex-end!important}.mascot-companion{bottom:max(70px,calc(var(--legal-footer-height) + env(safe-area-inset-bottom) + 6px))!important}
 }
 @media(prefers-reduced-motion:reduce){.credential-skeleton-icon,.credential-skeleton i,.credential-skeleton,.auth-fallback-layer{animation:none!important}}
+
+/* =====================================================================
+   Web 1.5.11 — header website rotation control restored
+   ===================================================================== */
+.header-rotation-control{margin-left:auto!important;display:flex!important;align-items:center!important;flex:0 0 auto!important;position:relative!important;z-index:65!important}
+.header-rotation-control+.icon-header-actions{margin-left:0!important}
+.header-rotation-control .top-tool{min-height:42px!important;height:42px!important;padding:0 13px!important;border-radius:999px!important;background:rgba(255,255,255,.80)!important;border:1px solid rgba(16,42,67,.09)!important;color:#102a43!important;box-shadow:0 5px 16px rgba(16,42,67,.06)!important}
+.header-rotation-control .top-tool:hover,.header-rotation-control .top-tool[aria-expanded="true"]{background:#fff!important;border-color:rgba(23,105,170,.22)!important;box-shadow:0 9px 24px rgba(16,42,67,.11)!important}
+.header-rotation-control .tool-icon{font-size:19px!important;color:#1769aa!important}.header-rotation-control .tool-label{font-size:10px!important;font-weight:780!important}.header-rotation-control .tool-chevron{margin-left:1px}
+.rotate-menu-global{max-height:min(610px,calc(100vh - 20px))!important;overflow:auto!important;overscroll-behavior:contain!important}
+.rotate-menu-divider{height:1px;margin:5px 8px;background:rgba(16,42,67,.08)}
+.rotate-menu-global>.fullscreen-menu-action{margin-top:1px!important;background:linear-gradient(145deg,rgba(232,244,251,.72),rgba(255,255,255,.56))!important;border:1px solid rgba(23,105,170,.11)!important}
+.rotate-menu-global>.fullscreen-menu-action.active,.rotate-menu-global>.fullscreen-menu-action[aria-pressed="true"]{background:linear-gradient(145deg,#e1f1fa,#fff)!important;color:#1769aa!important}
+.rotate-menu-global .view-orientation-status{margin:7px 4px 2px!important;min-height:34px;display:grid;place-items:center;padding:8px 10px!important;border-radius:11px!important;background:rgba(234,244,250,.64)!important;color:#506879!important;font-size:8px!important;line-height:1.4!important}
+.showcase-header.is-scrolled .header-rotation-control{opacity:0!important;visibility:hidden!important;pointer-events:none!important;transform:translateY(-7px) scale(.96)!important}
+@media(max-width:1280px){.header-rotation-control .top-tool{width:42px!important;min-width:42px!important;padding:0!important;justify-content:center!important}.header-rotation-control .tool-label,.header-rotation-control .tool-chevron{display:none!important}}
+@media(max-width:760px){.header-rotation-control{margin-left:auto!important}.header-rotation-control .top-tool{width:40px!important;min-width:40px!important;height:40px!important;min-height:40px!important}.rotate-menu-global{width:min(310px,calc(100vw - 16px))!important}.showcase-header:not(.is-scrolled) .header-rotation-control{display:flex!important}}
+@media print{.header-rotation-control,.rotate-menu-global{display:none!important}}

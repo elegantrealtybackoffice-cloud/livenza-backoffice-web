@@ -1,4 +1,14 @@
-# Livenza Life Operations Cloud — Web 1.5.10
+# Livenza Life Operations Cloud — Web 1.5.11
+
+## Web 1.5.11 restored website rotation
+
+- The **Rotate** control is restored directly in the authenticated top header.
+- Its responsive popover provides Automatic, Portrait, Landscape, 90°, 180° and 270° website modes plus Full Screen / safe theatre mode.
+- The selected mode is retained on the device and reapplied across in-place navigation and fullscreen changes.
+- The menu supports Escape dismissal, outside-click dismissal and Arrow/Home/End keyboard navigation.
+- On compact scrolled headers the control hides with the other right-side actions, preserving the small hamburger-and-logo layout.
+
+No database migration is required.
 
 ## Web 1.5.10 progressive secure access
 
@@ -124,7 +134,7 @@ Deploy as usual, then confirm `/version` returns `Web 1.5.9` and includes `unifi
 5. Configure passkeys: `WEBAUTHN_RP_ID=YOUR-SITE-HOST` and `WEBAUTHN_ORIGIN=https://YOUR-SITE`.
 6. In Admin, connect Google, assign the WhatsApp/Email/Drive permissions, enable pattern or fingerprint access per user, and optionally enable kiosk lock.
 
-See `README_v1.5.10.md`, `README_v1.5.9.md`, `README_v1.5.8.md`, `README_v1.5.7.md`, `README_v1.5.6.md`, `README_v1.5.5.md`, `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
+See `README_v1.5.11.md`, `README_v1.5.10.md`, `README_v1.5.9.md`, `README_v1.5.8.md`, `README_v1.5.7.md`, `README_v1.5.6.md`, `README_v1.5.5.md`, `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
 
 ## Web 1.4.9 addition
 - The Livenza Assistant now has a high-contrast cross icon that remains visible after messages are added.

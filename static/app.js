@@ -55,7 +55,7 @@ async function handleAadhaarExtract(btn){
   try{
     const fd=new FormData();fd.append('aadhaar_file',file);const r=await fetch('/agreements/aadhaar-extract',{method:'POST',body:fd,credentials:'same-origin',signal:controller.signal});
     const contentType=(r.headers.get('content-type')||'').toLowerCase();
-    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.5.10 and retry.`);
+    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.5.11 and retry.`);
     const d=await r.json();
     if(!r.ok||!d.ok)throw new Error([d.error,d.reader_status].filter(Boolean).join(' Reader status: '));
     const fields=d.fields||{};let filled=0;['tenant_name','tenant_father','tenant_dob','tenant_address','tenant_id_type','tenant_id_no'].forEach(k=>{if(fillAgreementField(k,fields[k]))filled++});
@@ -178,7 +178,7 @@ function updateFooterClock(){const el=document.getElementById('footerClock');if(
 updateFooterClock();setInterval(updateFooterClock,1000);const footerYear=document.getElementById('footerYear');if(footerYear)footerYear.textContent=new Date().getFullYear();
 initPageFeatures(document);
 
-// ===== Web 1.5.10 • progressive device-first authentication =====
+// ===== Web 1.5.11 • restored header rotation and display menu =====
 (function(){
   const root=document.documentElement;
   const viewport=document.getElementById('appViewport');
@@ -285,7 +285,7 @@ initPageFeatures(document);
   function openViewMenu(){
     if(!menu||!viewBtn)return;
     menu.hidden=false;
-    requestAnimationFrame(()=>{menu.classList.add('open');positionViewMenu()});
+    requestAnimationFrame(()=>{menu.classList.add('open');positionViewMenu();(menu.querySelector('[data-view-mode].selected')||menu.querySelector('button'))?.focus({preventScroll:true})});
     viewBtn.setAttribute('aria-expanded','true');
   }
   function closeViewMenu(){
@@ -301,8 +301,13 @@ initPageFeatures(document);
     const btn=e.target.closest('[data-view-mode]');if(!btn)return;
     closeViewMenu();await applyViewMode(btn.dataset.viewMode);
   });
+  menu?.addEventListener('keydown',e=>{
+    const buttons=[...menu.querySelectorAll('button:not([disabled])')],current=buttons.indexOf(document.activeElement);if(!buttons.length)return;
+    let next=-1;if(e.key==='ArrowDown')next=(current+1+buttons.length)%buttons.length;else if(e.key==='ArrowUp')next=(current-1+buttons.length)%buttons.length;else if(e.key==='Home')next=0;else if(e.key==='End')next=buttons.length-1;else return;
+    e.preventDefault();buttons[next].focus();
+  });
   document.addEventListener('pointerdown',e=>{if(menu&&!menu.hidden&&!menu.contains(e.target)&&!viewBtn?.contains(e.target))closeViewMenu()});
-  window.addEventListener('keydown',e=>{if(e.key==='Escape')closeViewMenu()});
+  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&menu&&!menu.hidden){closeViewMenu();viewBtn?.focus({preventScroll:true})}});
   window.addEventListener('resize',()=>{syncViewportMetrics();positionViewMenu()},{passive:true});
   window.visualViewport?.addEventListener('resize',()=>{syncViewportMetrics();positionViewMenu()},{passive:true});
   window.addEventListener('scroll',positionViewMenu,{passive:true,capture:true});
