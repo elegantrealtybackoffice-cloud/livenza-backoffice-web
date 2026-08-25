@@ -25,6 +25,7 @@
   {% if current_user and can_access('letterhead') %}<link rel="stylesheet" href="{{url_for('static',filename='letterhead.css')}}?v={{app_version|replace('Web ','')}}">{% endif %}
   {% block page_styles %}{% endblock %}
   <link rel="stylesheet" href="{{url_for('static',filename='theme_v190.css')}}?v={{app_version|replace('Web ','')}}">
+  <link rel="stylesheet" href="{{url_for('static',filename='theme_v190_refractive.css')}}?v={{app_version|replace('Web ','')}}">
 </head>
 <body class="app-liquid-shell" data-page="{{ request.endpoint or '' }}">
   {% import '_application_groups.html' as appgroups with context %}

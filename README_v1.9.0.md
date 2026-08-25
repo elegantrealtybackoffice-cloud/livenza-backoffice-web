@@ -114,3 +114,9 @@ The final theme is isolated in `static/theme_v190.css` and is loaded after featu
 The background is intentionally darker than the previous Light Aqua maintenance build to improve white-text readability while keeping the original Livenza wallpaper visible. Text remains content-driven: meaningful labels and copy wrap, cards grow with content, dense tables scroll locally, and printable/document paper remains white with dark text.
 
 Browser acceptance remains mobile through 5K/iMac class widths, and the persistent animated blue mascot continues live operational/weather polling and Ask Livenza behavior without using the retired WebGL host.
+
+## Refractive Liquid Glass v2 Maintenance
+
+The final Web 1.9.0 presentation layer now loads `static/theme_v190_refractive.css` after the Medium Aqua baseline and every feature stylesheet. Navigation, segmented controls, toolbars and compact actions use a stronger floating functional material with subtle specular edge light and reduced visible borders; selected segments use a bright milky lens with dark text; content cards stay calmer; drawers, menus and the persistent mascot assistant use thicker popover glass for readability.
+
+The polish pass keeps the existing compact typography/text-fit contract, persistent animated blue mascot, live operational/weather refresh, Ask Livenza, marquee motion, reduced-motion accessibility and mobile-to-5K layout constraints. Text-bearing buttons and tabs grow with wrapped copy instead of clipping their content. Lower-capability profiles retain the material hierarchy while disabling the more expensive blur/specular optics.

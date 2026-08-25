@@ -346,3 +346,6 @@ The current v1.9.0 UI maintenance layer uses a high-key aqua background, highly 
 
 ### Web 1.9.0 Medium Aqua Adaptive Liquid Glass maintenance
 The current Web 1.9.0 presentation uses a medium aqua adaptive glass hierarchy: stronger translucent material for navigation/controls, calmer content surfaces, high-contrast segmented selection, a dedicated final theme layer loaded after feature CSS, persistent live blue mascot behavior, and mobile-to-5K text/layout verification. No database or business-workflow migration is required for this UI maintenance update.
+
+### Web 1.9.0 Refractive Liquid Glass v2 maintenance
+The final UI layer now separates calm content material from floating functional glass, uses border-light grouped controls and a milky selected-lens state, and preserves full text wrapping, persistent live mascot behavior and mobile-to-5K responsiveness.

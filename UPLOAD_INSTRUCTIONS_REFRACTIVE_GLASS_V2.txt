@@ -1,0 +1,7 @@
+Livenza Web 1.9.0 — Refractive Liquid Glass v2
+
+Apply only to an existing genuine Web 1.9.0 Medium Aqua Adaptive Glass installation.
+Upload the included files while preserving their folder paths.
+Do not rename theme_v190_refractive.css. It must remain loaded after theme_v190.css in templates/base.html.
+No database migration is required.
+After upload, restart/redeploy the web application and hard-refresh browser caches.
