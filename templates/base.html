@@ -22,6 +22,7 @@
   </script>
   <script src="{{url_for('static',filename='tv_capability.js')}}?v={{app_version|replace('Web ','')}}"></script>
   <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v={{app_version|replace('Web ','')}}">
+  {% if current_user and can_access('letterhead') %}<link rel="stylesheet" href="{{url_for('static',filename='letterhead.css')}}?v={{app_version|replace('Web ','')}}">{% endif %}
 </head>
 <body data-page="{{ request.endpoint or '' }}">
   {% import '_application_groups.html' as appgroups with context %}
@@ -145,6 +146,7 @@
 
   <script src="{{url_for('static',filename='tv_compat.js')}}?v={{app_version|replace('Web ','')}}"></script>
   <script src="{{url_for('static',filename='app.js')}}?v={{app_version|replace('Web ','')}}"></script>
+  {% if current_user and can_access('letterhead') %}<script src="{{url_for('static',filename='letterhead.js')}}?v={{app_version|replace('Web ','')}}"></script>{% endif %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -1,24 +1,33 @@
-# Livenza Life Operations Cloud — Web 1.8.0
+# Livenza Life Operations Cloud — Web 1.9.0
 
 
-## Web 1.8.0 — 3D Digital Host, Integrations Center & TV Stability
 
-### Web 1.8.0 highlights
-- Replaces the live PNG companion with a **genuine articulated WebGL 3D Livenza digital host** rendered locally in-browser with depth testing, perspective projection, shaders and a hierarchical human joint system. The live host never falls back to a still mascot image.
-- Adds semantic host actions including idle, greet, walk, point, explain, alert, celebrate, listen, speak, turn and sleep, plus clickable assistant interaction.
-- Adds **per-user 3D host preferences** for enabled state, Full/Gentle/Static animation, size, left/right placement, weather city and reaction categories, with Admin global defaults and intensity ceiling.
-- Adds a centralized, role-aware **Integrations Center** for AI/OpenAI, WhatsApp, Gmail/Drive, Food partners, Electricity/Bharat Connect, Banking, Billing/RentOK, payments, webhooks and future third-party workflows. Admin alone manages credentials and protected configuration.
-- Adds Vault-backed integration-secret handling and keeps prohibited banking authentication secrets outside the Vault.
-- Repairs overlapping tabs/toolbars globally with navigation-safe layout primitives across desktop, mobile and TV widths.
-- Makes decorative lifestyle photographs stable and non-clickable while preserving real navigation controls.
-- Adds an ES5 **Smart-TV compatibility bootstrap** for drawers/tabs, Enter/OK, arrow-key focus movement and Escape, so essential navigation remains usable even when a legacy TV cannot parse the modern application bundle.
-- Adds TV/weak-device capability detection and reduces shimmer, particle, blur and non-essential background animation while retaining the genuine 3D host with adaptive render quality.
 
-### 3D host implementation note
-The v1.8.0 host uses a fully local raw-WebGL renderer rather than a runtime CDN dependency. This satisfies the approved requirement for genuine WebGL 3D while avoiding a deployment dependency on a third-party JavaScript CDN.
+## Web 1.9.0 Maintenance — Blue Robot & Grouped UI
 
-### Verification boundary
-Source/domain regression tests, Python/Jinja parsing and JavaScript syntax checks are run in the build environment. Chromium layout smoke tests cover 1440×900, 1920×1080, 1024×768 and 390×844. The sandbox does not provide Flask or a usable headless WebGL context/real Smart-TV GPU, so live Flask route execution and physical TV/WebGL rendering are not claimed as tested there.
+- Restores the original blue Livenza robot as the default live mascot and removes the WebGL 3D host runtime from the default page shell.
+- Rebuilds Mascot Settings with responsive native controls while preserving existing preference compatibility and Admin policy keys.
+- Replaces the long hamburger application list with categorized tabs and a responsive application grid.
+- Uses the same shared application catalog on Home and in the three-line menu, including **Livenza Letterhead Studio** from Web 1.9.0.
+- Adds site-wide text wrapping, touch-target, translucent mascot-chat, reduced-motion and low-capability performance hardening.
+- No database migration is required for this maintenance update.
+
+## Web 1.9.0 — Livenza Letterhead Studio
+
+### Web 1.9.0 highlights
+- Adds **Livenza Letterhead Studio** with Ask Livenza AI, manual/hybrid drafting, Final Review, controlled PDF issuance and a searchable automatic Document Vault.
+- Adds connected, permission-aware internal-data drafting with sensitive-data minimization and explicit user approval before protected supporting documents are attached.
+- Adds user-authored letterhead template drafts with Admin-only publication, immutable published versions, protected signatures/seals and versioned template history.
+- Adds Email and WhatsApp delivery using providers configured only in the centralized **Integrations Center**, with retryable delivery state/history.
+- Adds automatic reference numbering, immutable finalized PDFs, revision chains, audited no-store downloads and encrypted-at-rest Letterhead assets using `LIVENZA_VAULT_MASTER_KEY`.
+
+### Deployment
+v1.8.0 must already be deployed/merged. Apply `migrations/web_v1_9_0.sql` where automatic table creation is unavailable. Historical PDFs are not automatically reconstructed into the new Document Vault. See `README_v1.9.0.md` for complete deployment notes.
+
+
+## Previous platform foundation — Web 1.8.0
+
+Web 1.8.0 introduced the centralized Integrations Center, Vault-backed integration configuration, Smart-TV compatibility bootstrap and responsive layout foundation used by Web 1.9.0. Its experimental WebGL mascot presentation is superseded by the **Web 1.9.0 Blue Robot & Grouped UI maintenance** above; the blue Livenza robot is the current default mascot.
 
 ## Web 1.7.1 — Glass Applications Drawer + Landlord/Tenant Masters
 
@@ -309,8 +318,3 @@ The app derives the Supabase project reference from `DATABASE_URL`. External/CDN
 ## TV setup
 
 Open Video Wall Studio, register a screen, copy its unique Player URL, and open that URL in the smart-TV browser, signage mini-PC, Fire TV browser, or attached computer. Keep the page open. Media changes and festive takeover commands are picked up automatically.
-### Web 1.8.0 responsive UI maintenance
-The current Web 1.8.0 maintenance tree includes a site-wide responsive/readability pass, a reachable Integrations category rail, local table overflow, a lighter glass/motion budget, an independent translucent Ask Livenza panel, and restored performance-safe home-logo border animation. See `README_v1.8.0.md` for the exact browser verification scope and sandbox limitations.
-
-### Web 1.8.0 blue mascot & navigation maintenance
-The default companion is again the lightweight blue Livenza robot. Mascot settings use reliable native controls, the hamburger menu is categorized, Home uses the same shared application grouping, and constrained-device motion/blur has been reduced. Default pages no longer load the WebGL host runtime. See `README_v1.8.0.md` for verification details.

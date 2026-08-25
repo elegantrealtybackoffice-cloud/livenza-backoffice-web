@@ -28,10 +28,17 @@ from electricity_providers import load_seed_providers, seed_electricity_provider
 from vault_core import encrypt_secret, decrypt_secret, mask_secret, validate_secret_type, ALLOWED_SECRET_TYPES, encrypt_blob, decrypt_blob
 from integrations_core import category_module, user_can_access_category, safe_connection_summary, validate_integration_secret_name, normalize_nonsecret_config
 from integrations_catalog import load_integration_catalog, seed_integration_providers, legacy_connection_status, provider_workflow_url
+from letterhead_ai import classify_request, missing_required_fields, build_ai_draft_request, parse_structured_draft, rewrite_action, deterministic_draft
+from letterhead_integrations import get_ai_client, send_email as letterhead_send_email, send_whatsapp as letterhead_send_whatsapp
+from letterhead_pdf import render_letterhead_pdf, merge_annexures, sha256_bytes
+from letterhead_delivery import can_retry_delivery
+from letterhead_core import validate_structured_content, audit_safe_metadata, format_reference_number, build_reference_prefix, can_transition_document
+from letterhead_sources import SourceCandidate, resolve_sources, minimize_for_ai, can_access_protected_source
+from letterhead_templates import template_is_usable, signature_is_usable, next_template_version_no, starter_template_definitions
 from party_master_core import (MASTER_FIELD_SET, SENSITIVE_FIELDS, DOCUMENT_CATEGORIES, LANDLORD_AGREEMENT_MAP, TENANT_AGREEMENT_MAP, normalize_master_payload, safe_master_summary, identifier_lookup_hash, identifier_lookup_hashes, mask_identifier, master_display_payload, validate_master_document, legacy_profile_to_master, apply_master_mapping, parse_annexure_ids)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.8.0'
+APP_VERSION = 'Web 1.9.0'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -87,6 +94,7 @@ class User(db.Model):
     aadhaar_verification_ref = db.Column(db.String(180), default='')
     aadhaar_verified_at = db.Column(db.DateTime, nullable=True)
     permissions_json = db.Column(db.Text, default='[]')
+    capabilities_json = db.Column(db.Text, default='[]')
     pattern_hash = db.Column(db.Text, default='')
     webauthn_enabled = db.Column(db.Boolean, default=False)
     webauthn_enrolled_at = db.Column(db.DateTime, nullable=True)
@@ -396,6 +404,130 @@ class IntegrationSecretRef(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     __table_args__ = (db.UniqueConstraint('connection_id','secret_name',name='uq_integration_connection_secret'),)
+
+class LetterheadTemplate(db.Model):
+    __tablename__ = 'letterhead_template'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(160), nullable=False)
+    slug = db.Column(db.String(180), nullable=False, unique=True, index=True)
+    entity_scope = db.Column(db.String(160), default='')
+    property_scope = db.Column(db.String(160), default='')
+    document_family_scope = db.Column(db.String(160), default='')
+    status = db.Column(db.String(24), nullable=False, default='draft', index=True)
+    current_published_version_id = db.Column(db.Integer, nullable=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class LetterheadTemplateVersion(db.Model):
+    __tablename__ = 'letterhead_template_version'
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('letterhead_template.id'), nullable=False, index=True)
+    version_no = db.Column(db.Integer, nullable=False)
+    lifecycle_state = db.Column(db.String(24), nullable=False, default='draft', index=True)
+    layout_json = db.Column(db.Text, nullable=False, default='{}')
+    scope_json = db.Column(db.Text, nullable=False, default='{}')
+    content_hash = db.Column(db.String(64), nullable=False, default='')
+    submitted_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+    published_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    published_at = db.Column(db.DateTime, nullable=True)
+    rejection_comment = db.Column(db.Text, nullable=False, default='')
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('template_id','version_no',name='uq_letterhead_template_version'),)
+
+class LetterheadAsset(db.Model):
+    __tablename__ = 'letterhead_asset'
+    id = db.Column(db.Integer, primary_key=True)
+    asset_kind = db.Column(db.String(40), nullable=False, index=True)
+    owner_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    mime_type = db.Column(db.String(80), nullable=False)
+    encrypted_asset = db.Column(db.LargeBinary, nullable=False)
+    sha256 = db.Column(db.String(64), nullable=False, index=True)
+    display_name = db.Column(db.String(240), nullable=False, default='')
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+
+class SignatureAsset(db.Model):
+    __tablename__ = 'signature_asset'
+    id = db.Column(db.Integer, primary_key=True)
+    asset_kind = db.Column(db.String(24), nullable=False, default='signature')
+    signatory_name = db.Column(db.String(160), nullable=False)
+    designation = db.Column(db.String(160), nullable=False, default='')
+    scope_json = db.Column(db.Text, nullable=False, default='{}')
+    encrypted_asset = db.Column(db.LargeBinary, nullable=False)
+    mime_type = db.Column(db.String(80), nullable=False)
+    effective_date = db.Column(db.Date, nullable=True)
+    expires_at = db.Column(db.Date, nullable=True)
+    revoked_at = db.Column(db.DateTime, nullable=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+
+class LetterheadDocument(db.Model):
+    __tablename__ = 'letterhead_document'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(240), nullable=False)
+    document_family = db.Column(db.String(80), nullable=False, default='custom', index=True)
+    lifecycle_state = db.Column(db.String(24), nullable=False, default='draft', index=True)
+    creator_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    property_ref = db.Column(db.String(160), nullable=False, default='', index=True)
+    entity_ref = db.Column(db.String(160), nullable=False, default='', index=True)
+    source_refs_json = db.Column(db.Text, nullable=False, default='[]')
+    current_revision_id = db.Column(db.Integer, nullable=True)
+    finalized_revision_id = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class LetterheadDocumentRevision(db.Model):
+    __tablename__ = 'letterhead_document_revision'
+    id = db.Column(db.Integer, primary_key=True)
+    document_id = db.Column(db.Integer, db.ForeignKey('letterhead_document.id'), nullable=False, index=True)
+    revision_no = db.Column(db.Integer, nullable=False)
+    structured_content_json = db.Column(db.Text, nullable=False, default='{}')
+    template_version_id = db.Column(db.Integer, db.ForeignKey('letterhead_template_version.id'), nullable=True)
+    signature_asset_id = db.Column(db.Integer, db.ForeignKey('signature_asset.id'), nullable=True)
+    reference_number = db.Column(db.String(160), nullable=False, default='', index=True)
+    status = db.Column(db.String(24), nullable=False, default='draft', index=True)
+    encrypted_pdf = db.Column(db.LargeBinary, nullable=True)
+    pdf_sha256 = db.Column(db.String(64), nullable=False, default='')
+    approved_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    approved_at = db.Column(db.DateTime, nullable=True)
+    finalized_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('document_id','revision_no',name='uq_letterhead_document_revision'),)
+
+class DocumentAttachmentLink(db.Model):
+    __tablename__ = 'document_attachment_link'
+    id = db.Column(db.Integer, primary_key=True)
+    revision_id = db.Column(db.Integer, db.ForeignKey('letterhead_document_revision.id'), nullable=False, index=True)
+    source_kind = db.Column(db.String(80), nullable=False)
+    source_id = db.Column(db.String(120), nullable=False)
+    suggested_by_ai = db.Column(db.Boolean, nullable=False, default=False)
+    approved_by_user = db.Column(db.Boolean, nullable=False, default=False)
+    approved_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    approved_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+
+class DocumentDelivery(db.Model):
+    __tablename__ = 'document_delivery'
+    id = db.Column(db.Integer, primary_key=True)
+    revision_id = db.Column(db.Integer, db.ForeignKey('letterhead_document_revision.id'), nullable=False, index=True)
+    channel = db.Column(db.String(24), nullable=False, index=True)
+    recipient = db.Column(db.String(320), nullable=False)
+    state = db.Column(db.String(24), nullable=False, default='pending', index=True)
+    provider_name = db.Column(db.String(80), nullable=False, default='')
+    provider_reference = db.Column(db.String(240), nullable=False, default='')
+    attempt_no = db.Column(db.Integer, nullable=False, default=1)
+    error_code = db.Column(db.String(120), nullable=False, default='')
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+class DocumentSequence(db.Model):
+    __tablename__ = 'document_sequence'
+    id = db.Column(db.Integer, primary_key=True)
+    sequence_key = db.Column(db.String(220), nullable=False, unique=True, index=True)
+    next_value = db.Column(db.Integer, nullable=False, default=1)
 
 class MascotPreference(db.Model):
     __tablename__ = 'mascot_preference'
@@ -1383,6 +1515,19 @@ MODULES = {
     'email': 'Email Workspace',
     'drive': 'Google Drive Files',
     'integrations': 'Integrations Center',
+    'letterhead': 'Livenza Letterhead Studio',
+}
+
+
+LETTERHEAD_CAPABILITIES = {
+    'letterhead_use': 'Use Letterhead Studio',
+    'letterhead_ai': 'Use Ask Livenza AI',
+    'letterhead_template_author': 'Create and edit letterhead template drafts',
+    'letterhead_template_submit': 'Submit letterhead templates for approval',
+    'letterhead_signature_use': 'Use protected signatures and seals',
+    'letterhead_email_send': 'Send finalized documents by email',
+    'letterhead_whatsapp_send': 'Send finalized documents by WhatsApp',
+    'letterhead_vault_all': 'View all authorized Letterhead Document Vault records',
 }
 
 BASE_REQUIRED_AGREEMENT_FIELDS = []
@@ -1416,6 +1561,43 @@ def user_permissions(user=None):
         return {x for x in vals if x in MODULES}
     except Exception:
         return set()
+
+
+def user_capabilities(user=None):
+    user = user or current_user()
+    if not user:
+        return set()
+    if (user.role or '').lower() == 'admin':
+        return set(LETTERHEAD_CAPABILITIES)
+    try:
+        vals = json.loads(getattr(user, 'capabilities_json', '') or '[]')
+        allowed = {x for x in vals if x in LETTERHEAD_CAPABILITIES}
+    except Exception:
+        allowed = set()
+    if can_access('letterhead', user):
+        allowed.add('letterhead_use')
+    return allowed
+
+
+def has_capability(capability, user=None):
+    return capability in user_capabilities(user)
+
+
+def capability_required(capability):
+    def outer(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            if not session.get('uid'):
+                return redirect(url_for('login', next=request.path))
+            user = current_user()
+            if not user or not user.active:
+                session.clear()
+                return redirect(url_for('login'))
+            if not has_capability(capability, user):
+                abort(403)
+            return fn(*args, **kwargs)
+        return wrapper
+    return outer
 
 
 def can_access(module, user=None):
@@ -2323,7 +2505,7 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','left-glass-app-drawer','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture','avatar-camera-device-selector','avatar-direct-blob-submit','reliable-local-avatar-fallback','banking-suite','official-bank-launcher','encrypted-bank-statement-vault','reconciliation-template-library','bank-statement-reconciliation','admin-managed-profile-control','admin-avatar-studio','admin-role-permissions','electricity-bill-studio','all-india-electricity-directory','livenza-vault','bill-register-export','live-payment-reminders','bbps-adapter','utility-portal-fallback','electricity-payment-status','admin-electricity-controls','electricity-audit-log','ai-live-mascot','no-photo-mascot-fallback','landlord-master','tenant-master','encrypted-master-documents','agreement-master-autofill','agreement-master-annexures','agreement-master-audit','legacy-party-profile-migration','full-webgl-3d-host','articulated-livenza-digital-host','role-aware-integrations-center','vault-backed-integration-secrets','layout-overlap-safety','tv-legacy-navigation-bootstrap','tv-adaptive-3d-quality','stable-non-clickable-photos','per-user-3d-host-preferences'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','left-glass-app-drawer','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture','avatar-camera-device-selector','avatar-direct-blob-submit','reliable-local-avatar-fallback','banking-suite','official-bank-launcher','encrypted-bank-statement-vault','reconciliation-template-library','bank-statement-reconciliation','admin-managed-profile-control','admin-avatar-studio','admin-role-permissions','electricity-bill-studio','all-india-electricity-directory','livenza-vault','bill-register-export','live-payment-reminders','bbps-adapter','utility-portal-fallback','electricity-payment-status','admin-electricity-controls','electricity-audit-log','ai-live-mascot','no-photo-mascot-fallback','landlord-master','tenant-master','encrypted-master-documents','agreement-master-autofill','agreement-master-annexures','agreement-master-audit','legacy-party-profile-migration','full-webgl-3d-host','articulated-livenza-digital-host','role-aware-integrations-center','vault-backed-integration-secrets','layout-overlap-safety','tv-legacy-navigation-bootstrap','tv-adaptive-3d-quality','stable-non-clickable-photos','per-user-3d-host-preferences','letterhead-studio','ask-livenza-document-ai','letterhead-template-library','protected-letterhead-signatures','mandatory-final-review','immutable-letterhead-pdf','letterhead-document-vault','letterhead-email-delivery','letterhead-whatsapp-delivery','letterhead-connected-data-drafting'])
 
 def version_v1513():
     return jsonify(version=APP_VERSION,features=[
@@ -2345,6 +2527,9 @@ def version_v1513():
         'live-payment-reminders','bbps-adapter','utility-portal-fallback','electricity-payment-status',
         'admin-electricity-controls','electricity-audit-log','ai-live-mascot','no-photo-mascot-fallback',
         'blue-robot-default-mascot','mascot-native-settings','categorized-app-navigation','shared-home-menu-catalog','no-default-webgl-runtime',
+        'letterhead-studio','ask-livenza-document-ai','letterhead-template-library','protected-letterhead-signatures',
+        'mandatory-final-review','immutable-letterhead-pdf','letterhead-document-vault','letterhead-email-delivery',
+        'letterhead-whatsapp-delivery','letterhead-connected-data-drafting',
     ])
 
 # Keep the original endpoint identity while exposing the current release's
@@ -4452,7 +4637,8 @@ HELP_FEATURES = {
     'fullscreen': 'Open View → Full Screen. While fullscreen is active, top navigation uses in-place page switching so moving between modules does not exit fullscreen.',
     'rotate': 'Open View and choose Auto, Portrait, Landscape, 90°, 180° or 270°. Portrait/Landscape can use device orientation on supported fullscreen mobile/tablet browsers; desktop custom angles rotate the application viewport.',
     'user': 'Admins can open the profile menu → Admin to create user IDs, passwords, profile photos and module-by-module access permissions.',
-    'city': 'Admins can manage operating cities from the Admin panel. City data is then available across the dashboard, rooms, tenants, agreements and queries.'
+    'city': 'Admins can manage operating cities from the Admin panel. City data is then available across the dashboard, rooms, tenants, agreements and queries.',
+    'letterhead': 'Open Applications → Livenza Letterhead Studio to create a residence certificate or other official document manually or with Ask Livenza AI. Review source facts and suggested attachments, complete Final Review, then finalize the PDF. Finalized PDFs are stored in Document Vault and can be sent by Email or WhatsApp when those providers are configured in Integrations Center.'
 }
 
 def _local_help_answer(question):
@@ -4477,11 +4663,12 @@ def _local_help_answer(question):
         (('fullscreen','full screen','f11'), 'fullscreen'),
         (('rotate','portrait','landscape','orientation'), 'rotate'),
         (('user','permission','login','password','access'), 'user'),
+        (('letterhead','residence certificate','document vault','ask livenza document','send pdf by email','send pdf on whatsapp','official letter'), 'letterhead'),
         (('city','location'), 'city'),
     ]
     for words,key in aliases:
         if any(w in q for w in words):return HELP_FEATURES[key]
-    return 'I can guide you through Agreements, Rooms, Tenants, Reviews, Queries and Spreadsheet View, Video Wall, Billing, Banking & Reconciliation, Electricity Bill Studio, Livenza Vault, Live Reminders, Fullscreen/Rotate, users/permissions and city setup. Ask a specific question about the feature you want to use.'
+    return 'I can guide you through Agreements, Rooms, Tenants, Reviews, Queries and Spreadsheet View, Video Wall, Billing, Banking & Reconciliation, Electricity Bill Studio, Livenza Vault, Letterhead Studio and Document Vault, Live Reminders, Fullscreen/Rotate, users/permissions and city setup. Ask a specific question about the feature you want to use.'
 
 @app.route('/api/help',methods=['POST'])
 @login_required
@@ -4918,6 +5105,904 @@ def integration_provider_portal(provider_id):
         context=_integration_center_context(provider.category,provider.provider_key); context['portal_embed_url']=target; return render_template('integrations.html',**context)
     return redirect(target)
 
+# ===== Web 1.9.0 • Permission-aware Letterhead sources =====
+
+def _letterhead_actor_is_admin(actor):
+    return bool(actor and (actor.role or '').lower()=='admin')
+
+def _letterhead_master_candidate(kind,row,actor):
+    allowed=can_access('agreements',actor)
+    payload=_master_payload(row) if allowed else {}
+    facts={
+        'full_name': payload.get('legal_name') or payload.get('full_name') or row.legal_name or row.profile_name,
+        'profile_name': row.profile_name,
+        'mobile': payload.get('primary_mobile') or row.primary_mobile,
+        'email': payload.get('email') or row.email,
+        'address': payload.get('permanent_address') or payload.get('current_address') or payload.get('registered_address') or '',
+        'city': row.city, 'state': row.state, 'country': row.country,
+        'aadhaar': payload.get('aadhaar_no') or payload.get('aadhaar') or '',
+        'pan': payload.get('pan_no') or payload.get('pan') or '',
+        'passport': payload.get('passport_no') or payload.get('passport') or '',
+        'visa': payload.get('visa_no') or payload.get('visa') or '',
+        'account_number': payload.get('bank_account_no') or payload.get('account_number') or '',
+        'ifsc': payload.get('ifsc') or '',
+    }
+    docs=[]
+    if allowed and _letterhead_actor_is_admin(actor):
+        q=MasterDocument.query.filter_by(active=True)
+        q=q.filter_by(tenant_master_id=row.id) if kind=='tenant' else q.filter_by(landlord_master_id=row.id)
+        docs=[str(d.id) for d in q.all()]
+    return {'id':row.id,'display_label':f"{row.profile_name} — {row.city or 'Livenza'}",'facts':facts,'protected_document_ids':docs,'allowed':bool(allowed)}
+
+def _letterhead_source_loaders(actor):
+    def tenant_loader(query):
+        if not can_access('agreements',actor): return []
+        needle=(query.get('name') or query.get('q') or '').strip()
+        q=TenantMaster.query.filter_by(active=True)
+        if needle: q=q.filter(or_(TenantMaster.profile_name.ilike(f'%{needle}%'),TenantMaster.legal_name.ilike(f'%{needle}%')))
+        return [_letterhead_master_candidate('tenant',row,actor) for row in q.order_by(TenantMaster.updated_at.desc()).limit(20).all()]
+    def landlord_loader(query):
+        if not can_access('agreements',actor): return []
+        needle=(query.get('name') or query.get('q') or '').strip()
+        q=LandlordMaster.query.filter_by(active=True)
+        if needle: q=q.filter(or_(LandlordMaster.profile_name.ilike(f'%{needle}%'),LandlordMaster.legal_name.ilike(f'%{needle}%')))
+        return [_letterhead_master_candidate('landlord',row,actor) for row in q.order_by(LandlordMaster.updated_at.desc()).limit(20).all()]
+    def room_loader(query):
+        if not can_access('rooms',actor): return []
+        needle=(query.get('room') or query.get('q') or '').strip(); q=Room.query
+        if needle: q=q.filter(or_(Room.room_no.ilike(f'%{needle}%'),Room.property_name.ilike(f'%{needle}%')))
+        return [{'id':r.id,'display_label':f'{r.property_name} — Room {r.room_no}','facts':{'property_name':r.property_name,'room_no':r.room_no,'city':r.city,'premises':r.premises,'room_type':r.room_type},'allowed':True} for r in q.limit(20).all()]
+    def agreement_loader(query):
+        if not can_access('agreements',actor): return []
+        needle=(query.get('q') or query.get('name') or '').strip(); q=Agreement.query
+        if needle: q=q.filter(Agreement.name.ilike(f'%{needle}%'))
+        out=[]
+        for row in q.order_by(Agreement.updated_at.desc()).limit(20).all():
+            d=row.data; out.append({'id':row.id,'display_label':row.name,'facts':{'agreement_name':row.name,'preset':row.preset,'property_name':d.get('property_name',''),'room_no':d.get('room_no',''),'rent':d.get('monthly_rent','') or d.get('rent',''),'tenant_name':d.get('tenant_name',''),'landlord_name':d.get('landlord_name','')},'allowed':True})
+        return out
+    def billing_loader(query):
+        if not can_access('electricity',actor): return []
+        rows=ElectricityBill.query.order_by(ElectricityBill.due_date.desc()).limit(20).all()
+        return [{'id':r.id,'display_label':f'Electricity bill {r.bill_no or r.id}','facts':{'bill_no':r.bill_no,'bill_date':str(r.bill_date or ''),'due_date':str(r.due_date or ''),'total_due':r.total_due,'status':r.status},'allowed':True} for r in rows]
+    def user_loader(query):
+        needle=(query.get('name') or query.get('q') or '').strip()
+        q=User.query
+        if not _letterhead_actor_is_admin(actor): q=q.filter(User.id==actor.id)
+        elif needle: q=q.filter(or_(User.full_name.ilike(f'%{needle}%'),User.username.ilike(f'%{needle}%')))
+        return [{'id':r.id,'display_label':r.full_name or r.username,'facts':{'full_name':r.full_name,'username':r.username,'role':r.role},'allowed':True} for r in q.limit(20).all()]
+    return {'tenant':tenant_loader,'landlord':landlord_loader,'room':room_loader,'agreement':agreement_loader,'billing':billing_loader,'user':user_loader}
+
+def _letterhead_resolve_sources(actor,query):
+    return resolve_sources(actor,query,_letterhead_source_loaders(actor))
+
+def _letterhead_protected_permission(actor,source_kind,source_id):
+    if source_kind!='master_document' or not _letterhead_actor_is_admin(actor): return False
+    try: doc=db.session.get(MasterDocument,int(source_id))
+    except Exception: return False
+    return bool(doc and doc.active)
+
+def _letterhead_read_protected_source(actor,source_kind,source_id,document_id=None):
+    if not can_access_protected_source(actor,source_kind,source_id,_letterhead_protected_permission): abort(403)
+    if source_kind=='master_document':
+        doc=db.session.get(MasterDocument,int(source_id)) or abort(404)
+        raw=decrypt_blob(doc.ciphertext,doc.nonce,_master_key())
+        record_audit('letterhead_protected_source_read',source_kind,doc.id,module='letterhead',meta={'source_kind':source_kind,'source_id':str(doc.id),'purpose':'letterhead_ai_drafting','document_id':document_id}); db.session.commit(); return raw,doc.mime_type
+    abort(404)
+
+# ===== Web 1.9.0 • Letterhead Studio editor/review =====
+
+def _letterhead_encrypt_bytes(raw):
+    ciphertext,nonce=encrypt_blob(raw,_master_key())
+    return json.dumps({'v':'v1','ciphertext':ciphertext,'nonce':nonce},separators=(',',':')).encode('utf-8')
+
+def _letterhead_decrypt_bytes(packed):
+    try:
+        data=json.loads(bytes(packed or b'').decode('utf-8'))
+        return decrypt_blob(data['ciphertext'],data['nonce'],_master_key())
+    except Exception as exc:
+        raise ValueError('Protected Letterhead asset could not be decrypted.') from exc
+
+def _letterhead_can_edit_document(document,actor):
+    return bool(document and actor and (document.creator_user_id==actor.id or has_capability('letterhead_vault_all',actor)))
+
+def _letterhead_current_revision(document):
+    return db.session.get(LetterheadDocument,document.id).current_revision_id and db.session.get(LetterheadDocumentRevision,document.current_revision_id)
+
+def _letterhead_attachment_access(actor,source_kind,source_id):
+    if source_kind=='master_document': return _letterhead_protected_permission(actor,source_kind,source_id)
+    if source_kind=='letterhead_asset':
+        try: asset=db.session.get(LetterheadAsset,int(source_id))
+        except Exception: return False
+        return bool(asset and asset.is_active and (asset.owner_user_id==actor.id or (actor.role or '').lower()=='admin' or has_capability('letterhead_vault_all',actor)))
+    return False
+
+def _letterhead_review_errors(document,revision,actor):
+    errors=[]
+    try: content=json.loads(revision.structured_content_json or '{}')
+    except Exception: content={}; errors.append('Document content is not valid structured data.')
+    for key in validate_structured_content(content): errors.append('Missing or invalid '+key.replace('_',' ')+'.')
+    if not revision.template_version_id: errors.append('Select a published letterhead template.')
+    else:
+        version=db.session.get(LetterheadTemplateVersion,revision.template_version_id)
+        if not version or not template_is_usable(version,actor,{'property_ref':document.property_ref,'entity_ref':document.entity_ref,'document_family':document.document_family}): errors.append('Selected letterhead template is not currently published or permitted.')
+    if revision.signature_asset_id:
+        signature=db.session.get(SignatureAsset,revision.signature_asset_id)
+        if not signature or not signature_is_usable(signature,actor,{'property_ref':document.property_ref,'entity_ref':document.entity_ref,'document_family':document.document_family},datetime.date.today()): errors.append('Selected signature/seal is expired, revoked, or not permitted.')
+    for link in DocumentAttachmentLink.query.filter_by(revision_id=revision.id,approved_by_user=True).all():
+        if not _letterhead_attachment_access(actor,link.source_kind,link.source_id): errors.append('An approved supporting attachment is no longer accessible.')
+    return errors
+
+def _letterhead_integration_readiness():
+    ai_ready = bool((_letterhead_ai_provider_config().get('api_key') or '').strip())
+    return {
+        'ai': {'label': 'AI', 'ready': ai_ready, 'category': 'ai', 'provider': 'openai'},
+        'email': {'label': 'Email', 'ready': _letterhead_email_ready(), 'category': 'google_email', 'provider': 'google_email'},
+        'whatsapp': {'label': 'WhatsApp', 'ready': _letterhead_whatsapp_ready(), 'category': 'whatsapp', 'provider': 'whatsapp_cloud'},
+    }
+
+
+@app.route('/letterhead')
+@permission_required('letterhead')
+def letterhead_studio():
+    actor=current_user(); all_docs=has_capability('letterhead_vault_all',actor)
+    q=LetterheadDocument.query if all_docs else LetterheadDocument.query.filter_by(creator_user_id=actor.id)
+    recent=q.order_by(LetterheadDocument.updated_at.desc()).limit(20).all()
+    finalized=q.filter(LetterheadDocument.finalized_revision_id.isnot(None)).order_by(LetterheadDocument.updated_at.desc()).limit(8).all()
+    pending=LetterheadTemplateVersion.query.filter_by(lifecycle_state='submitted').count() if (actor.role or '').lower()=='admin' else 0
+    accessible_ids=[d.current_revision_id for d in recent if d.current_revision_id]
+    failed=DocumentDelivery.query.filter(DocumentDelivery.revision_id.in_(accessible_ids),DocumentDelivery.state=='failed').count() if accessible_ids else 0
+    published=LetterheadTemplateVersion.query.filter_by(lifecycle_state='published').order_by(LetterheadTemplateVersion.id.desc()).all()
+    return render_template('letterhead_studio.html',recent_documents=recent,finalized_documents=finalized,pending_templates=pending,delivery_failures=failed,templates=published,ai_pending=session.get('letterhead_ai_pending'),ai_missing=(session.get('letterhead_ai_pending') or {}).get('missing',[]),integration_readiness=_letterhead_integration_readiness())
+
+@app.route('/letterhead/documents/new',methods=['POST'])
+@capability_required('letterhead_use')
+def letterhead_document_new():
+    actor=current_user(); title=(request.form.get('title') or 'Untitled Livenza Letter').strip()[:240]; family=classify_request(request.form.get('document_type') or title)
+    property_ref=(request.form.get('property_or_entity') or '').strip()[:160]
+    content={'document_family':family,'title':title,'date':datetime.date.today().isoformat(),'addressee':'To Whom It May Concern','subject':title,'body_sections':[{'type':'paragraph','text':''}],'property_or_entity':property_ref,'source_record_ids':[],'suggested_attachment_ids':[],'source_summary':[]}
+    document=LetterheadDocument(title=title,document_family=family,lifecycle_state='draft',creator_user_id=actor.id,property_ref=property_ref,source_refs_json='[]'); db.session.add(document); db.session.flush()
+    revision=LetterheadDocumentRevision(document_id=document.id,revision_no=1,structured_content_json=json.dumps(content,ensure_ascii=False),status='draft'); db.session.add(revision); db.session.flush(); document.current_revision_id=revision.id
+    record_audit('letterhead_document_created','letterhead_document',document.id,module='letterhead',meta={'document_family':family}); db.session.commit(); return redirect(url_for('letterhead_editor_page',document_id=document.id))
+
+@app.route('/letterhead/supporting-files/upload',methods=['POST'])
+@capability_required('letterhead_use')
+def letterhead_supporting_upload():
+    actor=current_user(); upload=request.files.get('file')
+    if not upload or not upload.filename: flash('Choose a supporting file.','danger'); return redirect(request.referrer or url_for('letterhead_studio'))
+    raw=upload.read(); mime=(upload.mimetype or 'application/octet-stream')[:80]
+    if len(raw)>12*1024*1024: flash('Supporting files must be 12 MB or smaller.','danger'); return redirect(request.referrer or url_for('letterhead_studio'))
+    try: packed=_letterhead_encrypt_bytes(raw)
+    except Exception as exc: flash(str(exc),'danger'); return redirect(request.referrer or url_for('letterhead_studio'))
+    asset=LetterheadAsset(asset_kind='supporting_document',owner_user_id=actor.id,mime_type=mime,encrypted_asset=packed,sha256=hashlib.sha256(raw).hexdigest(),display_name=secure_filename(upload.filename)[:240] or 'supporting-document',is_active=True); db.session.add(asset); db.session.flush()
+    did=(request.form.get('document_id') or '').strip()
+    if did.isdigit():
+        document=db.session.get(LetterheadDocument,int(did))
+        if document and _letterhead_can_edit_document(document,actor):
+            revision=db.session.get(LetterheadDocumentRevision,document.current_revision_id)
+            if revision: db.session.add(DocumentAttachmentLink(revision_id=revision.id,source_kind='letterhead_asset',source_id=str(asset.id),suggested_by_ai=False,approved_by_user=True,approved_by_user_id=actor.id,approved_at=datetime.datetime.utcnow()))
+    record_audit('letterhead_supporting_asset_uploaded','letterhead_asset',asset.id,module='letterhead',meta={'mime_type':mime,'size_bytes':len(raw)}); db.session.commit(); flash('Supporting file encrypted and saved.','success'); return redirect(request.referrer or url_for('letterhead_studio'))
+
+@app.route('/letterhead/documents/<int:document_id>/edit')
+@capability_required('letterhead_use')
+def letterhead_editor_page(document_id):
+    actor=current_user(); document=db.session.get(LetterheadDocument,document_id) or abort(404)
+    if not _letterhead_can_edit_document(document,actor): abort(403)
+    revision=db.session.get(LetterheadDocumentRevision,document.current_revision_id) or abort(404)
+    try: content=json.loads(revision.structured_content_json or '{}')
+    except Exception: content={}
+    versions=[v for v in LetterheadTemplateVersion.query.filter_by(lifecycle_state='published').order_by(LetterheadTemplateVersion.id.desc()).all() if template_is_usable(v,actor,{'property_ref':document.property_ref,'entity_ref':document.entity_ref,'document_family':document.document_family})]
+    signatures=[x for x in SignatureAsset.query.filter_by(is_active=True).order_by(SignatureAsset.signatory_name).all() if signature_is_usable(x,actor,{'property_ref':document.property_ref,'entity_ref':document.entity_ref,'document_family':document.document_family},datetime.date.today())]
+    links=DocumentAttachmentLink.query.filter_by(revision_id=revision.id).order_by(DocumentAttachmentLink.id).all()
+    suggestions=[]
+    for link in links:
+        label=f'{link.source_kind} #{link.source_id}'
+        if link.source_kind=='master_document':
+            try:
+                d=db.session.get(MasterDocument,int(link.source_id)); label=d.display_label if d else label
+            except Exception: pass
+        elif link.source_kind=='letterhead_asset':
+            try:
+                a=db.session.get(LetterheadAsset,int(link.source_id)); label=a.display_name if a else label
+            except Exception: pass
+        suggestions.append({'link':link,'label':label,'accessible':_letterhead_attachment_access(actor,link.source_kind,link.source_id)})
+    return render_template('letterhead_editor.html',document=document,revision=revision,content=content,template_versions=versions,signatures=signatures,attachments=suggestions,can_ai=has_capability('letterhead_ai',actor))
+
+@app.route('/letterhead/documents/<int:document_id>/autosave',methods=['POST'])
+@capability_required('letterhead_use')
+def letterhead_autosave(document_id):
+    actor=current_user(); document=db.session.get(LetterheadDocument,document_id) or abort(404)
+    if not _letterhead_can_edit_document(document,actor): abort(403)
+    revision=db.session.get(LetterheadDocumentRevision,document.current_revision_id) or abort(404)
+    if revision.status not in ('draft','review_required'): return jsonify(ok=False,error='Finalized revisions cannot be edited.'),409
+    data=request.get_json(silent=True) or {}
+    content=data.get('content')
+    if not isinstance(content,dict): return jsonify(ok=False,error='Structured content is required.'),400
+    # Persist structured JSON only; browser HTML is never authoritative.
+    revision.structured_content_json=json.dumps(content,ensure_ascii=False,separators=(',',':')); document.title=str(content.get('title') or document.title)[:240]; document.property_ref=str(content.get('property_or_entity') or '')[:160]; document.updated_at=datetime.datetime.utcnow()
+    tid=str(data.get('template_version_id') or '')
+    if tid.isdigit():
+        version=db.session.get(LetterheadTemplateVersion,int(tid))
+        if not version or not template_is_usable(version,actor,{'property_ref':document.property_ref,'entity_ref':document.entity_ref,'document_family':document.document_family}): return jsonify(ok=False,error='Template is not published or permitted.'),400
+        revision.template_version_id=version.id
+    sid=str(data.get('signature_asset_id') or '')
+    if sid.isdigit():
+        signature=db.session.get(SignatureAsset,int(sid))
+        if not signature or not signature_is_usable(signature,actor,{'property_ref':document.property_ref,'entity_ref':document.entity_ref,'document_family':document.document_family},datetime.date.today()): return jsonify(ok=False,error='Signature is not permitted.'),400
+        revision.signature_asset_id=signature.id
+    elif sid=='': revision.signature_asset_id=None
+    if revision.status=='review_required': revision.status='draft'; document.lifecycle_state='draft'
+    db.session.commit(); return jsonify(ok=True,revision_id=revision.id,updated_at=document.updated_at.isoformat()+'Z')
+
+@app.route('/letterhead/documents/<int:document_id>/attachments/decision',methods=['POST'])
+@capability_required('letterhead_use')
+def letterhead_attachment_decision(document_id):
+    actor=current_user(); document=db.session.get(LetterheadDocument,document_id) or abort(404)
+    if not _letterhead_can_edit_document(document,actor): abort(403)
+    revision=db.session.get(LetterheadDocumentRevision,document.current_revision_id) or abort(404); data=request.get_json(silent=True) or request.form
+    kind=str(data.get('source_kind') or ''); sid=str(data.get('source_id') or ''); approved=str(data.get('approved') or '').lower() in ('1','true','yes','on')
+    if approved and not _letterhead_attachment_access(actor,kind,sid): return jsonify(ok=False,error='Attachment is no longer accessible.'),403
+    link=DocumentAttachmentLink.query.filter_by(revision_id=revision.id,source_kind=kind,source_id=sid).first()
+    if not link: link=DocumentAttachmentLink(revision_id=revision.id,source_kind=kind,source_id=sid); db.session.add(link)
+    link.approved_by_user=approved; link.approved_by_user_id=actor.id if approved else None; link.approved_at=datetime.datetime.utcnow() if approved else None
+    record_audit('letterhead_attachment_decision','letterhead_document',document.id,module='letterhead',meta={'source_kind':kind,'source_id':sid,'approved':approved}); db.session.commit(); return jsonify(ok=True,approved=approved)
+
+@app.route('/letterhead/documents/<int:document_id>/request-review',methods=['POST'])
+@capability_required('letterhead_use')
+def letterhead_request_review(document_id):
+    actor=current_user(); document=db.session.get(LetterheadDocument,document_id) or abort(404)
+    if not _letterhead_can_edit_document(document,actor): abort(403)
+    revision=db.session.get(LetterheadDocumentRevision,document.current_revision_id) or abort(404); errors=_letterhead_review_errors(document,revision,actor)
+    if errors:
+        for error in errors[:6]: flash(error,'danger')
+        return redirect(url_for('letterhead_editor_page',document_id=document.id))
+    revision.status='review_required'; document.lifecycle_state='review_required'; record_audit('letterhead_review_requested','letterhead_document',document.id,module='letterhead'); db.session.commit(); return redirect(url_for('letterhead_final_review',document_id=document.id))
+
+@app.route('/letterhead/documents/<int:document_id>/review')
+@capability_required('letterhead_use')
+def letterhead_final_review(document_id):
+    actor=current_user(); document=db.session.get(LetterheadDocument,document_id) or abort(404)
+    if not _letterhead_can_edit_document(document,actor): abort(403)
+    revision=db.session.get(LetterheadDocumentRevision,document.current_revision_id) or abort(404)
+    if document.lifecycle_state!='review_required' or revision.status!='review_required': flash('Send the document to Final Review from the editor first.','warning'); return redirect(url_for('letterhead_editor_page',document_id=document.id))
+    errors=_letterhead_review_errors(document,revision,actor)
+    if errors:
+        for error in errors[:6]: flash(error,'danger')
+        revision.status='draft'; document.lifecycle_state='draft'; db.session.commit(); return redirect(url_for('letterhead_editor_page',document_id=document.id))
+    content=json.loads(revision.structured_content_json or '{}'); version=db.session.get(LetterheadTemplateVersion,revision.template_version_id); template=db.session.get(LetterheadTemplate,version.template_id) if version else None; signature=db.session.get(SignatureAsset,revision.signature_asset_id) if revision.signature_asset_id else None
+    links=DocumentAttachmentLink.query.filter_by(revision_id=revision.id,approved_by_user=True).all()
+    return render_template('letterhead_final_review.html',document=document,revision=revision,content=content,template_version=version,template=template,signature=signature,attachments=links)
+
+# ===== Web 1.9.0 • Immutable Letterhead PDF issuance =====
+
+def _letterhead_layout_asset(layout,location):
+    value=None
+    if location=='logo': value=(layout.get('header') or {}).get('logo_asset_id')
+    elif location=='watermark': value=layout.get('watermark_asset_id')
+    elif location=='background': value=layout.get('background_asset_id')
+    if value in (None,''): return None
+    try: asset=db.session.get(LetterheadAsset,int(value))
+    except Exception: return None
+    if not asset or not asset.is_active: return None
+    try: raw=_letterhead_decrypt_bytes(asset.encrypted_asset)
+    except Exception: return None
+    return {'bytes':raw,'mime_type':asset.mime_type}
+
+def _letterhead_render_input(document,revision,reference_number):
+    content=json.loads(revision.structured_content_json or '{}')
+    version=db.session.get(LetterheadTemplateVersion,revision.template_version_id) or abort(409)
+    try: layout=json.loads(version.layout_json or '{}')
+    except Exception: layout={}
+    signature_payload=None
+    if revision.signature_asset_id:
+        signature=db.session.get(SignatureAsset,revision.signature_asset_id) or abort(409)
+        raw=_letterhead_decrypt_bytes(signature.encrypted_asset)
+        signature_payload={'bytes':raw,'mime_type':signature.mime_type,'name':signature.signatory_name,'designation':signature.designation}
+    return {'template':layout,'document':content,'reference_number':reference_number,'signature':signature_payload,'logo':_letterhead_layout_asset(layout,'logo'),'watermark':_letterhead_layout_asset(layout,'watermark'),'background':_letterhead_layout_asset(layout,'background')}
+
+def _letterhead_annexures(revision,actor):
+    result=[]
+    for link in DocumentAttachmentLink.query.filter_by(revision_id=revision.id,approved_by_user=True).order_by(DocumentAttachmentLink.id).all():
+        if not _letterhead_attachment_access(actor,link.source_kind,link.source_id): raise PermissionError('An approved attachment is no longer accessible.')
+        if link.source_kind=='master_document':
+            doc=db.session.get(MasterDocument,int(link.source_id)) or abort(404); raw=decrypt_blob(doc.ciphertext,doc.nonce,_master_key()); result.append((doc.mime_type,raw))
+        elif link.source_kind=='letterhead_asset':
+            asset=db.session.get(LetterheadAsset,int(link.source_id)) or abort(404); raw=_letterhead_decrypt_bytes(asset.encrypted_asset); result.append((asset.mime_type,raw))
+    return result
+
+def _letterhead_fiscal_year(on_date=None):
+    d=on_date or datetime.date.today(); start=d.year if d.month>=4 else d.year-1; return f'{start}-{str(start+1)[-2:]}'
+
+def _letterhead_allocate_sequence(sequence_key):
+    query=DocumentSequence.query.filter_by(sequence_key=sequence_key)
+    row=query.with_for_update().first() if db.engine.dialect.name=='postgresql' else query.first()
+    if not row:
+        row=DocumentSequence(sequence_key=sequence_key,next_value=2); db.session.add(row); db.session.flush(); return 1
+    value=max(1,int(row.next_value or 1)); row.next_value=value+1; db.session.flush(); return value
+
+def _letterhead_prior_reference(document,revision):
+    prior=LetterheadDocumentRevision.query.filter(LetterheadDocumentRevision.document_id==document.id,LetterheadDocumentRevision.id!=revision.id,LetterheadDocumentRevision.status=='finalized',LetterheadDocumentRevision.reference_number!='').order_by(LetterheadDocumentRevision.revision_no.asc()).first()
+    if not prior: return ''
+    return re.sub(r'-R\d+$','',prior.reference_number or '')
+
+@app.route('/letterhead/documents/<int:document_id>/finalize',methods=['POST'])
+@capability_required('letterhead_use')
+def letterhead_document_finalize(document_id):
+    actor=current_user(); document=db.session.get(LetterheadDocument,document_id) or abort(404)
+    if not _letterhead_can_edit_document(document,actor): abort(403)
+    revision=db.session.get(LetterheadDocumentRevision,document.current_revision_id) or abort(404)
+    if document.lifecycle_state!='review_required' or revision.status!='review_required': abort(409)
+    errors=_letterhead_review_errors(document,revision,actor)
+    if errors:
+        for error in errors[:6]: flash(error,'danger')
+        return redirect(url_for('letterhead_editor_page',document_id=document.id))
+    try:
+        annexures=_letterhead_annexures(revision,actor)
+        # Rendering must succeed before a number can be consumed.
+        draft_pdf=render_letterhead_pdf(_letterhead_render_input(document,revision,'PENDING FINAL REFERENCE'))
+        if annexures: merge_annexures(draft_pdf,annexures)
+        prior_base=_letterhead_prior_reference(document,revision)
+        if prior_base:
+            reference_number=f'{prior_base}-R{max(1,revision.revision_no-1)}'
+        else:
+            fy=_letterhead_fiscal_year(); key=f'{document.property_ref or document.entity_ref or "LIVENZA"}|{document.document_family}|{fy}'
+            seq=_letterhead_allocate_sequence(key); prefix=build_reference_prefix(document.property_ref or document.entity_ref or 'Livenza',document.document_family,fy); reference_number=format_reference_number(prefix,seq)
+        final_pdf=render_letterhead_pdf(_letterhead_render_input(document,revision,reference_number))
+        if annexures: final_pdf=merge_annexures(final_pdf,annexures)
+        packed=_letterhead_encrypt_bytes(final_pdf); now=datetime.datetime.utcnow()
+        revision.encrypted_pdf=packed; revision.pdf_sha256=sha256_bytes(final_pdf); revision.reference_number=reference_number; revision.status='finalized'; revision.approved_by_user_id=actor.id; revision.approved_at=now; revision.finalized_at=now
+        document.lifecycle_state='finalized'; document.finalized_revision_id=revision.id; document.current_revision_id=revision.id; document.updated_at=now
+        record_audit('letterhead_document_finalized','letterhead_document',document.id,module='letterhead',meta={'revision_id':revision.id,'reference_number':reference_number,'template_version_id':revision.template_version_id,'attachment_count':len(annexures)})
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback(); flash('PDF finalization failed. The document remains in Final Review: '+str(exc)[:220],'danger'); return redirect(url_for('letterhead_final_review',document_id=document.id))
+    flash('Document approved, finalized and stored in the Document Vault.','success'); return redirect(url_for('letterhead_vault_detail',document_id=document.id))
+
+@app.route('/letterhead/documents/<int:document_id>/revise',methods=['POST'])
+@capability_required('letterhead_use')
+def letterhead_document_revise(document_id):
+    actor=current_user(); document=db.session.get(LetterheadDocument,document_id) or abort(404)
+    if not _letterhead_can_edit_document(document,actor): abort(403)
+    source=db.session.get(LetterheadDocumentRevision,document.current_revision_id) or abort(404)
+    if source.status!='finalized': abort(409)
+    next_no=(db.session.query(func.max(LetterheadDocumentRevision.revision_no)).filter_by(document_id=document.id).scalar() or 0)+1
+    revision=LetterheadDocumentRevision(document_id=document.id,revision_no=next_no,structured_content_json=source.structured_content_json,template_version_id=source.template_version_id,signature_asset_id=source.signature_asset_id,status='draft'); db.session.add(revision); db.session.flush()
+    for link in DocumentAttachmentLink.query.filter_by(revision_id=source.id).all(): db.session.add(DocumentAttachmentLink(revision_id=revision.id,source_kind=link.source_kind,source_id=link.source_id,suggested_by_ai=link.suggested_by_ai,approved_by_user=False))
+    document.current_revision_id=revision.id; document.lifecycle_state='draft'; document.updated_at=datetime.datetime.utcnow(); record_audit('letterhead_document_revision_created','letterhead_document',document.id,module='letterhead',meta={'source_revision_id':source.id,'revision_id':revision.id,'revision_no':next_no}); db.session.commit(); flash('A new editable revision was created. The previously issued PDF is unchanged.','success'); return redirect(url_for('letterhead_editor_page',document_id=document.id))
+
+
+@app.route('/letterhead/documents/<int:document_id>/send/email',methods=['POST'])
+@capability_required('letterhead_email_send')
+def letterhead_document_send_email(document_id):
+    actor=current_user(); document=db.session.get(LetterheadDocument,document_id) or abort(404)
+    if not _letterhead_can_edit_document(document,actor): abort(403)
+    revision=db.session.get(LetterheadDocumentRevision,document.finalized_revision_id) if document.finalized_revision_id else None
+    if not revision or revision.status!='finalized': abort(409)
+    recipient=(request.form.get('recipient') or '').strip()
+    if not recipient or '@' not in recipient: flash('Enter a valid email recipient.','danger'); return redirect(url_for('letterhead_vault_detail',document_id=document.id))
+    payload=_letterhead_delivery_payload(document,revision,recipient,'email'); result=letterhead_send_email(actor,payload,provider=_letterhead_email_provider if _letterhead_email_ready() else None)
+    _letterhead_record_delivery(revision,'email',recipient,result,1); db.session.commit(); flash(('Email accepted by the configured provider.' if result.ok else 'Email delivery failed. You can retry from Document Vault.'),('success' if result.ok else 'danger')); return redirect(url_for('letterhead_vault_detail',document_id=document.id))
+
+
+@app.route('/letterhead/documents/<int:document_id>/send/whatsapp',methods=['POST'])
+@capability_required('letterhead_whatsapp_send')
+def letterhead_document_send_whatsapp(document_id):
+    actor=current_user(); document=db.session.get(LetterheadDocument,document_id) or abort(404)
+    if not _letterhead_can_edit_document(document,actor): abort(403)
+    revision=db.session.get(LetterheadDocumentRevision,document.finalized_revision_id) if document.finalized_revision_id else None
+    if not revision or revision.status!='finalized': abort(409)
+    recipient=wa_number(request.form.get('recipient',''))
+    if not recipient: flash('Enter a valid WhatsApp recipient.','danger'); return redirect(url_for('letterhead_vault_detail',document_id=document.id))
+    payload=_letterhead_delivery_payload(document,revision,recipient,'whatsapp'); result=letterhead_send_whatsapp(actor,payload,provider=_letterhead_whatsapp_provider if _letterhead_whatsapp_ready() else None)
+    _letterhead_record_delivery(revision,'whatsapp',recipient,result,1); db.session.commit(); flash(('WhatsApp document accepted by the configured provider.' if result.ok else 'WhatsApp delivery failed. You can retry from Document Vault.'),('success' if result.ok else 'danger')); return redirect(url_for('letterhead_vault_detail',document_id=document.id))
+
+
+@app.route('/letterhead/deliveries/<int:delivery_id>/retry',methods=['POST'])
+@permission_required('letterhead')
+def letterhead_delivery_retry(delivery_id):
+    prior=db.session.get(DocumentDelivery,delivery_id) or abort(404)
+    if not can_retry_delivery(prior.state): abort(409)
+    revision=db.session.get(LetterheadDocumentRevision,prior.revision_id) or abort(404); document=db.session.get(LetterheadDocument,revision.document_id) or abort(404); actor=current_user()
+    if not _letterhead_can_edit_document(document,actor): abort(403)
+    if prior.channel=='email':
+        if not has_capability('letterhead_email_send',actor): abort(403)
+        payload=_letterhead_delivery_payload(document,revision,prior.recipient,'email'); result=letterhead_send_email(actor,payload,provider=_letterhead_email_provider if _letterhead_email_ready() else None)
+    elif prior.channel=='whatsapp':
+        if not has_capability('letterhead_whatsapp_send',actor): abort(403)
+        payload=_letterhead_delivery_payload(document,revision,prior.recipient,'whatsapp'); result=letterhead_send_whatsapp(actor,payload,provider=_letterhead_whatsapp_provider if _letterhead_whatsapp_ready() else None)
+    else: abort(400)
+    row=_letterhead_record_delivery(revision,prior.channel,prior.recipient,result,int(prior.attempt_no or 1)+1); db.session.commit(); flash(('Delivery retry accepted.' if result.ok else 'Delivery retry failed.'),('success' if result.ok else 'danger')); return redirect(url_for('letterhead_vault_detail',document_id=document.id))
+
+
+
+# ===== Web 1.9.0 • Letterhead Document Vault =====
+
+def _letterhead_can_view_document(document, actor):
+    if not document or not actor:
+        return False
+    if document.creator_user_id == actor.id:
+        return True
+    return has_capability('letterhead_vault_all', actor)
+
+
+def _letterhead_visible_documents_query(actor):
+    query = LetterheadDocument.query.filter(LetterheadDocument.finalized_revision_id.isnot(None))
+    if not has_capability('letterhead_vault_all', actor):
+        query = query.filter(LetterheadDocument.creator_user_id == actor.id)
+    return query
+
+
+def _letterhead_json(value, fallback):
+    try:
+        parsed = json.loads(value or '')
+        return parsed if isinstance(parsed, type(fallback)) else fallback
+    except Exception:
+        return fallback
+
+
+def _letterhead_vault_rows(actor):
+    query = _letterhead_visible_documents_query(actor)
+    reference = (request.args.get('reference') or '').strip()
+    family = (request.args.get('family') or '').strip()
+    property_ref = (request.args.get('property') or '').strip()
+    recipient = (request.args.get('recipient') or '').strip()
+    delivery_state = (request.args.get('delivery_state') or '').strip().lower()
+    subject = (request.args.get('subject') or '').strip()
+    room = (request.args.get('room') or '').strip()
+    creator = (request.args.get('creator') or '').strip()
+    approver = (request.args.get('approver') or '').strip()
+    template = (request.args.get('template') or '').strip()
+    date_from = (request.args.get('date_from') or '').strip()
+    date_to = (request.args.get('date_to') or '').strip()
+
+    if family:
+        query = query.filter(LetterheadDocument.document_family.ilike(f'%{family}%'))
+    if property_ref:
+        query = query.filter(LetterheadDocument.property_ref.ilike(f'%{property_ref}%'))
+    if subject:
+        query = query.filter(or_(LetterheadDocument.title.ilike(f'%{subject}%'), LetterheadDocument.entity_ref.ilike(f'%{subject}%')))
+    if creator:
+        ids = [u.id for u in User.query.filter(or_(User.full_name.ilike(f'%{creator}%'), User.username.ilike(f'%{creator}%'))).limit(50).all()]
+        query = query.filter(LetterheadDocument.creator_user_id.in_(ids or [-1]))
+
+    docs = query.order_by(LetterheadDocument.updated_at.desc()).all()
+    rows = []
+    for document in docs:
+        revision = db.session.get(LetterheadDocumentRevision, document.finalized_revision_id)
+        if not revision or revision.status != 'finalized':
+            continue
+        if reference and reference.lower() not in (revision.reference_number or '').lower():
+            continue
+        content = _letterhead_json(revision.structured_content_json, {})
+        searchable_room = ' '.join(str(content.get(k) or '') for k in ('room','room_no','room_number'))
+        if room and room.lower() not in searchable_room.lower():
+            continue
+        if date_from and revision.finalized_at and revision.finalized_at.date().isoformat() < date_from:
+            continue
+        if date_to and revision.finalized_at and revision.finalized_at.date().isoformat() > date_to:
+            continue
+        template_version = db.session.get(LetterheadTemplateVersion, revision.template_version_id) if revision.template_version_id else None
+        template_row = db.session.get(LetterheadTemplate, template_version.template_id) if template_version else None
+        if template and template.lower() not in ((template_row.name if template_row else '') or '').lower():
+            continue
+        approver_user = db.session.get(User, revision.approved_by_user_id) if revision.approved_by_user_id else None
+        if approver:
+            name = ((approver_user.full_name or approver_user.username) if approver_user else '')
+            if approver.lower() not in name.lower():
+                continue
+        deliveries = DocumentDelivery.query.filter_by(revision_id=revision.id).order_by(DocumentDelivery.created_at.desc()).all()
+        if recipient and not any(recipient.lower() in (d.recipient or '').lower() for d in deliveries):
+            continue
+        if delivery_state and not any((d.state or '').lower() == delivery_state for d in deliveries):
+            continue
+        creator_user = db.session.get(User, document.creator_user_id)
+        rows.append({
+            'document': document,
+            'revision': revision,
+            'content': content,
+            'template_version': template_version,
+            'template': template_row,
+            'creator': creator_user,
+            'approver': approver_user,
+            'deliveries': deliveries,
+        })
+    return rows
+
+
+@app.route('/letterhead/vault')
+@permission_required('letterhead')
+def letterhead_vault():
+    actor = current_user()
+    rows = _letterhead_vault_rows(actor)
+    return render_template('letterhead_vault.html', vault_rows=rows, selected=None, filters=request.args, can_view_all=has_capability('letterhead_vault_all', actor))
+
+
+@app.route('/letterhead/vault/<int:document_id>')
+@permission_required('letterhead')
+def letterhead_vault_detail(document_id):
+    actor = current_user()
+    document = db.session.get(LetterheadDocument, document_id) or abort(404)
+    if not _letterhead_can_view_document(document, actor):
+        abort(403)
+    revisions = LetterheadDocumentRevision.query.filter_by(document_id=document.id).order_by(LetterheadDocumentRevision.revision_no.desc()).all()
+    finalized = db.session.get(LetterheadDocumentRevision, document.finalized_revision_id) if document.finalized_revision_id else None
+    if not finalized or finalized.status != 'finalized':
+        abort(404)
+    content = _letterhead_json(finalized.structured_content_json, {})
+    template_version = db.session.get(LetterheadTemplateVersion, finalized.template_version_id) if finalized.template_version_id else None
+    template_row = db.session.get(LetterheadTemplate, template_version.template_id) if template_version else None
+    creator_user = db.session.get(User, document.creator_user_id)
+    approver_user = db.session.get(User, finalized.approved_by_user_id) if finalized.approved_by_user_id else None
+    attachments = DocumentAttachmentLink.query.filter_by(revision_id=finalized.id, approved_by_user=True).order_by(DocumentAttachmentLink.id).all()
+    deliveries = DocumentDelivery.query.filter_by(revision_id=finalized.id).order_by(DocumentDelivery.created_at.desc()).all()
+    selected = {
+        'document': document,
+        'revision': finalized,
+        'content': content,
+        'template_version': template_version,
+        'template': template_row,
+        'creator': creator_user,
+        'approver': approver_user,
+        'attachments': attachments,
+        'revisions': revisions,
+        'deliveries': deliveries,
+    }
+    return render_template('letterhead_vault.html', vault_rows=[], selected=selected, filters={}, can_view_all=has_capability('letterhead_vault_all', actor))
+
+
+@app.route('/letterhead/documents/<int:document_id>/pdf')
+@permission_required('letterhead')
+def letterhead_document_pdf(document_id):
+    actor = current_user()
+    document = db.session.get(LetterheadDocument, document_id) or abort(404)
+    if not _letterhead_can_view_document(document, actor):
+        abort(403)
+    revision = db.session.get(LetterheadDocumentRevision, document.finalized_revision_id) if document.finalized_revision_id else None
+    if not revision or revision.status != 'finalized' or not revision.encrypted_pdf:
+        abort(404)
+    raw = _letterhead_decrypt_bytes(revision.encrypted_pdf)
+    safe_ref = re.sub(r'[^A-Za-z0-9._-]+', '_', revision.reference_number or f'Livenza_Document_{document.id}').strip('._') or f'Livenza_Document_{document.id}'
+    response = send_file(io.BytesIO(raw), mimetype='application/pdf', as_attachment=True, download_name=f'{safe_ref}.pdf', max_age=0)
+    response.headers['Cache-Control'] = 'no-store, private'
+    response.headers['Pragma'] = 'no-cache'
+    record_audit('letterhead_pdf_downloaded', 'letterhead_document', document.id, module='letterhead', meta={'document_id': document.id, 'revision_id': revision.id, 'reference_number': revision.reference_number})
+    db.session.commit()
+    return response
+
+
+# ===== Web 1.9.0 • Ask Livenza AI =====
+
+def _letterhead_integration_secret(provider_key, secret_names):
+    provider=IntegrationProvider.query.filter_by(provider_key=provider_key,active=True).first()
+    if not provider: return ''
+    connections=IntegrationConnection.query.filter_by(provider_id=provider.id,active=True).order_by(IntegrationConnection.id.desc()).all()
+    master=os.getenv('LIVENZA_VAULT_MASTER_KEY','').strip()
+    if not master: return ''
+    for connection in connections:
+        for name in secret_names:
+            ref=IntegrationSecretRef.query.filter_by(connection_id=connection.id,secret_name=name).first()
+            if not ref: continue
+            vault=db.session.get(VaultSecret,ref.vault_secret_id)
+            if not vault: continue
+            try:
+                payload=json.loads(decrypt_secret(vault.ciphertext,vault.nonce,master)); value=str(payload.get('secret') or '').strip()
+                if value: return value
+            except Exception: continue
+    return ''
+
+def _letterhead_ai_provider_config():
+    key=_letterhead_integration_secret('openai',('openai_api_key','api_key')) or os.getenv('OPENAI_API_KEY','').strip()
+    return {'api_key':key,'model':os.getenv('OPENAI_LETTERHEAD_MODEL',os.getenv('OPENAI_HELP_MODEL','gpt-5.6-luna'))}
+
+
+def _letterhead_integration_connection_config(provider_key):
+    provider=IntegrationProvider.query.filter_by(provider_key=provider_key,active=True).first()
+    if not provider: return {}
+    row=IntegrationConnection.query.filter_by(provider_id=provider.id,active=True).order_by(IntegrationConnection.id.desc()).first()
+    if not row: return {}
+    try:
+        config=json.loads(row.nonsecret_config_json or '{}')
+        return config if isinstance(config,dict) else {}
+    except Exception:
+        return {}
+
+
+def _letterhead_email_ready():
+    return bool(_google_token_data(refresh=False).get('access_token'))
+
+
+def _letterhead_whatsapp_config():
+    config=_letterhead_integration_connection_config('whatsapp_cloud')
+    token=_letterhead_integration_secret('whatsapp_cloud',('whatsapp_access_token','access_token','api_token')) or os.getenv('WHATSAPP_CLOUD_TOKEN','').strip()
+    phone_id=str(config.get('phone_number_id') or os.getenv('WHATSAPP_PHONE_NUMBER_ID','')).strip()
+    return {'token':token,'phone_number_id':phone_id,'graph_version':os.getenv('WHATSAPP_GRAPH_VERSION','v23.0').strip() or 'v23.0'}
+
+
+def _letterhead_whatsapp_ready():
+    cfg=_letterhead_whatsapp_config(); return bool(cfg.get('token') and cfg.get('phone_number_id'))
+
+
+def _letterhead_email_provider(payload):
+    headers=_google_headers()
+    if not headers: return {'accepted':False,'provider':'google_email','error_code':'integration_not_configured'}
+    try:
+        mail=EmailMessage(); mail['To']=payload['recipient']; mail['Subject']=payload.get('subject') or 'Livenza Life Document'
+        mail.set_content(payload.get('message') or 'Please find the approved Livenza Life document attached.')
+        mail.add_attachment(payload['pdf_bytes'],maintype='application',subtype='pdf',filename=payload.get('filename') or 'livenza-document.pdf')
+        raw=base64.urlsafe_b64encode(mail.as_bytes()).decode('ascii').rstrip('=')
+        r=requests.post('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',headers=dict(headers,**{'Content-Type':'application/json'}),json={'raw':raw},timeout=30)
+        if not r.ok: return {'accepted':False,'provider':'google_email','error_code':f'http_{r.status_code}'}
+        try: reference=str(r.json().get('id') or '')
+        except Exception: reference=''
+        return {'accepted':True,'provider':'google_email','reference':reference}
+    except Exception:
+        return {'accepted':False,'provider':'google_email','error_code':'provider_exception'}
+
+
+def _letterhead_whatsapp_provider(payload):
+    cfg=_letterhead_whatsapp_config(); to=wa_number(payload.get('recipient',''))
+    if not (cfg.get('token') and cfg.get('phone_number_id') and to): return {'accepted':False,'provider':'whatsapp_cloud','error_code':'integration_not_configured'}
+    base=f"https://graph.facebook.com/{cfg['graph_version']}/{cfg['phone_number_id']}"; auth={'Authorization':f"Bearer {cfg['token']}"}
+    try:
+        upload=requests.post(base+'/media',headers=auth,data={'messaging_product':'whatsapp'},files={'file':(payload.get('filename') or 'livenza-document.pdf',payload['pdf_bytes'],'application/pdf')},timeout=30)
+        if not upload.ok: return {'accepted':False,'provider':'whatsapp_cloud','error_code':f'upload_http_{upload.status_code}'}
+        media_id=str(upload.json().get('id') or '')
+        if not media_id: return {'accepted':False,'provider':'whatsapp_cloud','error_code':'upload_missing_media_id'}
+        body={'messaging_product':'whatsapp','to':to,'type':'document','document':{'id':media_id,'filename':payload.get('filename') or 'livenza-document.pdf','caption':str(payload.get('message') or 'Approved Livenza Life document')[:1024]}}
+        sent=requests.post(base+'/messages',headers=dict(auth,**{'Content-Type':'application/json'}),json=body,timeout=25)
+        if not sent.ok: return {'accepted':False,'provider':'whatsapp_cloud','error_code':f'send_http_{sent.status_code}'}
+        try: reference=str((sent.json().get('messages') or [{}])[0].get('id') or media_id)
+        except Exception: reference=media_id
+        return {'accepted':True,'provider':'whatsapp_cloud','reference':reference}
+    except Exception:
+        return {'accepted':False,'provider':'whatsapp_cloud','error_code':'provider_exception'}
+
+
+def _letterhead_safe_pdf_filename(reference):
+    name=re.sub(r'[^A-Za-z0-9._-]+','-',str(reference or 'livenza-document')).strip('-') or 'livenza-document'
+    return name+'.pdf'
+
+
+def _letterhead_delivery_payload(document,revision,recipient,channel):
+    if revision.status!='finalized' or not revision.encrypted_pdf: raise ValueError('Only a finalized document can be sent.')
+    pdf=_letterhead_decrypt_bytes(revision.encrypted_pdf)
+    label=revision.reference_number or document.title
+    return {'recipient':recipient,'pdf_bytes':pdf,'filename':_letterhead_safe_pdf_filename(label),'subject':f'{document.title} · {label}','message':f'Please find attached the approved Livenza Life document {label}.'}
+
+
+def _letterhead_record_delivery(revision,channel,recipient,result,attempt_no):
+    row=DocumentDelivery(revision_id=revision.id,channel=channel,recipient=recipient[:320],state=result.state,provider_name=result.provider_name[:80],provider_reference=result.provider_reference[:240],attempt_no=attempt_no,error_code=result.error_code[:120],completed_at=datetime.datetime.utcnow())
+    db.session.add(row); db.session.flush()
+    record_audit('letterhead_document_delivery','document_delivery',row.id,module='letterhead',status=('success' if result.ok else 'failed'),meta=audit_safe_metadata({'revision_id':revision.id,'channel':channel,'recipient':recipient,'provider_name':result.provider_name,'provider_reference':result.provider_reference,'state':result.state,'attempt_no':attempt_no,'error_code':result.error_code}))
+    return row
+
+def _letterhead_search_hint(text):
+    text=str(text or '')
+    m=re.search(r'\bfor\s+([A-Z][A-Za-z .\'-]{1,80})',text)
+    return (m.group(1).strip(' .') if m else text[:80]).strip()
+
+def _letterhead_merge_source_facts(candidates, extra=None):
+    facts=dict(extra or {}); summaries=[]; source_ids=[]; attachments=set()
+    for candidate in candidates:
+        source_ids.append(f'{candidate.kind}:{candidate.record_id}')
+        for key,value in (candidate.facts or {}).items():
+            if value not in (None,'',[]) and key not in facts: facts[key]=value
+        summaries.append(f'{candidate.display_label} from {candidate.kind.title()} record')
+        for did in candidate.protected_document_ids: attachments.add(f'master_document:{did}')
+    facts['source_record_ids']=source_ids; facts['source_summary']=summaries
+    if not facts.get('property_or_entity'): facts['property_or_entity']=facts.get('property_name') or facts.get('entity_name') or ''
+    return facts,attachments
+
+@app.route('/letterhead/ai/start',methods=['POST'])
+@capability_required('letterhead_ai')
+def letterhead_ai_start():
+    actor=current_user(); text=(request.form.get('request_text') or '').strip()
+    if not text: flash('Tell Ask Livenza AI what document you need.','danger'); return redirect(url_for('letterhead_studio'))
+    family=classify_request(text); hint=(request.form.get('search_name') or _letterhead_search_hint(text)).strip()
+    candidates=_letterhead_resolve_sources(actor,{'q':hint,'name':hint})
+    requested={'full_name','profile_name','mobile','email','address','city','state','country','property_name','room_no','premises','agreement_name','rent','bill_no','bill_date','due_date','total_due','status','role'}
+    minimized=[minimize_for_ai(c,requested) for c in candidates]
+    extra={'date':(request.form.get('date') or datetime.date.today().isoformat()),'property_or_entity':(request.form.get('property_or_entity') or '').strip(),'full_name':(request.form.get('full_name') or '').strip()}
+    facts,allowed_attachments=_letterhead_merge_source_facts(candidates,extra)
+    missing=missing_required_fields(family,facts)
+    if missing:
+        session['letterhead_ai_pending']={'request_text':text,'family':family,'hint':hint,'facts':facts,'missing':missing}
+        return render_template('letterhead_studio.html',ai_pending=session['letterhead_ai_pending'],ai_missing=missing,templates=[],recent_documents=[],pending_templates=0,delivery_failures=0)
+    allowed_source_ids={f'{c.kind}:{c.record_id}' for c in candidates}
+    client=get_ai_client(actor,_letterhead_ai_provider_config())
+    payload=None
+    if client.available:
+        try:
+            payload=client.generate_json(build_ai_draft_request(text,family,minimized,allowed_attachments,extra_facts={k:v for k,v in facts.items() if k not in ('source_record_ids','source_summary')}))
+            payload=parse_structured_draft(payload,allowed_source_ids,allowed_attachments)
+        except Exception as exc:
+            flash('AI drafting could not complete; a reviewable local draft was created instead. '+str(exc)[:180],'warning')
+    if payload is None:
+        payload=deterministic_draft(family,facts,text); payload['source_record_ids']=list(allowed_source_ids); payload=parse_structured_draft(payload,allowed_source_ids,allowed_attachments)
+    document=LetterheadDocument(title=payload['title'],document_family=family,lifecycle_state='draft',creator_user_id=actor.id,property_ref=str(payload.get('property_or_entity') or '')[:160],source_refs_json=json.dumps(payload.get('source_record_ids') or [])); db.session.add(document); db.session.flush()
+    revision=LetterheadDocumentRevision(document_id=document.id,revision_no=1,structured_content_json=json.dumps(payload,ensure_ascii=False),status='draft'); db.session.add(revision); db.session.flush(); document.current_revision_id=revision.id
+    for aid in payload.get('suggested_attachment_ids',[]):
+        kind,_,sid=aid.partition(':'); db.session.add(DocumentAttachmentLink(revision_id=revision.id,source_kind=kind,source_id=sid,suggested_by_ai=True,approved_by_user=False))
+    record_audit('letterhead_ai_draft_created','letterhead_document',document.id,module='letterhead',meta=audit_safe_metadata({'document_family':family,'source_record_ids':payload.get('source_record_ids',[])})); db.session.commit(); session.pop('letterhead_ai_pending',None)
+    return redirect(url_for('letterhead_editor_page',document_id=document.id))
+
+@app.route('/letterhead/ai/resolve',methods=['POST'])
+@capability_required('letterhead_ai')
+def letterhead_ai_resolve():
+    pending=session.get('letterhead_ai_pending') or {}; facts=pending.get('facts') or {}
+    for field in pending.get('missing') or []:
+        value=(request.form.get(field) or '').strip()
+        if value: facts[field]=value
+    session['letterhead_ai_pending']={**pending,'facts':facts,'missing':missing_required_fields(pending.get('family','custom'),facts)}
+    if session['letterhead_ai_pending']['missing']:
+        return redirect(url_for('letterhead_studio'))
+    # Re-submit through the canonical start route contract using a server-side temporary form is avoided; create a deterministic reviewed draft here.
+    payload=deterministic_draft(pending.get('family','custom'),facts,pending.get('request_text',''))
+    document=LetterheadDocument(title=payload['title'],document_family=payload['document_family'],lifecycle_state='draft',creator_user_id=current_user().id,property_ref=str(payload.get('property_or_entity') or '')[:160],source_refs_json=json.dumps(payload.get('source_record_ids') or [])); db.session.add(document); db.session.flush()
+    revision=LetterheadDocumentRevision(document_id=document.id,revision_no=1,structured_content_json=json.dumps(payload,ensure_ascii=False),status='draft'); db.session.add(revision); db.session.flush(); document.current_revision_id=revision.id; record_audit('letterhead_ai_clarification_resolved','letterhead_document',document.id,module='letterhead'); db.session.commit(); session.pop('letterhead_ai_pending',None); return redirect(url_for('letterhead_editor_page',document_id=document.id))
+
+@app.route('/letterhead/documents/<int:document_id>/rewrite/<action>',methods=['POST'])
+@capability_required('letterhead_ai')
+def letterhead_ai_rewrite(document_id,action):
+    document=db.session.get(LetterheadDocument,document_id) or abort(404)
+    if document.creator_user_id!=current_user().id and not has_capability('letterhead_vault_all'): abort(403)
+    revision=db.session.get(LetterheadDocumentRevision,document.current_revision_id) or abort(404)
+    if revision.status not in ('draft','review_required'): abort(409)
+    content=json.loads(revision.structured_content_json or '{}'); client=get_ai_client(current_user(),_letterhead_ai_provider_config())
+    if not client.available: flash('AI integration is not configured in Integrations Center.','danger'); return redirect(url_for('letterhead_editor_page',document_id=document.id))
+    try: content=rewrite_action(content,action,client)
+    except Exception as exc: flash('Rewrite failed: '+str(exc)[:220],'danger'); return redirect(url_for('letterhead_editor_page',document_id=document.id))
+    revision.structured_content_json=json.dumps(content,ensure_ascii=False); document.updated_at=datetime.datetime.utcnow(); record_audit('letterhead_ai_rewrite','letterhead_document',document.id,module='letterhead',meta={'action':action}); db.session.commit(); flash('AI rewrite applied. Review the wording before finalizing.','success'); return redirect(url_for('letterhead_editor_page',document_id=document.id))
+
+@app.route('/letterhead/documents/<int:document_id>/regenerate',methods=['POST'])
+@capability_required('letterhead_ai')
+def letterhead_ai_regenerate(document_id):
+    document=db.session.get(LetterheadDocument,document_id) or abort(404); revision=db.session.get(LetterheadDocumentRevision,document.current_revision_id) or abort(404)
+    if document.creator_user_id!=current_user().id and not has_capability('letterhead_vault_all'): abort(403)
+    content=json.loads(revision.structured_content_json or '{}'); client=get_ai_client(current_user(),_letterhead_ai_provider_config())
+    if not client.available: flash('AI integration is not configured in Integrations Center.','danger'); return redirect(url_for('letterhead_editor_page',document_id=document.id))
+    try: content=rewrite_action(content,'make_formal',client)
+    except Exception as exc: flash('Regeneration failed: '+str(exc)[:220],'danger'); return redirect(url_for('letterhead_editor_page',document_id=document.id))
+    revision.structured_content_json=json.dumps(content,ensure_ascii=False); record_audit('letterhead_ai_regenerated','letterhead_document',document.id,module='letterhead'); db.session.commit(); return redirect(url_for('letterhead_editor_page',document_id=document.id))
+
+@app.route('/letterhead/templates')
+@permission_required('letterhead')
+def letterhead_templates_page():
+    actor=current_user(); templates=LetterheadTemplate.query.order_by(LetterheadTemplate.updated_at.desc()).all()
+    versions={}
+    for row in LetterheadTemplateVersion.query.order_by(LetterheadTemplateVersion.template_id,LetterheadTemplateVersion.version_no.desc()).all(): versions.setdefault(row.template_id,[]).append(row)
+    assets=LetterheadAsset.query.filter_by(is_active=True).order_by(LetterheadAsset.created_at.desc()).limit(50).all()
+    signatures=SignatureAsset.query.filter_by(is_active=True).order_by(SignatureAsset.signatory_name).all()
+    return render_template('letterhead_templates.html',templates=templates,versions=versions,assets=assets,signatures=signatures,can_author=has_capability('letterhead_template_author',actor),can_submit=has_capability('letterhead_template_submit',actor))
+
+@app.route('/letterhead/templates/<int:template_id>/versions/<int:version_id>/edit')
+@capability_required('letterhead_template_author')
+def letterhead_template_editor_page(template_id,version_id):
+    template,version=_letterhead_template_version(template_id,version_id)
+    if version.lifecycle_state!='draft': flash('Published/submitted template versions are immutable. Duplicate the template to create a new draft.','warning'); return redirect(url_for('letterhead_templates_page'))
+    try: layout=json.loads(version.layout_json or '{}')
+    except Exception: layout={}
+    try: scope=json.loads(version.scope_json or '{}')
+    except Exception: scope={}
+    assets=LetterheadAsset.query.filter_by(is_active=True).order_by(LetterheadAsset.created_at.desc()).all()
+    return render_template('letterhead_template_editor.html',template=template,version=version,layout=layout,scope=scope,assets=assets,can_submit=has_capability('letterhead_template_submit'))
+
+@app.route('/letterhead/templates/<int:template_id>/versions/<int:version_id>/preview.json')
+@permission_required('letterhead')
+def letterhead_template_preview_json(template_id,version_id):
+    template,version=_letterhead_template_version(template_id,version_id)
+    try: layout=json.loads(version.layout_json or '{}')
+    except Exception: layout={}
+    return jsonify(ok=True,template={'id':template.id,'name':template.name,'status':template.status},version={'id':version.id,'version_no':version.version_no,'state':version.lifecycle_state,'layout':layout})
+
+@app.route('/letterhead/template-assets/upload',methods=['POST'])
+@capability_required('letterhead_template_author')
+def letterhead_template_asset_upload():
+    actor=current_user(); upload=request.files.get('file')
+    if not upload or not upload.filename: flash('Choose an artwork file.','danger'); return redirect(url_for('letterhead_templates_page'))
+    raw=upload.read(); mime=(upload.mimetype or 'application/octet-stream')[:80]
+    try: validate_template_asset(upload.filename,mime,len(raw)); packed=_letterhead_encrypt_bytes(raw)
+    except Exception as exc: flash(str(exc),'danger'); return redirect(url_for('letterhead_templates_page'))
+    asset=LetterheadAsset(asset_kind=(request.form.get('asset_kind') or 'template_artwork')[:40],owner_user_id=actor.id,mime_type=mime,encrypted_asset=packed,sha256=hashlib.sha256(raw).hexdigest(),display_name=secure_filename(upload.filename)[:240] or 'letterhead-artwork',is_active=True); db.session.add(asset); db.session.flush(); record_audit('letterhead_template_asset_uploaded','letterhead_asset',asset.id,module='letterhead',meta={'mime_type':mime,'size_bytes':len(raw)}); db.session.commit(); flash('Template artwork encrypted and added to the library.','success'); return redirect(url_for('letterhead_templates_page'))
+
+@app.route('/letterhead/signatures/upload',methods=['POST'])
+@admin_required
+def letterhead_signature_upload():
+    upload=request.files.get('file'); actor=current_user()
+    if not upload or not upload.filename: flash('Choose a signature or seal image.','danger'); return redirect(url_for('letterhead_templates_page'))
+    raw=upload.read(); mime=(upload.mimetype or 'application/octet-stream')[:80]
+    if mime not in ('image/png','image/jpeg','image/webp') or len(raw)>5*1024*1024: flash('Signature/seal must be PNG, JPG or WebP up to 5 MB.','danger'); return redirect(url_for('letterhead_templates_page'))
+    try: packed=_letterhead_encrypt_bytes(raw)
+    except Exception as exc: flash(str(exc),'danger'); return redirect(url_for('letterhead_templates_page'))
+    scope={'roles':request.form.getlist('roles'),'properties':[x.strip() for x in (request.form.get('properties') or '').split(',') if x.strip()],'entities':[],'document_families':[x.strip() for x in (request.form.get('document_families') or '').split(',') if x.strip()]}
+    def date_or_none(value):
+        try: return datetime.date.fromisoformat(value) if value else None
+        except Exception: return None
+    row=SignatureAsset(asset_kind=(request.form.get('asset_kind') or 'signature')[:24],signatory_name=(request.form.get('signatory_name') or 'Authorized Signatory')[:160],designation=(request.form.get('designation') or '')[:160],scope_json=json.dumps(scope,separators=(',',':')),encrypted_asset=packed,mime_type=mime,effective_date=date_or_none(request.form.get('effective_date')),expires_at=date_or_none(request.form.get('expires_at')),is_active=True,created_by_user_id=actor.id); db.session.add(row); db.session.flush(); record_audit('letterhead_signature_asset_uploaded','signature_asset',row.id,module='letterhead',meta={'asset_kind':row.asset_kind,'signatory_name':row.signatory_name}); db.session.commit(); flash('Protected signature/seal saved.','success'); return redirect(url_for('letterhead_templates_page'))
+
+@app.route('/letterhead/signatures/<int:signature_id>/revoke',methods=['POST'])
+@admin_required
+def letterhead_signature_revoke(signature_id):
+    row=db.session.get(SignatureAsset,signature_id) or abort(404); row.is_active=False; row.revoked_at=datetime.datetime.utcnow(); record_audit('letterhead_signature_revoked','signature_asset',row.id,module='letterhead',meta={'signatory_name':row.signatory_name}); db.session.commit(); flash('Signature/seal revoked.','success'); return redirect(url_for('letterhead_templates_page'))
+
+# ===== Web 1.9.0 • Letterhead Template lifecycle =====
+
+def _letterhead_template_version(template_id, version_id=None):
+    template=db.session.get(LetterheadTemplate,template_id) or abort(404)
+    version=db.session.get(LetterheadTemplateVersion,version_id) if version_id else None
+    if version and version.template_id != template.id: abort(404)
+    return template,version
+
+@app.route('/letterhead/templates/create',methods=['POST'])
+@capability_required('letterhead_template_author')
+def letterhead_template_create():
+    actor=current_user(); name=(request.form.get('name') or 'Untitled Letterhead').strip()[:160]
+    slug=re.sub(r'[^a-z0-9]+','-',(request.form.get('slug') or name).lower()).strip('-')[:180] or ('template-'+uuid.uuid4().hex[:8])
+    base=slug; n=2
+    while LetterheadTemplate.query.filter_by(slug=slug).first(): slug=f'{base}-{n}'; n+=1
+    row=LetterheadTemplate(name=name,slug=slug,entity_scope=(request.form.get('entity_scope') or '')[:160],property_scope=(request.form.get('property_scope') or '')[:160],document_family_scope=(request.form.get('document_family_scope') or '')[:160],status='draft',created_by_user_id=actor.id)
+    db.session.add(row); db.session.flush()
+    layout={'page_size':'A4','margins_mm':{'top':38,'right':18,'bottom':24,'left':18},'header':{'brand':'Livenza Life','show_logo':True},'footer':{'text':'Livenza Life LLP','page_numbers':True}}
+    version=LetterheadTemplateVersion(template_id=row.id,version_no=1,lifecycle_state='draft',layout_json=json.dumps(layout),scope_json='{}',content_hash=hashlib.sha256(json.dumps(layout,sort_keys=True).encode()).hexdigest())
+    db.session.add(version); record_audit('letterhead_template_created','letterhead_template',row.id,module='letterhead',meta={'version_no':1}); db.session.commit()
+    flash('Letterhead template draft created.','success'); return redirect(url_for('letterhead_template_editor_page',template_id=row.id,version_id=version.id))
+
+@app.route('/letterhead/templates/<int:template_id>/versions/<int:version_id>/save',methods=['POST'])
+@capability_required('letterhead_template_author')
+def letterhead_template_save(template_id,version_id):
+    template,version=_letterhead_template_version(template_id,version_id)
+    if version.lifecycle_state!='draft': abort(409)
+    try: layout=json.loads(request.form.get('layout_json') or '{}'); scope=json.loads(request.form.get('scope_json') or '{}')
+    except Exception: flash('Template layout or scope is invalid JSON.','danger'); return redirect(url_for('letterhead_template_editor_page',template_id=template.id,version_id=version.id))
+    version.layout_json=json.dumps(layout,ensure_ascii=False,separators=(',',':')); version.scope_json=json.dumps(scope,ensure_ascii=False,separators=(',',':')); version.content_hash=hashlib.sha256(version.layout_json.encode()).hexdigest(); template.updated_at=datetime.datetime.utcnow()
+    record_audit('letterhead_template_edited','letterhead_template',template.id,module='letterhead',meta={'version_no':version.version_no}); db.session.commit(); flash('Template draft saved.','success'); return redirect(url_for('letterhead_template_editor_page',template_id=template.id,version_id=version.id))
+
+@app.route('/letterhead/templates/<int:template_id>/versions/<int:version_id>/submit',methods=['POST'])
+@capability_required('letterhead_template_submit')
+def letterhead_template_submit(template_id,version_id):
+    template,version=_letterhead_template_version(template_id,version_id)
+    if version.lifecycle_state!='draft': abort(409)
+    version.lifecycle_state='submitted'; version.submitted_by_user_id=current_user().id; version.submitted_at=datetime.datetime.utcnow(); template.status='submitted'
+    record_audit('letterhead_template_submitted','letterhead_template',template.id,module='letterhead',meta={'version_no':version.version_no}); db.session.commit(); flash('Template submitted for Admin approval.','success'); return redirect(url_for('letterhead_templates_page'))
+
+@app.route('/letterhead/templates/<int:template_id>/versions/<int:version_id>/publish',methods=['POST'])
+@admin_required
+def letterhead_template_publish(template_id,version_id):
+    template,version=_letterhead_template_version(template_id,version_id)
+    if version.lifecycle_state!='submitted': abort(409)
+    try:
+        normalized_layout=json.dumps(json.loads(version.layout_json or '{}'),ensure_ascii=False,sort_keys=True,separators=(',',':'))
+    except Exception: abort(400)
+    version.layout_json=normalized_layout; version.content_hash=hashlib.sha256(normalized_layout.encode('utf-8')).hexdigest()
+    previous=db.session.get(LetterheadTemplateVersion,template.current_published_version_id) if template.current_published_version_id else None
+    if previous and previous.id != version.id and previous.lifecycle_state=='published': previous.lifecycle_state='superseded'
+    version.lifecycle_state='published'; version.published_by_user_id=current_user().id; version.published_at=datetime.datetime.utcnow(); template.current_published_version_id=version.id; template.status='published'
+    record_audit('letterhead_template_published','letterhead_template',template.id,module='letterhead',meta={'version_no':version.version_no}); db.session.commit(); flash('Template published.','success'); return redirect(url_for('letterhead_templates_page'))
+
+@app.route('/letterhead/templates/<int:template_id>/versions/<int:version_id>/reject',methods=['POST'])
+@admin_required
+def letterhead_template_reject(template_id,version_id):
+    template,version=_letterhead_template_version(template_id,version_id)
+    if version.lifecycle_state!='submitted': abort(409)
+    version.lifecycle_state='draft'; version.rejection_comment=(request.form.get('comment') or '')[:2000]; template.status='draft'; record_audit('letterhead_template_rejected','letterhead_template',template.id,module='letterhead',meta={'version_no':version.version_no}); db.session.commit(); flash('Template returned to Draft.','warning'); return redirect(url_for('letterhead_templates_page'))
+
+@app.route('/letterhead/templates/<int:template_id>/archive',methods=['POST'])
+@admin_required
+def letterhead_template_archive(template_id):
+    template=db.session.get(LetterheadTemplate,template_id) or abort(404); template.status='archived'
+    if template.current_published_version_id:
+        version=db.session.get(LetterheadTemplateVersion,template.current_published_version_id)
+        if version and version.lifecycle_state in ('published','superseded'): version.lifecycle_state='archived'
+    record_audit('letterhead_template_archived','letterhead_template',template.id,module='letterhead'); db.session.commit(); flash('Template archived.','success'); return redirect(url_for('letterhead_templates_page'))
+
+@app.route('/letterhead/templates/<int:template_id>/duplicate',methods=['POST'])
+@capability_required('letterhead_template_author')
+def letterhead_template_duplicate(template_id):
+    template=db.session.get(LetterheadTemplate,template_id) or abort(404)
+    source=db.session.get(LetterheadTemplateVersion,template.current_published_version_id) if template.current_published_version_id else LetterheadTemplateVersion.query.filter_by(template_id=template.id).order_by(LetterheadTemplateVersion.version_no.desc()).first()
+    if not source: abort(404)
+    version_no=next_template_version_no([v.version_no for v in LetterheadTemplateVersion.query.filter_by(template_id=template.id).all()])
+    version=LetterheadTemplateVersion(template_id=template.id,version_no=version_no,lifecycle_state='draft',layout_json=source.layout_json,scope_json=source.scope_json,content_hash=source.content_hash); db.session.add(version); template.status='draft'; record_audit('letterhead_template_duplicated','letterhead_template',template.id,module='letterhead',meta={'source_version':source.version_no,'version_no':version_no}); db.session.commit(); flash('New editable draft version created.','success'); return redirect(url_for('letterhead_template_editor_page',template_id=template.id,version_id=version.id))
+
 @app.route('/settings', methods=['GET','POST'])
 @admin_required
 def settings_page():
@@ -4947,7 +6032,7 @@ def settings_page():
 def admin_panel():
     users=User.query.order_by(User.username).all()
     credentials={u.id:WebAuthnCredential.query.filter_by(user_id=u.id).order_by(WebAuthnCredential.id).all() for u in users}
-    return render_template('admin.html', users=users, cities=City.query.order_by(City.name).all(), modules=MODULES,
+    return render_template('admin.html', users=users, cities=City.query.order_by(City.name).all(), modules=MODULES, letterhead_capabilities=LETTERHEAD_CAPABILITIES,
         query_templates=QueryTemplate.query.order_by(QueryTemplate.id.desc()).all(), aadhaar_provider_configured=bool(os.getenv('AADHAAR_AUTH_URL','').strip()),
         credentials=credentials, google_oauth_ready=google_oauth_configured(), google_is_connected=google_connected(),
         drive_folder_id=setting('google_drive_folder_id',''), drive_auto_backup=setting('google_drive_auto_backup','0')=='1',
@@ -5022,8 +6107,11 @@ def admin_user_save():
     elif request.form.get('pattern'):
         flash('Pattern was not changed: connect at least 4 different dots.','warning')
     perms=[m for m in MODULES if request.form.get(f'perm_{m}')=='1']
+    capabilities=[key for key in LETTERHEAD_CAPABILITIES if request.form.get(f'cap_{key}')=='1'] if u.role!='admin' else list(LETTERHEAD_CAPABILITIES)
+    if 'letterhead' in perms and 'letterhead_use' not in capabilities: capabilities.append('letterhead_use')
     u.permissions_json=json.dumps(perms)
-    db.session.flush(); record_audit('user_permissions_changed','user',u.id,module='identity',meta={'role':u.role,'permissions':perms}); db.session.commit(); flash('User access saved.','success'); return redirect(url_for('admin_panel'))
+    u.capabilities_json=json.dumps(sorted(set(capabilities)))
+    db.session.flush(); record_audit('user_permissions_changed','user',u.id,module='identity',meta={'role':u.role,'permissions':perms,'letterhead_capabilities':sorted(set(capabilities))}); db.session.commit(); flash('User access saved.','success'); return redirect(url_for('admin_panel'))
 
 @app.route('/admin/users/<int:uid>/delete', methods=['POST'])
 @admin_required
@@ -5108,6 +6196,12 @@ def ensure_v1512_user_columns():
     for sql in statements: db.session.execute(db.text(sql))
     if statements: db.session.commit()
 
+def ensure_v190_user_columns():
+    """Compatibility bridge for Letterhead capability storage on existing databases."""
+    existing={c['name'] for c in inspect(db.engine).get_columns('user')}
+    if 'capabilities_json' not in existing:
+        db.session.execute(db.text('ALTER TABLE "user" ADD COLUMN capabilities_json TEXT DEFAULT \'[]\'')); db.session.commit()
+
 def ensure_integration_provider_seed():
     try:
         rows=load_integration_catalog(os.path.join(BASE_DIR,'data','integration_providers.json'))
@@ -5117,11 +6211,26 @@ def ensure_integration_provider_seed():
         print('Integration provider seed warning:',exc)
         return {'created':0,'updated':0}
 
+def ensure_letterhead_starter_templates():
+    admin=User.query.filter(func.lower(User.role)=='admin').order_by(User.id).first() or User.query.order_by(User.id).first()
+    if not admin: return {'created':0,'existing':0}
+    created=existing=0; now=datetime.datetime.utcnow()
+    for item in starter_template_definitions():
+        row=LetterheadTemplate.query.filter_by(slug=item['slug']).first()
+        if row: existing+=1; continue
+        row=LetterheadTemplate(name=item['name'],slug=item['slug'],document_family_scope=item['document_family'],status='published',created_by_user_id=admin.id); db.session.add(row); db.session.flush()
+        layout=json.dumps(item.get('layout') or {},ensure_ascii=False,sort_keys=True,separators=(',',':'))
+        version=LetterheadTemplateVersion(template_id=row.id,version_no=1,lifecycle_state='published',layout_json=layout,scope_json='{}',content_hash=hashlib.sha256(layout.encode()).hexdigest(),published_by_user_id=None,published_at=now); db.session.add(version); db.session.flush(); row.current_published_version_id=version.id
+        record_audit('letterhead_template_seeded','letterhead_template',row.id,module='letterhead',meta={'source':'system_seed','slug':row.slug,'version_no':1}); created+=1
+    if created: db.session.commit()
+    return {'created':created,'existing':existing}
+
 def bootstrap():
     os.makedirs(os.path.join(BASE_DIR,'instance'),exist_ok=True)
     db.create_all()
     ensure_v150_user_columns()
     ensure_v1512_user_columns()
+    ensure_v190_user_columns()
     ensure_electricity_provider_seed()
     ensure_integration_provider_seed()
     migrate_legacy_party_profiles()
@@ -5132,6 +6241,7 @@ def bootstrap():
             password='ChangeMeNow!2026'
             print('WARNING: ADMIN_PASSWORD was not set. Temporary password: ChangeMeNow!2026')
         db.session.add(User(username=username,password_hash=generate_password_hash(password),role='admin')); db.session.commit()
+    ensure_letterhead_starter_templates()
 
 with app.app_context(): bootstrap()
 

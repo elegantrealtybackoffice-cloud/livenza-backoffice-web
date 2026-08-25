@@ -1,5 +1,16 @@
 # Livenza Life Operations Cloud — Web 1.9.0
 
+
+
+## Web 1.9.0 Maintenance — Blue Robot & Grouped UI
+
+- Restores the original blue Livenza robot as the default live mascot and removes the WebGL 3D host runtime from the default page shell.
+- Rebuilds Mascot Settings with responsive native controls while preserving existing preference compatibility and Admin policy keys.
+- Replaces the long hamburger application list with categorized tabs and a responsive application grid.
+- Uses the same shared application catalog on Home and in the three-line menu, including **Livenza Letterhead Studio** from Web 1.9.0.
+- Adds site-wide text wrapping, touch-target, translucent mascot-chat, reduced-motion and low-capability performance hardening.
+- No database migration is required for this maintenance update.
+
 ## Livenza Letterhead Studio
 
 Web 1.9.0 adds the **Livenza Letterhead Studio** on top of the verified **v1.8.0** platform. v1.8.0 must already be deployed or merged because Letterhead Studio consumes the centralized **Integrations Center**, role-aware permissions, TV/layout primitives, and Vault-backed secret handling introduced there.
@@ -51,7 +62,7 @@ Use:
 
 `migrations/web_v1_9_0.sql`
 
-The migration is additive and must not drop or rewrite Agreement, Landlord Master, Tenant Master, Electricity, Integrations Center or v1.8.0 3D-host data.
+The migration is additive and must not drop or rewrite Agreement, Landlord Master, Tenant Master, Electricity, Integrations Center or legacy v1.8.0 mascot-preference data.
 
 ## Verification target
 
