@@ -583,3 +583,25 @@ initPageFeatures(document);
   }
   refreshTicker();
 })();
+
+// ===== Web 1.5.3 • login-only mascot welcome, dance and automatic exit =====
+(()=>{
+  const welcome=document.getElementById('loginMascotWelcome');
+  if(!welcome)return;
+  const skip=document.getElementById('mascotWelcomeSkip');
+  const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  let danceTimer,leaveTimer,removeTimer,departed=false;
+
+  function depart(){
+    if(departed)return;departed=true;
+    clearTimeout(danceTimer);clearTimeout(leaveTimer);clearTimeout(removeTimer);
+    welcome.classList.remove('is-dancing');welcome.classList.add('is-leaving');
+    removeTimer=window.setTimeout(()=>welcome.remove(),reduce?420:1250);
+  }
+
+  requestAnimationFrame(()=>requestAnimationFrame(()=>welcome.classList.add('is-visible')));
+  danceTimer=window.setTimeout(()=>{if(!reduce&&!departed)welcome.classList.add('is-dancing')},820);
+  leaveTimer=window.setTimeout(depart,reduce?3900:6100);
+  skip?.addEventListener('click',depart);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.contains(welcome))depart()},{once:true});
+})();

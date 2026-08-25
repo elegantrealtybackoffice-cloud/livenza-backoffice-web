@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.5.2'
+APP_VERSION = 'Web 1.5.3'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -1156,7 +1156,7 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation'])
 
 @app.route('/login', methods=['GET','POST'])
 def login():
@@ -1172,6 +1172,7 @@ def login():
         if valid:
             session.clear(); session['uid']=u.id
             session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
+            session['show_login_welcome']=True
             return redirect(url_for('kiosk_lock') if not session['kiosk_unlocked'] else (request.args.get('next') or url_for('dashboard')))
         flash('Invalid login ID, password/pattern or inactive account.', 'danger')
     return render_template('login.html')
@@ -1202,6 +1203,7 @@ def account():
 @app.route('/')
 @login_required
 def dashboard():
+    show_login_welcome=bool(session.pop('show_login_welcome',False))
     rooms=Room.query.all(); statuses=[room_status(r) for r in rooms]
     stats={
         'agreements':Agreement.query.count(), 'tenants':Tenant.query.count(), 'rooms':len(rooms),
@@ -1216,7 +1218,7 @@ def dashboard():
             'tenants':Tenant.query.filter_by(city=c.name).count(),
             'agreements':sum(1 for a in agreements_all if (a.data.get('city') or '').strip()==c.name)
         })
-    return render_template('dashboard.html', stats=stats, cities=city_rows, permissions=user_permissions())
+    return render_template('dashboard.html', stats=stats, cities=city_rows, permissions=user_permissions(), show_login_welcome=show_login_welcome)
 
 @app.route('/api/marquee')
 @login_required
@@ -1593,7 +1595,7 @@ def food_integration_sync(iid):
     row=db.session.get(FoodIntegration,iid) or abort(404)
     if not row.active or not row.api_enabled or not (row.api_base_url or '').strip():
         flash('Enable API Sync and add the official/API endpoint supplied by the platform first.','warning');return redirect(url_for('food_integrations'))
-    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.2'}
+    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.3'}
     bearer=os.getenv((row.api_token_env or '').strip(),'').strip() if row.api_token_env else ''
     api_key=os.getenv((row.api_key_env or '').strip(),'').strip() if row.api_key_env else ''
     if bearer: headers['Authorization']=f'Bearer {bearer}'
@@ -2079,7 +2081,7 @@ def webauthn_auth_verify():
             credential_current_sign_count=row.sign_count,require_user_verification=True,
         )
         row.sign_count=verified.new_sign_count; row.last_used_at=datetime.datetime.utcnow(); db.session.commit()
-        session.clear(); session['uid']=u.id; session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
+        session.clear(); session['uid']=u.id; session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'; session['show_login_welcome']=True
         return jsonify(ok=True,redirect=(url_for('kiosk_lock') if not session['kiosk_unlocked'] else url_for('dashboard')))
     except Exception as exc:
         db.session.rollback(); return jsonify(ok=False,error=f'Fingerprint/passkey verification failed: {exc}'),400

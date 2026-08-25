@@ -17,7 +17,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static',filename='apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static',filename='site.webmanifest') }}">
   <title>{% block title %}Livenza Back Office{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.2">
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.3">
 </head>
 <body data-page="{{ request.endpoint or '' }}">
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
@@ -120,7 +120,7 @@
     <button type="button" role="menuitem" data-view-mode="270"><span class="view-menu-icon">↺</span><div><b>Rotate 270°</b><small>Vertical screen, left</small></div></button>
   </div>
 
-  <script src="{{url_for('static',filename='app.js')}}?v=1.5.2"></script>
+  <script src="{{url_for('static',filename='app.js')}}?v=1.5.3"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

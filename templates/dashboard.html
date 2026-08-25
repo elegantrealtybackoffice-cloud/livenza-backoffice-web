@@ -1,5 +1,23 @@
 {% extends 'base.html' %}
 {% block content %}
+{% if show_login_welcome %}
+<section id="loginMascotWelcome" class="login-mascot-welcome" role="status" aria-live="polite" aria-label="Welcome to Livenza Life">
+  <div class="mascot-welcome-shell">
+    <div class="mascot-speech liquid-card">
+      <button type="button" id="mascotWelcomeSkip" aria-label="Skip welcome animation" title="Skip welcome animation">×</button>
+      <small>WELCOME TO LIVENZA LIFE</small>
+      <strong>Welcome back, {{current_user.full_name or current_user.username}}!</strong>
+      <span>Your workspace is ready. Let’s make today exceptional.</span>
+    </div>
+    <div class="mascot-stage" aria-hidden="true">
+      <i class="mascot-star star-one">✦</i><i class="mascot-star star-two">✦</i><i class="mascot-star star-three">•</i><i class="mascot-star star-four">✦</i>
+      <span class="mascot-spotlight"></span>
+      <div class="mascot-character"><img src="{{url_for('static',filename='livenza_welcome_mascot.png')}}" alt=""></div>
+      <span class="mascot-floor-shadow"></span>
+    </div>
+  </div>
+</section>
+{% endif %}
 <section class="hero compact lively-hero liquid-card">
   <div>
     <p class="eyebrow">SYSTEM ONLINE • LIVE CLOUD</p>
