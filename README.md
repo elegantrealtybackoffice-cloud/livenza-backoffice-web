@@ -1,6 +1,17 @@
-# Livenza Life Operations Cloud — Web 1.6.2
+# Livenza Life Operations Cloud — Web 1.7.0
 
-## Web 1.6.2 — Admin-managed mascots, profile lock and permissions
+## Web 1.7.0 — Electricity Bill Studio, Livenza Vault, Live Reminders & AI Mascots
+
+
+### Web 1.7.0 highlights
+- **Electricity Bill Studio** with a seeded pan-India provider directory (73 provider/coverage entries across 37 state/UT labels).
+- Save city/property electricity connections with K No., CA No., Consumer No., Account No., service/meter identifiers and due-reminder preferences.
+- Authorized Bharat Connect / BBPS-ready bill-fetch adapter with truthful official-portal/upload fallback when provider integration is not configured.
+- Secure uploaded-bill storage, PDF/image/spreadsheet extraction, month-wise Electricity Bill Register, CSV and Excel export.
+- **Live Reminders** on the home dashboard for due-soon, due-today, overdue and payment-pending electricity bills.
+- Admin-only **Livenza Vault** for encrypted electricity logins and operational API/payment secrets; Vault explicitly rejects bank passwords, UPI/card PINs, CVV, OTP, CAPTCHA and banking session cookies.
+- Admin-controlled electricity provider overrides, audit trail and protected payment confirmation.
+- Live mascot correction: uploaded photos remain profile/source images; the workspace mascot is an AI-stylized character or the standard Livenza mascot, never a plain photo fallback.
 
 This is the current Livenza Life Operations Cloud release.
 
@@ -15,11 +26,11 @@ This is the current Livenza Life Operations Cloud release.
 
 ### Deployment
 
-- Application version marker: **Web 1.6.1**
+- Application version marker: **Web 1.7.0**
 - Runtime: **Python / Flask**
 - Deploy with the supplied `Dockerfile`, `render.yaml` or another compatible Python hosting service.
 - **GitHub Pages alone cannot run the Flask routes** used by Avatar Studio, Banking, reconciliation, login and other server features.
-- After deployment, open `/version` and confirm the response reports `Web 1.6.1`.
+- After deployment, open `/version` and confirm the response reports `Web 1.7.0`.
 
 ### Security notes
 

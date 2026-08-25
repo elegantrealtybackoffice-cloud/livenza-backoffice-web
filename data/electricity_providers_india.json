@@ -1,0 +1,1193 @@
+[
+  {
+    "name": "Jaipur Vidyut Vitran Nigam Limited (JVVNL)",
+    "state": "Rajasthan",
+    "city": "Jaipur / JVVNL Area",
+    "official_website_url": "https://energy.rajasthan.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "K_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Ajmer Vidyut Vitran Nigam Limited (AVVNL)",
+    "state": "Rajasthan",
+    "city": "Ajmer / AVVNL Area",
+    "official_website_url": "https://energy.rajasthan.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "K_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Jodhpur Vidyut Vitran Nigam Limited (JDVVNL)",
+    "state": "Rajasthan",
+    "city": "Jodhpur / JDVVNL Area",
+    "official_website_url": "https://energy.rajasthan.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "K_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Dakshin Haryana Bijli Vitran Nigam (DHBVN)",
+    "state": "Haryana",
+    "city": "Gurugram / South Haryana",
+    "official_website_url": "https://www.dhbvn.org.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Uttar Haryana Bijli Vitran Nigam (UHBVN)",
+    "state": "Haryana",
+    "city": "North Haryana",
+    "official_website_url": "https://www.uhbvn.org.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "BSES Rajdhani Power Limited",
+    "state": "Delhi",
+    "city": "South / West Delhi",
+    "official_website_url": "https://www.bsesdelhi.com/web/brpl",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CA_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "BSES Yamuna Power Limited",
+    "state": "Delhi",
+    "city": "East / Central Delhi",
+    "official_website_url": "https://www.bsesdelhi.com/web/bypl",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CA_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Tata Power Delhi Distribution Limited",
+    "state": "Delhi",
+    "city": "North / North-West Delhi",
+    "official_website_url": "https://www.tatapower-ddl.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CA_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "New Delhi Municipal Council Electricity",
+    "state": "Delhi",
+    "city": "NDMC Area",
+    "official_website_url": "https://www.ndmc.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Uttar Pradesh Power Corporation Limited (UPPCL)",
+    "state": "Uttar Pradesh",
+    "city": "Statewide Consumer Services",
+    "official_website_url": "https://www.uppcl.org/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Paschimanchal Vidyut Vitran Nigam Limited (PVVNL)",
+    "state": "Uttar Pradesh",
+    "city": "Western Uttar Pradesh",
+    "official_website_url": "https://pvvnl.org/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Madhyanchal Vidyut Vitran Nigam Limited (MVVNL)",
+    "state": "Uttar Pradesh",
+    "city": "Central Uttar Pradesh",
+    "official_website_url": "https://www.mvvnl.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Dakshinanchal Vidyut Vitran Nigam Limited (DVVNL)",
+    "state": "Uttar Pradesh",
+    "city": "Southern Uttar Pradesh",
+    "official_website_url": "https://www.dvvnl.org/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Purvanchal Vidyut Vitran Nigam Limited (PuVVNL)",
+    "state": "Uttar Pradesh",
+    "city": "Eastern Uttar Pradesh",
+    "official_website_url": "https://puvvnl.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Uttarakhand Power Corporation Limited (UPCL)",
+    "state": "Uttarakhand",
+    "city": "Statewide",
+    "official_website_url": "https://www.upcl.org/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO",
+      "ACCOUNT_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Punjab State Power Corporation Limited (PSPCL)",
+    "state": "Punjab",
+    "city": "Statewide",
+    "official_website_url": "https://www.pspcl.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Chandigarh Electricity Department",
+    "state": "Chandigarh",
+    "city": "Chandigarh",
+    "official_website_url": "https://chandigarh.gov.in/departments/engineering-department/electricity-wing",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Himachal Pradesh State Electricity Board Limited (HPSEBL)",
+    "state": "Himachal Pradesh",
+    "city": "Statewide",
+    "official_website_url": "https://www.hpseb.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Jammu Power Distribution Corporation Limited (JPDCL)",
+    "state": "Jammu & Kashmir",
+    "city": "Jammu Division",
+    "official_website_url": "https://jpdcl.co.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Kashmir Power Distribution Corporation Limited (KPDCL)",
+    "state": "Jammu & Kashmir",
+    "city": "Kashmir Division",
+    "official_website_url": "https://kpdcl.jkpdd.net/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Ladakh Power Development Department (LPDD)",
+    "state": "Ladakh",
+    "city": "Leh / Kargil",
+    "official_website_url": "https://lpdd.ladakh.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Dakshin Gujarat Vij Company Limited (DGVCL)",
+    "state": "Gujarat",
+    "city": "South Gujarat",
+    "official_website_url": "https://www.dgvcl.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Madhya Gujarat Vij Company Limited (MGVCL)",
+    "state": "Gujarat",
+    "city": "Central Gujarat",
+    "official_website_url": "https://www.mgvcl.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Paschim Gujarat Vij Company Limited (PGVCL)",
+    "state": "Gujarat",
+    "city": "West Gujarat",
+    "official_website_url": "https://www.pgvcl.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Uttar Gujarat Vij Company Limited (UGVCL)",
+    "state": "Gujarat",
+    "city": "North Gujarat",
+    "official_website_url": "https://www.ugvcl.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Torrent Power Gujarat",
+    "state": "Gujarat",
+    "city": "Ahmedabad / Surat / Dahej",
+    "official_website_url": "https://www.torrentpower.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "SERVICE_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Maharashtra State Electricity Distribution Company Limited (MSEDCL)",
+    "state": "Maharashtra",
+    "city": "Statewide",
+    "official_website_url": "https://www.mahadiscom.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Adani Electricity Mumbai Limited",
+    "state": "Maharashtra",
+    "city": "Mumbai",
+    "official_website_url": "https://www.adanielectricity.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Tata Power Mumbai",
+    "state": "Maharashtra",
+    "city": "Mumbai",
+    "official_website_url": "https://www.tatapower.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "BEST Undertaking Electricity",
+    "state": "Maharashtra",
+    "city": "Mumbai Island City",
+    "official_website_url": "https://www.bestundertaking.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Madhya Pradesh Poorv Kshetra Vidyut Vitaran Company Limited",
+    "state": "Madhya Pradesh",
+    "city": "East Madhya Pradesh",
+    "official_website_url": "https://www.mpez.co.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "IVRS_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Madhya Pradesh Madhya Kshetra Vidyut Vitaran Company Limited",
+    "state": "Madhya Pradesh",
+    "city": "Central Madhya Pradesh",
+    "official_website_url": "https://portal.mpcz.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "IVRS_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Madhya Pradesh Paschim Kshetra Vidyut Vitaran Company Limited",
+    "state": "Madhya Pradesh",
+    "city": "West Madhya Pradesh",
+    "official_website_url": "https://www.mpwz.co.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "IVRS_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Chhattisgarh State Power Distribution Company Limited (CSPDCL)",
+    "state": "Chhattisgarh",
+    "city": "Statewide",
+    "official_website_url": "https://www.cspdcl.co.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "BP_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "North Bihar Power Distribution Company Limited (NBPDCL)",
+    "state": "Bihar",
+    "city": "North Bihar",
+    "official_website_url": "https://nbpdcl.co.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CA_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "South Bihar Power Distribution Company Limited (SBPDCL)",
+    "state": "Bihar",
+    "city": "South Bihar",
+    "official_website_url": "https://sbpdcl.co.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CA_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Jharkhand Bijli Vitran Nigam Limited (JBVNL)",
+    "state": "Jharkhand",
+    "city": "Statewide",
+    "official_website_url": "https://jbvnl.co.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "West Bengal State Electricity Distribution Company Limited (WBSEDCL)",
+    "state": "West Bengal",
+    "city": "Statewide",
+    "official_website_url": "https://www.wbsedcl.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "CESC Limited",
+    "state": "West Bengal",
+    "city": "Kolkata / Howrah",
+    "official_website_url": "https://www.cesc.co.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "TP Central Odisha Distribution Limited (TPCODL)",
+    "state": "Odisha",
+    "city": "Central Odisha",
+    "official_website_url": "https://www.tpcentralodisha.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "TP Northern Odisha Distribution Limited (TPNODL)",
+    "state": "Odisha",
+    "city": "Northern Odisha",
+    "official_website_url": "https://www.tpnodl.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "TP Southern Odisha Distribution Limited (TPSODL)",
+    "state": "Odisha",
+    "city": "Southern Odisha",
+    "official_website_url": "https://www.tpsouthernodisha.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "TP Western Odisha Distribution Limited (TPWODL)",
+    "state": "Odisha",
+    "city": "Western Odisha",
+    "official_website_url": "https://www.tpwesternodisha.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Assam Power Distribution Company Limited (APDCL)",
+    "state": "Assam",
+    "city": "Statewide",
+    "official_website_url": "https://www.apdcl.org/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Meghalaya Power Distribution Corporation Limited (MePDCL)",
+    "state": "Meghalaya",
+    "city": "Statewide",
+    "official_website_url": "https://meecl.nic.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Tripura State Electricity Corporation Limited (TSECL)",
+    "state": "Tripura",
+    "city": "Statewide",
+    "official_website_url": "https://tsecl.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Manipur State Power Distribution Company Limited (MSPDCL)",
+    "state": "Manipur",
+    "city": "Statewide",
+    "official_website_url": "https://manipur.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Power & Electricity Department Mizoram",
+    "state": "Mizoram",
+    "city": "Statewide",
+    "official_website_url": "https://power.mizoram.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Department of Power Nagaland",
+    "state": "Nagaland",
+    "city": "Statewide",
+    "official_website_url": "https://dpenagaland.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Sikkim Power Department",
+    "state": "Sikkim",
+    "city": "Statewide",
+    "official_website_url": "https://power.sikkim.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Department of Power Arunachal Pradesh",
+    "state": "Arunachal Pradesh",
+    "city": "Statewide",
+    "official_website_url": "https://power.arunachal.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Bangalore Electricity Supply Company (BESCOM)",
+    "state": "Karnataka",
+    "city": "Bengaluru / BESCOM Area",
+    "official_website_url": "https://bescom.karnataka.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_ID",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Mangalore Electricity Supply Company (MESCOM)",
+    "state": "Karnataka",
+    "city": "Coastal Karnataka",
+    "official_website_url": "https://mescom.karnataka.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_ID",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Hubli Electricity Supply Company (HESCOM)",
+    "state": "Karnataka",
+    "city": "North-West Karnataka",
+    "official_website_url": "https://hescom.karnataka.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_ID",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Gulbarga Electricity Supply Company (GESCOM)",
+    "state": "Karnataka",
+    "city": "Kalaburagi / North-East Karnataka",
+    "official_website_url": "https://gescom.karnataka.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_ID",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Chamundeshwari Electricity Supply Corporation (CESC Mysuru)",
+    "state": "Karnataka",
+    "city": "Mysuru Region",
+    "official_website_url": "https://cescmysore.karnataka.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_ID",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Southern Power Distribution Company of Telangana Limited (TGSPDCL)",
+    "state": "Telangana",
+    "city": "Hyderabad / Southern Telangana",
+    "official_website_url": "https://tgsouthernpower.org/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "UNIQUE_SERVICE_NO",
+      "SERVICE_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Northern Power Distribution Company of Telangana Limited (TGNPDCL)",
+    "state": "Telangana",
+    "city": "Northern Telangana",
+    "official_website_url": "https://www.tgnpdcl.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "UNIQUE_SERVICE_NO",
+      "SERVICE_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Andhra Pradesh Southern Power Distribution Company Limited (APSPDCL)",
+    "state": "Andhra Pradesh",
+    "city": "Southern Andhra Pradesh",
+    "official_website_url": "https://www.apspdcl.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "SERVICE_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Andhra Pradesh Eastern Power Distribution Company Limited (APEPDCL)",
+    "state": "Andhra Pradesh",
+    "city": "Eastern Andhra Pradesh",
+    "official_website_url": "https://www.apeasternpower.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "SERVICE_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Andhra Pradesh Central Power Distribution Corporation Limited (APCPDCL)",
+    "state": "Andhra Pradesh",
+    "city": "Central Andhra Pradesh",
+    "official_website_url": "https://apcpdcl.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "SERVICE_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Tamil Nadu Electricity Board / Distribution Consumer Services",
+    "state": "Tamil Nadu",
+    "city": "Statewide",
+    "official_website_url": "https://www.tnebltd.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "SERVICE_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Kerala State Electricity Board Limited (KSEBL)",
+    "state": "Kerala",
+    "city": "Statewide",
+    "official_website_url": "https://kseb.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Electricity Department Goa",
+    "state": "Goa",
+    "city": "Statewide",
+    "official_website_url": "https://www.goaelectricity.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Electricity Department Puducherry",
+    "state": "Puducherry",
+    "city": "Puducherry UT",
+    "official_website_url": "https://electricity.py.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Electricity Department Andaman & Nicobar Islands",
+    "state": "Andaman & Nicobar Islands",
+    "city": "UT-wide",
+    "official_website_url": "https://electricity.andaman.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Electricity Department Lakshadweep",
+    "state": "Lakshadweep",
+    "city": "UT-wide",
+    "official_website_url": "https://lakshadweep.gov.in/departments/electricity/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Electricity Department / Power Distribution - Dadra & Nagar Haveli and Daman & Diu",
+    "state": "Dadra & Nagar Haveli and Daman & Diu",
+    "city": "UT-wide",
+    "official_website_url": "https://ddd.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Torrent Power Agra",
+    "state": "Uttar Pradesh",
+    "city": "Agra",
+    "official_website_url": "https://www.torrentpower.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "SERVICE_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Noida Power Company Limited (NPCL)",
+    "state": "Uttar Pradesh",
+    "city": "Greater Noida",
+    "official_website_url": "https://www.noidapower.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "India Power Corporation Limited",
+    "state": "West Bengal",
+    "city": "Asansol / Distribution Area",
+    "official_website_url": "https://www.indiapower.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Tata Power Ajmer Distribution Limited",
+    "state": "Rajasthan",
+    "city": "Ajmer City",
+    "official_website_url": "https://www.tatapower.com/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "K_NO",
+      "CONSUMER_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "hybrid"
+  },
+  {
+    "name": "Military Engineer Services / Cantonment Utility (Manual Utility Entry)",
+    "state": "Other / Custom",
+    "city": "Custom / Special Supply",
+    "official_website_url": "https://services.india.gov.in/",
+    "official_payment_url": "",
+    "official_login_url": "",
+    "identifier_types": [
+      "ACCOUNT_NO"
+    ],
+    "bbps_biller_id": "",
+    "supports_bbps_fetch": false,
+    "supports_bbps_payment": false,
+    "embedding_mode": "external",
+    "workflow_mode": "upload_only"
+  }
+]

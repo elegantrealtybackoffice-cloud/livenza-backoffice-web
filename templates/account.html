@@ -12,10 +12,10 @@
   <div class="avatar-studio-preview">
     <div id="avatarPreviewShell" class="avatar-preview-shell{% if user.avatar_data_uri %} is-ready{% endif %}">
       <span class="avatar-preview-orbit orbit-a"></span><span class="avatar-preview-orbit orbit-b"></span>
-      {% if user.avatar_data_uri or user.photo_data_uri %}
-        <img id="avatarPreview" src="{{user.avatar_data_uri or user.photo_data_uri}}" alt="Current live mascot for {{user.full_name or user.username}}">
+      {% if user.avatar_data_uri %}
+        <img id="avatarPreview" src="{{user.avatar_data_uri}}" alt="Current live mascot for {{user.full_name or user.username}}">
       {% else %}
-        <div id="avatarPreviewFallback" class="avatar-preview-fallback">{{(user.full_name or user.username)[:1]|upper}}</div>
+        <img id="avatarPreview" src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}" alt="Default Livenza live mascot">
       {% endif %}
       <span class="avatar-preview-spark s-one">✦</span><span class="avatar-preview-spark s-two">✦</span>
       <span class="avatar-live-pill"><i></i> LIVE MASCOT</span>
@@ -26,7 +26,7 @@
     <h2 id="avatarStudioTitle">Your mascot is managed by an administrator</h2>
     <p>Only administrators can change profile photos, generate or reset the live mascot, update passwords, modify access, or edit identity information.</p>
     <div class="avatar-trust-row"><span>✓ Read-only for users</span><span>✓ Admin approval required</span><span>✓ Sensitive data protected</span></div>
-    <p class="avatar-engine-status"><span class="engine-dot {{'online' if avatar_ai_ready else 'fallback'}}"></span><b>{{'AI mascot engine available' if avatar_ai_ready else 'Local avatar fallback available'}}</b><small>{{'Admins can upload a source photo in Admin → User Profile, Live Mascot, Permissions & Security.' if avatar_ai_ready else 'Admins can still upload a source photo; a polished fallback will be created when AI styling is unavailable.'}}</small></p>
+    <p class="avatar-engine-status"><span class="engine-dot {{'online' if avatar_ai_ready else 'fallback'}}"></span><b>{{'AI mascot engine available' if avatar_ai_ready else 'Standard Livenza mascot active'}}</b><small>{{'Admins can upload a source photo in Admin → User Profile, Live Mascot, Permissions & Security.' if avatar_ai_ready else 'Admins can still store a source profile photo; the standard Livenza mascot stays active until AI mascot generation is available.'}}</small></p>
     <div class="account-lock-note">
       <b>Changes are locked</b>
       <small>Contact your administrator if you need a new mascot, password, login update, or any change to protected information.</small>
@@ -43,7 +43,7 @@
       <label>Role<input value="{{user.role|title}}" readonly></label>
       <label>Aadhaar Name<input value="{{user.aadhaar_name or ''}}" readonly></label>
       <label>Masked Aadhaar<input value="{{masked_aadhaar(user.aadhaar_last4) or ''}}" readonly></label>
-      <label>Mascot Mode<input value="{{'AI Live Mascot' if user.avatar_generation_mode=='ai' else ('Polished Avatar' if user.avatar_generation_mode else 'Default Livenza Mascot')}}" readonly></label>
+      <label>Mascot Mode<input value="{{'AI Live Mascot' if user.avatar_generation_mode=='ai_mascot' else 'Default Livenza Mascot'}}" readonly></label>
     </div>
   </article>
   <article class="form-card liquid-card">

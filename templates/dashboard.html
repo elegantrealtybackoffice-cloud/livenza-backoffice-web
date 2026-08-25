@@ -22,7 +22,7 @@
   <div>
     <p class="eyebrow">SYSTEM ONLINE • LIVE CLOUD</p>
     <h1>Livenza Life <span>Back Office</span></h1>
-    <p>One beautifully simple workspace for agreements, rooms, tenants, reviews, live queries, video walls, delivery reconciliation and billing operations.</p>
+    <p>One beautifully simple workspace for agreements, rooms, tenants, live queries, banking, electricity utilities, reminders, video walls, food and billing operations.</p>
   </div>
   <div class="core ai-core-wrap" aria-label="Livenza Operations Cloud live">
     <div class="ai-logo-core">
@@ -39,6 +39,17 @@
   <div><b>{{stats.rooms}}</b><span>Rooms</span></div><div><b>{{stats.vacant}}</b><span>Vacant</span></div>
   <div><b>{{stats.queries}}</b><span>Queries</span></div><div><b>{{stats.screens_online}}/{{stats.screens}}</b><span>TVs Online</span></div>
 </div>
+
+{% if can_access('electricity') %}
+<section class="live-reminders liquid-card" id="live-reminders" data-electricity-summary='{{electricity_reminder_summary|tojson}}'>
+  <div class="section-head"><div><p class="eyebrow">LIVE REMINDERS</p><h2>Bills & Payments Needing Attention</h2></div><a class="secondary btn" href="{{url_for('electricity_studio')}}">Electricity Bill Studio</a></div>
+  <div class="reminder-grid">
+  {% for item in live_reminders %}{% set r=item.reminder %}{% set p=item.payload %}
+    <article class="reminder-card severity-{{r.severity}}"><div class="reminder-icon">⚡</div><div class="reminder-copy"><small>{{p.provider or 'Electricity Bill'}}</small><h3>{{p.property or r.title}}</h3><p>{{p.identifier}} · {{p.bill_status|replace('_',' ')|title}}</p></div><div class="reminder-money"><b>₹{{p.amount}}</b><span>Due {{p.due_date or '—'}}</span></div><div class="reminder-actions"><a class="primary btn" href="{{url_for('electricity_studio')}}">View / Pay</a>{% if is_admin %}<form method="post" action="{{url_for('electricity_reminder_snooze',rid=r.id)}}"><input type="hidden" name="days" value="1"><button class="secondary">Snooze 1 Day</button></form>{% endif %}</div></article>
+  {% else %}<div class="reminder-empty"><span>✓</span><div><b>All clear</b><small>No electricity bills need immediate attention.</small></div></div>{% endfor %}
+  </div>
+</section>
+{% endif %}
 
 <section class="experience-gallery" aria-label="Livenza visual operations">
   <a class="experience-shot experience-wide" href="https://unsplash.com/photos/clean-well-lit-room-with-several-neatly-made-beds-0xJJ2k72AQs" target="_blank" rel="noopener">
@@ -80,6 +91,7 @@
     ('food_tile.png','Food Delivery Hub','Live Swiggy/Zomato/Toing feeds, partner portals, orders and settlements.','food','food','food',food_photo,'Professional food operations'),
     ('rentok_tile.png','Livenza Billing Suite','Billing, collections and account operations portal.','billing','rentok','◈',office_photo,'Connected billing workspace'),
     ('','Banking & Reconciliation Suite','Official bank portals, encrypted statements, reusable templates and automatic reconciliation.','banking_suite','banking','₹',office_photo,'Secure banking operations workspace'),
+    ('','Electricity Bill Studio','All-India utility bills, K/CA/Consumer numbers, due reminders and payment tracking.','electricity_studio','electricity','⚡',office_photo,'Electricity operations workspace'),
     ('','WhatsApp Workspace','Send and receive official Cloud API messages inside Livenza.','whatsapp_workspace','whatsapp','◍',office_photo,'Connected communications workspace'),
     ('','Email Workspace','Read recent Gmail messages and send email without leaving Livenza.','email_workspace','email','✉',office_photo,'Connected email workspace'),
     ('','Google Drive','Store, list and download operational cloud files.','drive_workspace','drive','☁',office_photo,'Cloud operations workspace')

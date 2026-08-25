@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}Electricity Bill Studio · Livenza{% endblock %}
+{% block content %}
+<div class="page-head electricity-page-head"><div><p class="eyebrow">LIVENZA UTILITIES CLOUD</p><h1>Electricity Bill Studio</h1><p class="muted">All-India electricity connections, current bills, K/CA/Consumer numbers, due reminders, payment status and secure bill records.</p></div><div class="actions"><a class="secondary btn" href="{{url_for('electricity_register')}}">Open Bill Register</a>{% if is_admin %}<a class="primary btn" href="{{url_for('vault_page')}}">Livenza Vault & Providers</a>{% endif %}</div></div>
+
+<section class="electricity-summary-grid">
+  <article class="utility-stat liquid-card"><small>SAVED CONNECTIONS</small><b>{{connections|length}}</b><span>properties / meters</span></article>
+  <article class="utility-stat liquid-card"><small>CURRENT RECORDS</small><b>{{bills|length}}</b><span>bill history entries</span></article>
+  <article class="utility-stat liquid-card"><small>DUE / ATTENTION</small><b>{{due_count}}</b><span>payment reminders</span></article>
+  <article class="utility-stat liquid-card"><small>PROVIDERS</small><b>{{providers|length}}</b><span>India directory</span></article>
+</section>
+
+{% if is_admin %}
+<section class="electricity-admin-grid">
+  <article class="form-card liquid-card">
+    <p class="eyebrow">ADMIN ONLY</p><h2>Add Electricity Connection</h2><p class="muted">Save the property, local electricity department and K/CA/Consumer/Account number. Sensitive portal credentials can be linked from Livenza Vault.</p>
+    <form method="post" action="{{url_for('electricity_connection_save')}}" class="form-grid">
+      <label>City<select name="city_id"><option value="">Provider area / other</option>{% for c in cities %}<option value="{{c.id}}">{{c.name}}</option>{% endfor %}</select></label>
+      <label>Property<input name="property_name" required placeholder="Oasis Residency / Sector 38"></label>
+      <label>State / UT<select id="electricityProviderState"><option value="">All India</option>{% for state in providers|map(attribute='state')|unique|sort %}<option value="{{state}}">{{state}}</option>{% endfor %}</select></label>
+      <label>Electricity Provider<select id="electricityProviderSelect" name="provider_id" required><option value="">Choose provider</option>{% for p in providers %}<option value="{{p.id}}" data-state="{{p.state}}" data-city="{{p.city}}">{{p.city}} · {{p.name}}</option>{% endfor %}</select></label>
+      <label>Connection Label<input name="connection_name" placeholder="Main Meter / Building A"></label>
+      <label>Consumer Name<input name="consumer_name"></label>
+      <label>Identifier Type<select name="identifier_primary_type"><option>K_NO</option><option>CA_NO</option><option>CONSUMER_NO</option><option>ACCOUNT_NO</option><option>SERVICE_NO</option><option>IVRS_NO</option><option>BP_NO</option></select></label>
+      <label>K / CA / Consumer / Account No.<input name="identifier_primary" required autocomplete="off"></label>
+      <label>Meter Number<input name="meter_number"></label>
+      <label>Reminder Days Before Due<input type="number" name="reminder_days_before" value="5" min="0" max="30"></label>
+      <label class="span2">Linked Vault Credential<select name="vault_credential_id"><option value="">No saved credential</option>{% for v in vault_entries %}<option value="{{v.id}}">{{v.label}} · {{v.username_masked}}</option>{% endfor %}</select></label>
+      <button class="primary">Save Electricity Connection</button>
+    </form>
+  </article>
+
+  <article class="form-card liquid-card" id="bill-upload">
+    <p class="eyebrow">SMART BILL INGESTION</p><h2>Save Statement / Bill & Extract Data</h2><p class="muted">Upload the electricity bill after downloading it from the utility portal. Livenza reads available K/Consumer number, amount, bill/due dates, units and meter readings.</p>
+    <form method="post" action="{{url_for('electricity_bill_upload')}}" enctype="multipart/form-data" class="stack">
+      <label>Connection<select name="connection_id" required><option value="">Choose saved connection</option>{% for c in connections %}<option value="{{c.id}}" {% if bill_draft.connection_id==c.id %}selected{% endif %}>{{c.property_name}} · {{c.connection_name}} · {{c.provider.name if c.provider else ''}}</option>{% endfor %}</select></label>
+      <label>Bill File<input type="file" name="bill_file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.tif,.tiff,.csv,.xlsx,.xls"></label>
+      <button class="primary">Extract & Save Bill</button>
+      <small class="muted">Text PDFs are read directly. Images/scanned PDFs use server-local OCR when required.</small>
+    </form>
+  </article>
+</section>
+{% endif %}
+
+{% if bill_draft %}
+<section class="form-card liquid-card electricity-review-card">
+  <div class="section-head"><div><p class="eyebrow">REVIEW EXTRACTION</p><h2>Confirm Bill Details</h2></div><span class="status-chip warning">Needs Review</span></div>
+  <p class="muted">Some fields could not be verified automatically. Correct them before saving the bill record.</p>
+  <form method="post" action="{{url_for('electricity_bill_upload')}}" class="form-grid">
+    <input type="hidden" name="confirm_extracted" value="1"><input type="hidden" name="connection_id" value="{{bill_draft.connection_id}}">
+    <label>Consumer / K / CA No.<input name="identifier_primary" value="{{bill_draft.identifier_primary or ''}}"></label>
+    <label>Bill Number<input name="bill_number" value="{{bill_draft.bill_number or ''}}"></label>
+    <label>Bill Date<input name="bill_date" value="{{bill_draft.bill_date or ''}}" placeholder="YYYY-MM-DD"></label>
+    <label>Due Date<input name="due_date" value="{{bill_draft.due_date or ''}}" placeholder="YYYY-MM-DD"></label>
+    <label>Bill Month<input name="bill_month" value="{{bill_draft.bill_month or ''}}"></label>
+    <label>Total Due ₹<input name="total_due_amount" value="{{bill_draft.total_due_amount or ''}}"></label>
+    <label>Current Charges ₹<input name="current_charges" value="{{bill_draft.current_charges or ''}}"></label>
+    <label>Arrears ₹<input name="arrears_amount" value="{{bill_draft.arrears_amount or ''}}"></label>
+    <label>Late Fee / LPSC ₹<input name="late_fee_amount" value="{{bill_draft.late_fee_amount or ''}}"></label>
+    <label>Units Consumed<input name="units_consumed" value="{{bill_draft.units_consumed or ''}}"></label>
+    <label>Meter Number<input name="meter_number" value="{{bill_draft.meter_number or ''}}"></label>
+    <label>Previous Reading<input name="previous_reading" value="{{bill_draft.previous_reading or ''}}"></label>
+    <label>Current Reading<input name="current_reading" value="{{bill_draft.current_reading or ''}}"></label>
+    <label>Consumer Name<input name="consumer_name" value="{{bill_draft.consumer_name or ''}}"></label>
+    <button class="primary">Confirm & Add to Register</button>
+  </form>
+</section>
+{% endif %}
+
+<div class="section-head"><div><p class="eyebrow">SAVED UTILITY ACCOUNTS</p><h2>Connections</h2></div><span class="section-kicker">State · City · Provider · Property</span></div>
+<section class="electricity-connections-grid">
+{% for c in connections %}
+<article class="electricity-connection liquid-card {{'needs-attention' if c.status=='needs_attention' else ''}}">
+  <div class="connection-head"><span class="electricity-bolt">⚡</span><div><small>{{c.provider.state if c.provider else ''}} · {{c.provider.city if c.provider else ''}}</small><h3>{{c.property_name}}</h3><p>{{c.connection_name}} · {{c.provider.name if c.provider else 'Provider'}}</p></div><span class="status-chip {{'danger' if c.status=='needs_attention' else 'success'}}">{{c.status|replace('_',' ')|title}}</span></div>
+  <div class="connection-data"><span><small>{{c.identifier_primary_type|replace('_',' ')}}</small><b>•••• {{c.identifier_primary[-4:] if c.identifier_primary else ''}}</b></span><span><small>Meter</small><b>{{c.meter_number or '—'}}</b></span><span><small>Last Fetch</small><b>{{c.last_fetch_status or 'Not fetched'}}</b></span></div>
+  <div class="actions wrap-actions"><form method="post" action="{{url_for('electricity_bill_fetch',cid=c.id)}}"><button class="primary">Fetch Current Bill</button></form><a class="secondary btn" href="{{url_for('electricity_provider_portal',provider_id=c.provider_id,connection_id=c.id)}}" target="_blank" rel="noopener">Open Official Portal ↗</a>{% if is_admin %}<form method="post" action="{{url_for('electricity_connection_delete',cid=c.id)}}" onsubmit="return confirm('Remove this electricity connection and its bill history?')"><button class="link danger">Delete</button></form>{% endif %}</div>
+  {% if is_admin %}<details class="connection-edit-details"><summary>Edit connection / K No. / Vault link</summary><form method="post" action="{{url_for('electricity_connection_save')}}" class="form-grid"><input type="hidden" name="id" value="{{c.id}}"><label>City<select name="city_id"><option value="">Other / provider area</option>{% for city in cities %}<option value="{{city.id}}" {% if c.city_id==city.id %}selected{% endif %}>{{city.name}}</option>{% endfor %}</select></label><label>Property<input name="property_name" value="{{c.property_name}}" required></label><label class="span2">Provider<select name="provider_id" required>{% for p in providers %}<option value="{{p.id}}" {% if c.provider_id==p.id %}selected{% endif %}>{{p.state}} · {{p.city}} · {{p.name}}</option>{% endfor %}</select></label><label>Connection Label<input name="connection_name" value="{{c.connection_name}}"></label><label>Consumer Name<input name="consumer_name" value="{{c.consumer_name}}"></label><label>Identifier Type<input name="identifier_primary_type" value="{{c.identifier_primary_type}}"></label><label>K / CA / Consumer / Account No.<input name="identifier_primary" value="{{c.identifier_primary}}" required autocomplete="off"></label><label>Meter No.<input name="meter_number" value="{{c.meter_number}}"></label><label>Reminder Days<input type="number" name="reminder_days_before" min="0" max="30" value="{{c.reminder_days_before}}"></label><label class="span2">Vault Credential<select name="vault_credential_id"><option value="">No saved credential</option>{% for v in vault_entries %}<option value="{{v.id}}" {% if c.vault_credential_id==v.id %}selected{% endif %}>{{v.label}} · {{v.username_masked}}</option>{% endfor %}</select></label><button class="secondary">Save Changes</button></form></details>{% endif %}
+</article>
+{% else %}<article class="placeholder liquid-card">No electricity connections have been added yet.{% if is_admin %} Add the first connection above.{% endif %}</article>{% endfor %}
+</section>
+
+<div class="section-head"><div><p class="eyebrow">CURRENT & RECENT BILLS</p><h2>Bill Queue</h2></div><div class="actions"><a class="secondary btn" href="{{url_for('electricity_register_csv')}}">CSV</a><a class="secondary btn" href="{{url_for('electricity_register_xlsx')}}">Excel</a></div></div>
+<div class="electricity-bill-list">
+{% for bill in bills %}
+<article class="bill-row liquid-card status-{{bill.status}}">
+  <div class="bill-main"><span class="bill-status-dot"></span><div><small>{{bill.provider.name if bill.provider else ''}}</small><h3>{{bill.connection.property_name if bill.connection else ''}}</h3><p>{{bill.bill_month or 'Current bill'}} · {{bill.bill_number or 'No bill number'}}</p></div></div>
+  <div class="bill-amount"><small>AMOUNT DUE</small><b>₹{{'{:,.2f}'.format((bill.total_due_amount or 0)|float)}}</b><span>Due {{bill.due_date.strftime('%d %b %Y') if bill.due_date else '—'}}</span></div>
+  <div class="bill-meta"><span><small>Units</small><b>{{bill.units_consumed or '—'}}</b></span><span><small>Status</small><b>{{bill.status|replace('_',' ')|title}}</b></span></div>
+  <div class="actions wrap-actions">{% if bill.encrypted_bill_blob %}<a class="secondary btn" href="{{url_for('electricity_bill_download',bill_id=bill.id)}}">Download Bill</a>{% endif %}{% set pay=payment_by_bill.get(bill.id) %}{% if bill.status!='paid' and is_admin and (not pay or pay.status in ['failed']) %}<form method="post" action="{{url_for('electricity_payment_start',bill_id=bill.id)}}"><button class="primary">Pay Now</button></form>{% elif bill.status!='paid' and not is_admin %}<span class="status-chip warning">Admin payment required</span>{% endif %}{% if pay and pay.status in ['initiated','pending','manual_confirmation_required'] and is_admin %}<details class="payment-confirm-details"><summary>Confirm Payment</summary><form method="post" action="{{url_for('electricity_payment_confirm_manual',payment_id=pay.id)}}" class="stack"><label>Payment Reference<input name="payment_reference" value="{{pay.payment_reference or ''}}"></label><label>Admin Password<input type="password" name="admin_password" required></label><button class="secondary">Confirm Paid</button></form></details>{% endif %}{% if bill.status=='paid' %}<span class="status-chip success">Paid</span>{% endif %}</div>
+</article>
+{% else %}<div class="placeholder liquid-card">No electricity bills saved yet.</div>{% endfor %}
+</div>
+<script src="{{url_for('static',filename='electricity.js')}}?v={{app_version|replace('Web ','')}}"></script>
+{% endblock %}

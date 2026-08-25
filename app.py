@@ -1,4 +1,4 @@
-import os, io, csv, json, hashlib, hmac, datetime, urllib.parse, html, base64, re, secrets, uuid, shutil, subprocess, threading, time
+import os, io, csv, json, hashlib, hmac, datetime, urllib.parse, html, base64, re, secrets, uuid, shutil, subprocess, threading, time, decimal
 from pathlib import Path
 from email.message import EmailMessage
 from functools import wraps
@@ -23,9 +23,12 @@ except Exception:
     pillow_heif=None
 
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
+from electricity_core import normalize_bill_payload, bill_dedupe_key, reminder_status, transition_payment_status, build_electricity_csv, build_electricity_xlsx, fetch_bill_from_provider
+from electricity_providers import load_seed_providers, seed_electricity_providers, safe_official_url
+from vault_core import encrypt_secret, decrypt_secret, mask_secret, validate_secret_type, ALLOWED_SECRET_TYPES
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.6.2'
+APP_VERSION = 'Web 1.7.0'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -219,6 +222,154 @@ class BankReconciliationRun(db.Model):
     template_id = db.Column(db.Integer, db.ForeignKey('bank_document.id'), nullable=False)
     summary_json = db.Column(db.Text, default='{}')
     result_ciphertext = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+class ElectricityProvider(db.Model):
+    __tablename__ = 'electricity_provider'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(180), nullable=False)
+    state = db.Column(db.String(120), nullable=False, default='')
+    city = db.Column(db.String(120), nullable=False, default='')
+    official_website_url = db.Column(db.Text, default='')
+    official_payment_url = db.Column(db.Text, default='')
+    official_login_url = db.Column(db.Text, default='')
+    identifier_types_json = db.Column(db.Text, default='[]')
+    bbps_biller_id = db.Column(db.String(120), default='')
+    supports_bbps_fetch = db.Column(db.Boolean, default=False)
+    supports_bbps_payment = db.Column(db.Boolean, default=False)
+    embedding_mode = db.Column(db.String(24), default='external')
+    workflow_mode = db.Column(db.String(24), default='portal')
+    active = db.Column(db.Boolean, default=True)
+    notes = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    __table_args__=(db.UniqueConstraint('name','state','city',name='uq_electricity_provider_scope'),)
+
+    @property
+    def identifier_types(self):
+        try:
+            value=json.loads(self.identifier_types_json or '[]')
+            return value if isinstance(value,list) else []
+        except Exception: return []
+
+class VaultSecret(db.Model):
+    __tablename__ = 'vault_secret'
+    id = db.Column(db.Integer, primary_key=True)
+    secret_type = db.Column(db.String(60), nullable=False)
+    label = db.Column(db.String(180), nullable=False)
+    username_masked = db.Column(db.String(180), default='')
+    ciphertext = db.Column(db.Text, nullable=False)
+    nonce = db.Column(db.Text, nullable=False)
+    key_version = db.Column(db.String(24), default='v1')
+    linked_provider_id = db.Column(db.Integer, db.ForeignKey('electricity_provider.id'), nullable=True)
+    linked_connection_id = db.Column(db.Integer, nullable=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    updated_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class ElectricityConnection(db.Model):
+    __tablename__ = 'electricity_connection'
+    id = db.Column(db.Integer, primary_key=True)
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=True)
+    property_name = db.Column(db.String(180), default='')
+    provider_id = db.Column(db.Integer, db.ForeignKey('electricity_provider.id'), nullable=False)
+    connection_name = db.Column(db.String(180), default='')
+    consumer_name = db.Column(db.String(180), default='')
+    identifier_primary = db.Column(db.String(180), nullable=False)
+    identifier_primary_type = db.Column(db.String(40), nullable=False, default='CONSUMER_NO')
+    identifier_secondary = db.Column(db.String(180), default='')
+    identifier_secondary_type = db.Column(db.String(40), default='')
+    meter_number = db.Column(db.String(120), default='')
+    billing_cycle = db.Column(db.String(80), default='Monthly')
+    reminder_days_before = db.Column(db.Integer, default=5)
+    vault_credential_id = db.Column(db.Integer, db.ForeignKey('vault_secret.id'), nullable=True)
+    status = db.Column(db.String(32), default='active')
+    last_fetch_status = db.Column(db.String(48), default='')
+    last_fetch_at = db.Column(db.DateTime, nullable=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    provider = db.relationship('ElectricityProvider', foreign_keys=[provider_id])
+    city_ref = db.relationship('City', foreign_keys=[city_id])
+
+class ElectricityBill(db.Model):
+    __tablename__ = 'electricity_bill'
+    id = db.Column(db.Integer, primary_key=True)
+    connection_id = db.Column(db.Integer, db.ForeignKey('electricity_connection.id'), nullable=False, index=True)
+    provider_id = db.Column(db.Integer, db.ForeignKey('electricity_provider.id'), nullable=False, index=True)
+    dedupe_key = db.Column(db.String(320), unique=True, nullable=False)
+    bill_month = db.Column(db.String(24), default='')
+    billing_period_start = db.Column(db.Date, nullable=True)
+    billing_period_end = db.Column(db.Date, nullable=True)
+    bill_number = db.Column(db.String(140), default='')
+    bill_date = db.Column(db.Date, nullable=True)
+    due_date = db.Column(db.Date, nullable=True)
+    consumer_name = db.Column(db.String(180), default='')
+    meter_number = db.Column(db.String(120), default='')
+    units_consumed = db.Column(db.Numeric(14,3), nullable=True)
+    previous_reading = db.Column(db.Numeric(14,3), nullable=True)
+    current_reading = db.Column(db.Numeric(14,3), nullable=True)
+    current_charges = db.Column(db.Numeric(14,2), default=0)
+    arrears_amount = db.Column(db.Numeric(14,2), default=0)
+    late_fee_amount = db.Column(db.Numeric(14,2), default=0)
+    net_amount = db.Column(db.Numeric(14,2), default=0)
+    total_due_amount = db.Column(db.Numeric(14,2), default=0)
+    status = db.Column(db.String(48), default='unpaid')
+    source_type = db.Column(db.String(48), default='manual_entry')
+    raw_source_meta_json = db.Column(db.Text, default='{}')
+    receipt_file_path_or_token = db.Column(db.Text, default='')
+    bill_file_path_or_token = db.Column(db.Text, default='')
+    bill_file_name = db.Column(db.String(255), default='')
+    bill_mime_type = db.Column(db.String(120), default='')
+    encrypted_bill_blob = db.Column(db.LargeBinary, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    connection = db.relationship('ElectricityConnection', foreign_keys=[connection_id])
+    provider = db.relationship('ElectricityProvider', foreign_keys=[provider_id])
+
+class ElectricityPayment(db.Model):
+    __tablename__ = 'electricity_payment'
+    id = db.Column(db.Integer, primary_key=True)
+    bill_id = db.Column(db.Integer, db.ForeignKey('electricity_bill.id'), nullable=False, index=True)
+    connection_id = db.Column(db.Integer, db.ForeignKey('electricity_connection.id'), nullable=False)
+    provider_id = db.Column(db.Integer, db.ForeignKey('electricity_provider.id'), nullable=False)
+    payment_provider = db.Column(db.String(120), default='')
+    payment_reference = db.Column(db.String(180), default='')
+    provider_txn_id = db.Column(db.String(180), default='')
+    paid_amount = db.Column(db.Numeric(14,2), default=0)
+    initiated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    confirmed_at = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.String(48), default='initiated')
+    receipt_path_or_token = db.Column(db.Text, default='')
+    meta_json = db.Column(db.Text, default='{}')
+    bill = db.relationship('ElectricityBill', foreign_keys=[bill_id])
+
+class ReminderItem(db.Model):
+    __tablename__ = 'reminder_item'
+    id = db.Column(db.Integer, primary_key=True)
+    module = db.Column(db.String(60), nullable=False, default='electricity')
+    entity_id = db.Column(db.Integer, nullable=False)
+    title = db.Column(db.String(240), nullable=False)
+    severity = db.Column(db.String(24), default='info')
+    due_at = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.String(32), default='active')
+    payload_json = db.Column(db.Text, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    __table_args__=(db.UniqueConstraint('module','entity_id',name='uq_reminder_entity'),)
+
+class AuditEvent(db.Model):
+    __tablename__ = 'audit_event'
+    id = db.Column(db.Integer, primary_key=True)
+    actor_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    module = db.Column(db.String(60), nullable=False)
+    action = db.Column(db.String(120), nullable=False)
+    target_type = db.Column(db.String(80), default='')
+    target_id = db.Column(db.Integer, nullable=True)
+    status = db.Column(db.String(32), default='success')
+    note = db.Column(db.Text, default='')
+    meta_json = db.Column(db.Text, default='{}')
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
 class FoodIntegration(db.Model):
@@ -1082,6 +1233,7 @@ MODULES = {
     'food': 'Food Delivery Hub',
     'rentok': 'Livenza Billing Suite',
     'banking': 'Banking & Reconciliation Suite',
+    'electricity': 'Electricity Bill Studio',
     'queries': 'Live Queries Manager',
     'video_wall': 'Video Wall Studio',
     'whatsapp': 'WhatsApp Workspace',
@@ -1319,19 +1471,15 @@ def _ai_avatar_data_uri(raw):
         if not generated: return '', 'The AI image service returned no avatar.'
         return _jpeg_data_uri(_portrait_image(generated,768),768,89), ''
     except Exception as exc:
-        app.logger.warning('Live avatar generation fell back to local polish: %s',str(exc)[:180])
-        return '', 'AI mascot styling was unavailable, so the private polished portrait was used.'
+        app.logger.warning('Live mascot generation failed; default mascot will remain active: %s',str(exc)[:180])
+        return '', 'AI mascot styling was unavailable.'
 
 def create_live_avatar(raw, prefer_ai=True):
     if prefer_ai:
         generated,error=_ai_avatar_data_uri(raw)
-        if generated: return generated,'ai','AI live mascot created and applied across the workspace.'
-    else:
-        error=''
-    fallback=polished_avatar_data_uri_from_bytes(raw)
-    if fallback:
-        return fallback,'polished',('Polished profile avatar created. AI mascot styling will activate when the image service is available.' if error else 'Polished profile avatar created.')
-    return '','','The selected image could not be converted into an avatar.'
+        if generated: return generated,'ai_mascot','AI live mascot created and applied across the workspace.'
+        return '','default','AI mascot generation was unavailable. The default Livenza mascot remains active.'
+    return '','default','The default Livenza mascot remains active.'
 
 def masked_aadhaar(last4):
     d=''.join(ch for ch in (last4 or '') if ch.isdigit())[-4:]
@@ -1991,7 +2139,7 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture','avatar-camera-device-selector','avatar-direct-blob-submit','reliable-local-avatar-fallback','banking-suite','official-bank-launcher','encrypted-bank-statement-vault','reconciliation-template-library','bank-statement-reconciliation','admin-managed-profile-control','admin-avatar-studio','admin-role-permissions'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture','avatar-camera-device-selector','avatar-direct-blob-submit','reliable-local-avatar-fallback','banking-suite','official-bank-launcher','encrypted-bank-statement-vault','reconciliation-template-library','bank-statement-reconciliation','admin-managed-profile-control','admin-avatar-studio','admin-role-permissions','electricity-bill-studio','all-india-electricity-directory','livenza-vault','bill-register-export','live-payment-reminders','bbps-adapter','utility-portal-fallback','electricity-payment-status','admin-electricity-controls','electricity-audit-log','ai-live-mascot','no-photo-mascot-fallback'])
 
 def version_v1513():
     return jsonify(version=APP_VERSION,features=[
@@ -2004,11 +2152,14 @@ def version_v1513():
         'progressive-device-auth','credential-skeleton-loader','password-visibility-toggle','inline-auth-errors',
         'accessible-pattern-hitboxes','keyboard-pattern-navigation','dedicated-pattern-clear','absolute-legal-strip',
         'restored-header-rotation','responsive-rotation-popover','website-rotation-modes','rotation-fullscreen-control',
-        'personal-live-avatar','profile-photo-avatar-generation','gpt-image-avatar-styling','polished-avatar-fallback',
+        'personal-live-avatar','profile-photo-avatar-generation','gpt-image-avatar-styling','default-mascot-fallback',
         'workspace-wide-avatar-identity','responsive-avatar-companion','avatar-upload-progress','avatar-reset-control','animated-mascot-avatar',
         'header-rotation-lock','header-horizontal-control','header-vertical-control','persistent-display-lock',
         'progressive-login-disclosure','fallback-auth-tabs','separated-auth-copy','numeric-keypad-pattern',
         'realtime-pattern-progress','standardized-svg-icons','utility-legal-footer','header-display-dropdown',
+        'electricity-bill-studio','all-india-electricity-directory','livenza-vault','bill-register-export',
+        'live-payment-reminders','bbps-adapter','utility-portal-fallback','electricity-payment-status',
+        'admin-electricity-controls','electricity-audit-log','ai-live-mascot','no-photo-mascot-fallback',
     ])
 
 # Keep the original endpoint identity while exposing the current release's
@@ -2077,10 +2228,12 @@ def account_avatar():
 @login_required
 def dashboard():
     show_login_welcome=bool(session.pop('show_login_welcome',False))
+    if can_access('electricity'): refresh_electricity_reminders()
     rooms=Room.query.all(); statuses=[room_status(r) for r in rooms]
     stats={
         'agreements':Agreement.query.count(), 'tenants':Tenant.query.count(), 'rooms':len(rooms),
-        'vacant':sum(1 for x in statuses if x=='Vacant'), 'orders':FoodOrder.query.count(), 'reviews':Review.query.count(), 'queries':QueryLead.query.count(), 'hot_queries':QueryLead.query.filter_by(heat='Hot').count(), 'screens':VideoScreen.query.count(), 'screens_online':sum(1 for x in VideoScreen.query.all() if screen_is_online(x))
+        'vacant':sum(1 for x in statuses if x=='Vacant'), 'orders':FoodOrder.query.count(), 'reviews':Review.query.count(), 'queries':QueryLead.query.count(), 'hot_queries':QueryLead.query.filter_by(heat='Hot').count(), 'screens':VideoScreen.query.count(), 'screens_online':sum(1 for x in VideoScreen.query.all() if screen_is_online(x)),
+        'electricity_due':ElectricityBill.query.filter(ElectricityBill.status.in_(['due_soon','due_today','overdue','payment_pending_confirmation'])).count()
     }
     agreements_all=Agreement.query.all()
     city_rows=[]
@@ -2091,7 +2244,12 @@ def dashboard():
             'tenants':Tenant.query.filter_by(city=c.name).count(),
             'agreements':sum(1 for a in agreements_all if (a.data.get('city') or '').strip()==c.name)
         })
-    return render_template('dashboard.html', stats=stats, cities=city_rows, permissions=user_permissions(), show_login_welcome=show_login_welcome)
+    live_reminders=_electricity_current_reminders(8) if can_access('electricity') else []
+    summary={'due_soon':0,'due_today':0,'overdue':0,'payment_pending_confirmation':0}
+    for item in live_reminders:
+        status=(item.get('payload') or {}).get('bill_status','')
+        if status in summary: summary[status]+=1
+    return render_template('dashboard.html', stats=stats, cities=city_rows, permissions=user_permissions(), show_login_welcome=show_login_welcome, live_reminders=live_reminders, electricity_reminder_summary=summary)
 
 @app.route('/api/marquee')
 @login_required
@@ -2974,6 +3132,453 @@ def wall_heartbeat(token):
     sc.last_seen_at=datetime.datetime.utcnow(); sc.last_ip=(request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:120]; db.session.commit()
     return jsonify(ok=True)
 
+
+# ===== Web 1.7.0 • Electricity Bill Studio / Livenza Vault =====
+ELECTRICITY_MAX_FILE_BYTES=16*1024*1024
+ELECTRICITY_ALLOWED_EXTENSIONS={'.pdf','.jpg','.jpeg','.png','.webp','.heic','.heif','.tif','.tiff','.csv','.xlsx','.xls'}
+
+def _audit_safe_meta(meta):
+    if not isinstance(meta,dict): return {}
+    blocked=('password','secret','token','otp','pin','cvv','captcha','cookie','credential')
+    return {str(k)[:80]:v for k,v in meta.items() if not any(x in str(k).lower() for x in blocked)}
+
+def record_audit(action,target_type='',target_id=None,status='success',note='',meta=None,module='electricity'):
+    try:
+        actor=current_user()
+        event=AuditEvent(actor_user_id=actor.id if actor else None,module=module,action=(action or '')[:120],target_type=(target_type or '')[:80],target_id=target_id,status=(status or 'success')[:32],note=(note or '')[:1000],meta_json=json.dumps(_audit_safe_meta(meta or {}),ensure_ascii=False))
+        db.session.add(event)
+        return event
+    except Exception:
+        return None
+
+def _mask_connection_identifier(value):
+    raw=str(value or '').strip()
+    if not raw: return ''
+    return ('•'*max(4,len(raw)-4))+raw[-4:]
+
+def _electricity_decimal(value,scale='0.00'):
+    try: return decimal.Decimal(str(value or '0').replace(',','')).quantize(decimal.Decimal(scale))
+    except Exception: return decimal.Decimal('0.00')
+
+def _electricity_num_or_none(value):
+    if value in (None,''): return None
+    try: return decimal.Decimal(str(value).replace(',',''))
+    except Exception: return None
+
+def _electricity_provider_rows(include_inactive=False):
+    query=ElectricityProvider.query
+    if not include_inactive: query=query.filter_by(active=True)
+    return query.order_by(ElectricityProvider.state,ElectricityProvider.city,ElectricityProvider.name).all()
+
+def _electricity_page_context(bill_draft=None):
+    refresh_electricity_reminders()
+    connections=ElectricityConnection.query.order_by(ElectricityConnection.property_name,ElectricityConnection.connection_name).all()
+    providers=_electricity_provider_rows()
+    bills=ElectricityBill.query.order_by(ElectricityBill.due_date.asc().nullslast(),ElectricityBill.id.desc()).limit(300).all()
+    cities=City.query.filter_by(active=True).order_by(City.name).all()
+    vault_entries=VaultSecret.query.order_by(VaultSecret.label).all() if current_user() and (current_user().role or '').lower()=='admin' else []
+    due_count=sum(1 for bill in bills if bill.status in ('due_soon','due_today','overdue','payment_pending_confirmation'))
+    payment_by_bill={}
+    for payment in ElectricityPayment.query.order_by(ElectricityPayment.id.desc()).all():
+        payment_by_bill.setdefault(payment.bill_id,payment)
+    return dict(connections=connections,providers=providers,bills=bills,cities=cities,vault_entries=vault_entries,bill_draft=bill_draft or {},is_admin=(current_user().role or '').lower()=='admin',due_count=due_count,payment_by_bill=payment_by_bill)
+
+def _electricity_extract_text(raw,filename,mimetype):
+    ext=Path(filename or '').suffix.lower()
+    if ext=='.pdf':
+        try:
+            try: import pymupdf as fitz
+            except ImportError: import fitz
+            with fitz.open(stream=raw,filetype='pdf') as doc:
+                text='\n'.join((doc.load_page(i).get_text('text') or '') for i in range(min(doc.page_count,20)))
+            if len(text.strip())>=40: return text,''
+        except Exception: pass
+    if ext=='.csv':
+        for enc in ('utf-8-sig','utf-8','cp1252','latin-1'):
+            try: return raw.decode(enc),''
+            except Exception: pass
+    if ext=='.xlsx':
+        try:
+            from openpyxl import load_workbook
+            wb=load_workbook(io.BytesIO(raw),read_only=True,data_only=True); ws=wb[wb.sheetnames[0]]
+            return '\n'.join(' | '.join(str(v or '') for v in row) for row in ws.iter_rows(values_only=True) if any(v not in (None,'') for v in row)),''
+        except Exception: pass
+    if ext=='.xls':
+        try:
+            import xlrd
+            wb=xlrd.open_workbook(file_contents=raw,on_demand=True); ws=wb.sheet_by_index(0)
+            return '\n'.join(' | '.join(str(v or '') for v in ws.row_values(i)) for i in range(ws.nrows)),''
+        except Exception: pass
+    return _aadhaar_local_ocr_text(raw,filename,mimetype)
+
+def _electricity_value_after_label(text,labels,max_len=120):
+    label='|'.join(re.escape(x) for x in labels)
+    m=re.search(rf'(?:{label})\s*[:#\-]?\s*([^\n|]{{1,{max_len}}})',text,re.I)
+    return (m.group(1).strip() if m else '')
+
+def _electricity_parse_bill_text(text):
+    txt=(text or '').replace('\r','\n')
+    payload={}
+    payload['identifier_primary']=_electricity_value_after_label(txt,['K No','K Number','KNO','Consumer No','Consumer Number','CA No','CA Number','Account No','Account Number','Service No','Unique Service No'])
+    payload['bill_number']=_electricity_value_after_label(txt,['Bill No','Bill Number','Bill ID'])
+    payload['meter_number']=_electricity_value_after_label(txt,['Meter No','Meter Number'])
+    payload['consumer_name']=_electricity_value_after_label(txt,['Consumer Name','Name of Consumer','Customer Name'])
+    payload['bill_month']=_electricity_value_after_label(txt,['Bill Month','Billing Month','Bill Period','Billing Period'])
+    def date_for(labels):
+        raw=_electricity_value_after_label(txt,labels,60)
+        if raw:
+            m=re.search(r'\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[- ](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[- ]\d{2,4})\b',raw,re.I)
+            return m.group(0) if m else raw[:30]
+        label='|'.join(re.escape(x) for x in labels)
+        m=re.search(rf'(?:{label}).{{0,22}}?(\d{{1,2}}[/-]\d{{1,2}}[/-]\d{{2,4}}|\d{{4}}-\d{{1,2}}-\d{{1,2}})',txt,re.I)
+        return m.group(1) if m else ''
+    payload['bill_date']=date_for(['Bill Date','Date of Bill'])
+    payload['due_date']=date_for(['Due Date','Payment Due Date','Pay By'])
+    def money_for(labels):
+        label='|'.join(re.escape(x) for x in labels)
+        matches=list(re.finditer(rf'(?:{label})[^\n₹\d]{{0,30}}(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{{1,2}})?)',txt,re.I))
+        return matches[-1].group(1) if matches else ''
+    payload['total_due_amount']=money_for(['Total Amount','Amount Due','Net Payable','Total Due','Payable Amount','Bill Amount','Current Amount'])
+    payload['current_charges']=money_for(['Current Charges','Current Demand','Energy Charges'])
+    payload['arrears_amount']=money_for(['Arrears','Previous Dues','Outstanding'])
+    payload['late_fee_amount']=money_for(['Late Fee','LPSC','Late Payment Surcharge','Surcharge'])
+    def number_for(labels):
+        label='|'.join(re.escape(x) for x in labels)
+        m=re.search(rf'(?:{label})[^\n\d]{{0,30}}([\d,]+(?:\.\d+)?)',txt,re.I)
+        return m.group(1) if m else ''
+    payload['units_consumed']=number_for(['Units Consumed','Consumption','Units'])
+    payload['previous_reading']=number_for(['Previous Reading','Prev Reading'])
+    payload['current_reading']=number_for(['Current Reading'])
+    normalized=normalize_bill_payload(payload)
+    normalized['raw_excerpt']=re.sub(r'\s+',' ',txt)[:1200]
+    return normalized
+
+def _electricity_bill_complete(draft):
+    return bool(draft.get('total_due_amount') not in ('','0.00') and draft.get('due_date'))
+
+def _electricity_bill_to_row(bill):
+    c=bill.connection; p=bill.provider
+    return {
+        'City':(c.city_ref.name if c and c.city_ref else (p.city if p else '')),
+        'Property':c.property_name if c else '',
+        'Provider':p.name if p else '',
+        'Connection':c.connection_name if c else '',
+        'Consumer Name':bill.consumer_name or (c.consumer_name if c else ''),
+        'Identifier':_mask_connection_identifier(c.identifier_primary if c else ''),
+        'Meter No':bill.meter_number or (c.meter_number if c else ''),
+        'Bill Month':bill.bill_month or '',
+        'Bill No':bill.bill_number or '',
+        'Bill Date':bill.bill_date.isoformat() if bill.bill_date else '',
+        'Due Date':bill.due_date.isoformat() if bill.due_date else '',
+        'Units':str(bill.units_consumed or ''),
+        'Previous Reading':str(bill.previous_reading or ''),
+        'Current Reading':str(bill.current_reading or ''),
+        'Current Charges':str(bill.current_charges or 0),
+        'Arrears':str(bill.arrears_amount or 0),
+        'Late Fee':str(bill.late_fee_amount or 0),
+        'Total Due':str(bill.total_due_amount or 0),
+        'Status':bill.status,
+        'Source':bill.source_type,
+        'Receipt':('Yes' if bill.receipt_file_path_or_token else 'No'),
+    }
+
+def sync_bill_reminder(bill,connection=None):
+    connection=connection or bill.connection
+    pending=ElectricityPayment.query.filter_by(bill_id=bill.id).filter(ElectricityPayment.status.in_(['initiated','pending','manual_confirmation_required'])).first() is not None
+    status,severity=reminder_status(bill.due_date,bill.status=='paid',pending,days_before=(connection.reminder_days_before if connection else 5))
+    bill.status=status if status!='paid' else 'paid'
+    reminder=ReminderItem.query.filter_by(module='electricity',entity_id=bill.id).first()
+    if not reminder:
+        reminder=ReminderItem(module='electricity',entity_id=bill.id,title='Electricity bill reminder'); db.session.add(reminder)
+    provider=bill.provider
+    payload={'bill_id':bill.id,'connection_id':bill.connection_id,'property':connection.property_name if connection else '','provider':provider.name if provider else '','identifier':_mask_connection_identifier(connection.identifier_primary if connection else ''),'amount':str(bill.total_due_amount or 0),'due_date':bill.due_date.isoformat() if bill.due_date else '','bill_status':bill.status}
+    reminder.title=f"{payload['property'] or payload['provider']} electricity bill"
+    existing_payload={}
+    try: existing_payload=json.loads(reminder.payload_json or '{}')
+    except Exception: existing_payload={}
+    snoozed_until=parse_date(existing_payload.get('snoozed_until',''))
+    reminder.severity=severity; reminder.due_at=datetime.datetime.combine(bill.due_date,datetime.time(9,0)) if bill.due_date else None
+    if snoozed_until and snoozed_until>datetime.date.today() and bill.status!='paid':
+        payload['snoozed_until']=snoozed_until.isoformat(); reminder.status='snoozed'; reminder.due_at=datetime.datetime.combine(snoozed_until,datetime.time(9,0))
+    else:
+        reminder.status='resolved' if bill.status=='paid' else ('active' if status in ('due_soon','due_today','overdue','payment_pending_confirmation') else 'resolved')
+    reminder.payload_json=json.dumps(payload,ensure_ascii=False)
+    return reminder
+
+def upsert_electricity_bill(connection,payload,source_type='manual_entry',raw_file=None,file_name='',mime_type=''):
+    normalized=normalize_bill_payload(payload or {})
+    bill_month=(normalized.get('bill_month') or (parse_date(normalized.get('bill_date')) or datetime.date.today()).strftime('%Y-%m'))[:24]
+    key=bill_dedupe_key(connection.provider_id,connection.id,normalized.get('bill_number',''),bill_month)
+    bill=ElectricityBill.query.filter_by(dedupe_key=key).first()
+    if not bill:
+        bill=ElectricityBill(connection_id=connection.id,provider_id=connection.provider_id,dedupe_key=key); db.session.add(bill)
+    bill.bill_month=bill_month; bill.bill_number=normalized.get('bill_number','')[:140]; bill.bill_date=parse_date(normalized.get('bill_date')); bill.due_date=parse_date(normalized.get('due_date'))
+    bill.consumer_name=(normalized.get('consumer_name') or connection.consumer_name or '')[:180]; bill.meter_number=(normalized.get('meter_number') or connection.meter_number or '')[:120]
+    bill.units_consumed=_electricity_num_or_none(normalized.get('units_consumed')); bill.previous_reading=_electricity_num_or_none(normalized.get('previous_reading')); bill.current_reading=_electricity_num_or_none(normalized.get('current_reading'))
+    bill.current_charges=_electricity_decimal(normalized.get('current_charges')); bill.arrears_amount=_electricity_decimal(normalized.get('arrears_amount')); bill.late_fee_amount=_electricity_decimal(normalized.get('late_fee_amount')); bill.total_due_amount=_electricity_decimal(normalized.get('total_due_amount')); bill.net_amount=bill.total_due_amount
+    bill.source_type=(source_type or 'manual_entry')[:48]; bill.raw_source_meta_json=json.dumps({'identifier_from_bill':normalized.get('identifier_primary',''),'excerpt':normalized.get('raw_excerpt','')},ensure_ascii=False)
+    if raw_file:
+        bill.encrypted_bill_blob=_bank_encrypt_bytes(raw_file); bill.bill_file_name=secure_filename(file_name or 'electricity-bill')[:255]; bill.bill_mime_type=(mime_type or 'application/octet-stream')[:120]; bill.bill_file_path_or_token='database-encrypted'
+    db.session.flush(); sync_bill_reminder(bill,connection); return bill
+
+def _electricity_payment_configured(provider):
+    return bool(provider and provider.supports_bbps_payment and os.getenv('ELECTRICITY_PAYMENT_PROVIDER_URL','').strip())
+
+def refresh_electricity_reminders():
+    bills=ElectricityBill.query.filter(ElectricityBill.status!='paid').all()
+    changed=False
+    for bill in bills:
+        sync_bill_reminder(bill); changed=True
+    if changed: db.session.commit()
+    return len(bills)
+
+def _electricity_current_reminders(limit=8):
+    items=ReminderItem.query.filter_by(module='electricity',status='active').all()
+    rank={'danger':0,'warning':1,'info':2,'success':3}
+    items.sort(key=lambda r:(rank.get(r.severity,9),r.due_at or datetime.datetime.max))
+    out=[]
+    for r in items[:limit]:
+        try: payload=json.loads(r.payload_json or '{}')
+        except Exception: payload={}
+        out.append({'reminder':r,'payload':payload})
+    return out
+
+def ensure_electricity_provider_seed():
+    try:
+        if ElectricityProvider.query.count()>0: return 0
+        rows=load_seed_providers(os.path.join(BASE_DIR,'data','electricity_providers_india.json'))
+        return seed_electricity_providers(db.session,ElectricityProvider,rows)
+    except Exception as exc:
+        app.logger.warning('Electricity provider seed skipped: %s',str(exc)[:180]); return 0
+
+@app.route('/electricity')
+@permission_required('electricity')
+def electricity_studio():
+    return render_template('electricity.html',**_electricity_page_context())
+
+@app.route('/electricity/connections/save',methods=['POST'])
+@admin_required
+def electricity_connection_save():
+    cid=(request.form.get('id') or '').strip(); connection=db.session.get(ElectricityConnection,int(cid)) if cid.isdigit() else None
+    provider_id=(request.form.get('provider_id') or '').strip(); provider=db.session.get(ElectricityProvider,int(provider_id)) if provider_id.isdigit() else None
+    identifier=(request.form.get('identifier_primary') or '').strip(); property_name=(request.form.get('property_name') or '').strip()
+    if not provider or not identifier or not property_name:
+        flash('Provider, property and primary K/CA/Consumer/Account number are required.','danger'); return redirect(url_for('electricity_studio'))
+    if not connection:
+        connection=ElectricityConnection(provider_id=provider.id,identifier_primary=identifier,created_by_user_id=current_user().id); db.session.add(connection)
+    connection.provider_id=provider.id; connection.property_name=property_name[:180]; connection.connection_name=(request.form.get('connection_name') or property_name)[:180]; connection.consumer_name=(request.form.get('consumer_name') or '')[:180]
+    connection.identifier_primary=identifier[:180]; connection.identifier_primary_type=(request.form.get('identifier_primary_type') or 'CONSUMER_NO')[:40]; connection.identifier_secondary=(request.form.get('identifier_secondary') or '')[:180]; connection.identifier_secondary_type=(request.form.get('identifier_secondary_type') or '')[:40]; connection.meter_number=(request.form.get('meter_number') or '')[:120]
+    city_id=(request.form.get('city_id') or '').strip(); connection.city_id=int(city_id) if city_id.isdigit() else None
+    vault_id=(request.form.get('vault_credential_id') or '').strip(); connection.vault_credential_id=int(vault_id) if vault_id.isdigit() else None
+    try: connection.reminder_days_before=max(0,min(30,int(request.form.get('reminder_days_before') or 5)))
+    except Exception: connection.reminder_days_before=5
+    connection.status='active'; db.session.flush(); record_audit('connection_saved','electricity_connection',connection.id,meta={'provider_id':provider.id,'property':property_name}); db.session.commit(); flash('Electricity connection saved.','success'); return redirect(url_for('electricity_studio'))
+
+@app.route('/electricity/connections/<int:cid>/delete',methods=['POST'])
+@admin_required
+def electricity_connection_delete(cid):
+    connection=db.session.get(ElectricityConnection,cid) or abort(404)
+    bills=ElectricityBill.query.filter_by(connection_id=cid).all()
+    for bill in bills:
+        ReminderItem.query.filter_by(module='electricity',entity_id=bill.id).delete(); ElectricityPayment.query.filter_by(bill_id=bill.id).delete(); db.session.delete(bill)
+    VaultSecret.query.filter_by(linked_connection_id=cid).update({'linked_connection_id':None})
+    record_audit('connection_deleted','electricity_connection',connection.id,meta={'property':connection.property_name}); db.session.delete(connection); db.session.commit(); flash('Electricity connection removed.','success'); return redirect(url_for('electricity_studio'))
+
+@app.route('/electricity/providers/<int:provider_id>/portal')
+@permission_required('electricity')
+def electricity_provider_portal(provider_id):
+    provider=db.session.get(ElectricityProvider,provider_id) or abort(404)
+    target=safe_official_url(provider.official_login_url or provider.official_website_url)
+    if not target: flash('This provider does not have a verified official portal URL saved yet.','warning'); return redirect(url_for('electricity_studio'))
+    connection_id=(request.args.get('connection_id') or '').strip(); connection=db.session.get(ElectricityConnection,int(connection_id)) if connection_id.isdigit() else None
+    if connection and connection.provider_id!=provider.id: connection=None
+    return render_template('electricity_portal.html',provider=provider,portal_url=target,connection=connection,inline_allowed=(provider.embedding_mode=='inline'),vault_linked=bool(connection and connection.vault_credential_id))
+
+@app.route('/electricity/connections/<int:cid>/fetch',methods=['POST'])
+@permission_required('electricity')
+def electricity_bill_fetch(cid):
+    connection=db.session.get(ElectricityConnection,cid) or abort(404); provider=connection.provider
+    config={'base_url':os.getenv('BBPS_PROVIDER_BASE_URL',''),'client_id':os.getenv('BBPS_PROVIDER_CLIENT_ID',''),'client_secret':os.getenv('BBPS_PROVIDER_CLIENT_SECRET',''),'fetch_path':os.getenv('BBPS_PROVIDER_FETCH_PATH','/bill-fetch')}
+    result=fetch_bill_from_provider(connection,provider,config)
+    connection.last_fetch_at=datetime.datetime.utcnow(); connection.last_fetch_status=result.get('status','failed'); connection.status='active' if result.get('ok') else 'needs_attention'
+    if result.get('ok'):
+        bill=upsert_electricity_bill(connection,result.get('bill') or {},'bbps'); record_audit('bill_fetched','electricity_bill',bill.id,meta={'provider_id':provider.id}); db.session.commit(); flash(result.get('message') or 'Current bill fetched.','success')
+    else:
+        record_audit('bill_fetch_failed','electricity_connection',connection.id,status='failed',note=result.get('message','')); db.session.commit(); flash(result.get('message') or 'Automatic bill fetch needs manual action. Use the official portal or upload the bill.','warning')
+    return redirect(url_for('electricity_studio'))
+
+@app.route('/electricity/bills/upload',methods=['POST'])
+@permission_required('electricity')
+def electricity_bill_upload():
+    connection_id=(request.form.get('connection_id') or '').strip(); connection=db.session.get(ElectricityConnection,int(connection_id)) if connection_id.isdigit() else None
+    if not connection: flash('Choose the electricity connection for this bill.','danger'); return redirect(url_for('electricity_studio'))
+    if request.form.get('confirm_extracted')=='1':
+        draft={k:request.form.get(k,'') for k in ('identifier_primary','bill_number','bill_date','due_date','bill_month','total_due_amount','current_charges','arrears_amount','late_fee_amount','units_consumed','meter_number','previous_reading','current_reading','consumer_name')}
+        bill=upsert_electricity_bill(connection,draft,'manual_entry'); record_audit('bill_import_confirmed','electricity_bill',bill.id); db.session.commit(); flash('Electricity bill saved to the register.','success'); return redirect(url_for('electricity_studio'))
+    upload=request.files.get('bill_file')
+    if not upload or not upload.filename: flash('Choose an electricity bill PDF, image or spreadsheet.','danger'); return redirect(url_for('electricity_studio'))
+    ext=Path(upload.filename).suffix.lower()
+    if ext not in ELECTRICITY_ALLOWED_EXTENSIONS: flash('Use PDF, JPG, PNG, WebP, HEIC/HEIF, TIFF, CSV, XLSX or XLS.','danger'); return redirect(url_for('electricity_studio'))
+    raw=upload.read(ELECTRICITY_MAX_FILE_BYTES+1)
+    if not raw or len(raw)>ELECTRICITY_MAX_FILE_BYTES: flash('Electricity bill files must be smaller than 16 MB.','danger'); return redirect(url_for('electricity_studio'))
+    text,error=_electricity_extract_text(raw,upload.filename,upload.mimetype or '')
+    if error and not text: flash(error,'danger'); return redirect(url_for('electricity_studio'))
+    draft=_electricity_parse_bill_text(text); draft['connection_id']=connection.id; draft['file_name']=secure_filename(upload.filename); draft['parse_notice']='Please review the extracted fields before saving.'
+    if _electricity_bill_complete(draft):
+        bill=upsert_electricity_bill(connection,draft,'manual_upload',raw,upload.filename,upload.mimetype or 'application/octet-stream'); record_audit('bill_imported','electricity_bill',bill.id,meta={'file_name':secure_filename(upload.filename)}); db.session.commit(); flash('Bill extracted, saved securely and added to the register.','success'); return redirect(url_for('electricity_studio'))
+    record_audit('bill_import_needs_review','electricity_connection',connection.id,status='review',meta={'file_name':secure_filename(upload.filename)}); db.session.commit(); flash('Some bill fields need confirmation before saving.','warning'); return render_template('electricity.html',**_electricity_page_context(draft))
+
+@app.route('/electricity/bills/<int:bill_id>/download')
+@permission_required('electricity')
+def electricity_bill_download(bill_id):
+    bill=db.session.get(ElectricityBill,bill_id) or abort(404)
+    if not bill.encrypted_bill_blob: abort(404)
+    raw=_bank_decrypt_bytes(bill.encrypted_bill_blob)
+    if not raw: abort(410)
+    return send_file(io.BytesIO(raw),as_attachment=True,download_name=bill.bill_file_name or 'electricity-bill',mimetype=bill.bill_mime_type or 'application/octet-stream')
+
+@app.route('/electricity/register')
+@permission_required('electricity')
+def electricity_register():
+    bills=ElectricityBill.query.order_by(ElectricityBill.due_date.desc().nullslast(),ElectricityBill.id.desc()).all(); return render_template('electricity_register.html',bills=bills,rows=[_electricity_bill_to_row(b) for b in bills])
+
+@app.route('/electricity/register.csv')
+@permission_required('electricity')
+def electricity_register_csv():
+    rows=[_electricity_bill_to_row(b) for b in ElectricityBill.query.order_by(ElectricityBill.id.desc()).all()]; raw=build_electricity_csv(rows); return send_file(io.BytesIO(raw),as_attachment=True,download_name='Livenza_Electricity_Bill_Register.csv',mimetype='text/csv; charset=utf-8')
+
+@app.route('/electricity/register.xlsx')
+@permission_required('electricity')
+def electricity_register_xlsx():
+    rows=[_electricity_bill_to_row(b) for b in ElectricityBill.query.order_by(ElectricityBill.id.desc()).all()]; raw=build_electricity_xlsx(rows); return send_file(io.BytesIO(raw),as_attachment=True,download_name='Livenza_Electricity_Bill_Register.xlsx',mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@app.route('/electricity/bills/<int:bill_id>/pay',methods=['POST'])
+@admin_required
+def electricity_payment_start(bill_id):
+    bill=db.session.get(ElectricityBill,bill_id) or abort(404); provider=bill.provider
+    if bill.status=='paid': flash('This bill is already marked paid.','success'); return redirect(url_for('electricity_studio'))
+    endpoint=os.getenv('ELECTRICITY_PAYMENT_PROVIDER_URL','').strip()
+    if not _electricity_payment_configured(provider):
+        target=safe_official_url(provider.official_payment_url or provider.official_website_url)
+        flash('Authorized in-Livenza payment is not configured for this provider yet. Opening the official payment page; upload or confirm the receipt afterward.','warning')
+        return redirect(target or url_for('electricity_studio'))
+    payment=ElectricityPayment(bill_id=bill.id,connection_id=bill.connection_id,provider_id=bill.provider_id,payment_provider=os.getenv('ELECTRICITY_PAYMENT_PROVIDER','Bharat Connect / BBPS')[:120],paid_amount=bill.total_due_amount,status='initiated'); db.session.add(payment); db.session.flush()
+    payload={'biller_id':provider.bbps_biller_id,'consumer_identifier':bill.connection.identifier_primary,'bill_number':bill.bill_number,'amount':str(bill.total_due_amount or 0),'callback_url':url_for('electricity_payment_callback',payment_id=payment.id,_external=True)}
+    try:
+        client_id=os.getenv('BBPS_PROVIDER_CLIENT_ID','').strip(); secret=os.getenv('BBPS_PROVIDER_CLIENT_SECRET','').strip(); headers={'X-Client-Id':client_id,'Authorization':f'Bearer {secret}','Content-Type':'application/json'}
+        response=requests.post(endpoint,json=payload,headers=headers,timeout=30)
+        data=response.json() if response.headers.get('content-type','').startswith('application/json') else {}
+        if not response.ok: raise RuntimeError(f'Payment provider returned HTTP {response.status_code}')
+        provider_status=str(data.get('status') or 'pending').lower(); event='provider_confirmed' if provider_status in ('confirmed','success','paid') else 'provider_pending'
+        payment.status=transition_payment_status(payment.status,event); payment.provider_txn_id=str(data.get('transaction_id') or data.get('txn_id') or '')[:180]; payment.payment_reference=str(data.get('reference') or '')[:180]
+        if payment.status=='confirmed': payment.confirmed_at=datetime.datetime.utcnow(); bill.status='paid'
+        sync_bill_reminder(bill); record_audit('payment_initiated','electricity_payment',payment.id,meta={'bill_id':bill.id,'provider_id':provider.id}); db.session.commit()
+        pay_url=safe_official_url(str(data.get('payment_url') or ''))
+        if pay_url: return redirect(pay_url)
+        flash('Payment request created. Livenza is waiting for provider confirmation.','success'); return redirect(url_for('electricity_studio'))
+    except Exception as exc:
+        payment.status='failed'; record_audit('payment_failed','electricity_payment',payment.id,status='failed',note=str(exc)[:400]); db.session.commit(); flash(f'Payment could not be started: {str(exc)[:180]}','danger'); return redirect(url_for('electricity_studio'))
+
+@app.route('/electricity/payments/<int:payment_id>/callback',methods=['POST'])
+def electricity_payment_callback(payment_id):
+    payment=db.session.get(ElectricityPayment,payment_id) or abort(404); raw=request.get_data() or b''; callback_secret=os.getenv('ELECTRICITY_PAYMENT_CALLBACK_SECRET','').encode('utf-8')
+    if callback_secret:
+        signature=(request.headers.get('X-Livenza-Signature') or '').strip(); expected=hmac.new(callback_secret,raw,hashlib.sha256).hexdigest()
+        if not signature or not hmac.compare_digest(signature,expected): abort(403)
+    data=request.get_json(silent=True) or {}; state=str(data.get('status') or '').lower(); event='provider_confirmed' if state in ('confirmed','success','paid') else ('provider_failed' if state in ('failed','declined','error') else 'provider_pending')
+    try: payment.status=transition_payment_status(payment.status,event)
+    except ValueError: return jsonify(ok=False,error='Invalid payment state transition.'),409
+    bill=payment.bill
+    if payment.status=='confirmed': payment.confirmed_at=datetime.datetime.utcnow(); bill.status='paid'; payment.payment_reference=str(data.get('reference') or payment.payment_reference)[:180]; payment.provider_txn_id=str(data.get('transaction_id') or data.get('txn_id') or payment.provider_txn_id)[:180]
+    sync_bill_reminder(bill); record_audit('payment_callback','electricity_payment',payment.id,status=payment.status,meta={'bill_id':bill.id}); db.session.commit(); return jsonify(ok=True,status=payment.status)
+
+@app.route('/electricity/payments/<int:payment_id>/confirm',methods=['POST'])
+@admin_required
+def electricity_payment_confirm_manual(payment_id):
+    payment=db.session.get(ElectricityPayment,payment_id) or abort(404); admin=current_user()
+    if not check_password_hash(admin.password_hash,request.form.get('admin_password','')): flash('Administrator password is required to confirm payment.','danger'); return redirect(url_for('electricity_studio'))
+    if payment.status not in ('pending','manual_confirmation_required','initiated'):
+        flash('This payment is not awaiting confirmation.','warning'); return redirect(url_for('electricity_studio'))
+    payment.status='confirmed'; payment.confirmed_at=datetime.datetime.utcnow(); payment.payment_reference=(request.form.get('payment_reference') or payment.payment_reference)[:180]; payment.bill.status='paid'; sync_bill_reminder(payment.bill); record_audit('payment_confirmed_manual','electricity_payment',payment.id,meta={'bill_id':payment.bill_id}); db.session.commit(); flash('Electricity payment confirmed and reminder cleared.','success'); return redirect(url_for('electricity_studio'))
+
+@app.route('/electricity/reminders/<int:rid>/snooze',methods=['POST'])
+@admin_required
+def electricity_reminder_snooze(rid):
+    reminder=db.session.get(ReminderItem,rid) or abort(404)
+    if reminder.module!='electricity': abort(404)
+    try: days=max(1,min(30,int(request.form.get('days') or 1)))
+    except Exception: days=1
+    until=datetime.date.today()+datetime.timedelta(days=days)
+    try: payload=json.loads(reminder.payload_json or '{}')
+    except Exception: payload={}
+    payload['snoozed_until']=until.isoformat(); reminder.payload_json=json.dumps(payload,ensure_ascii=False); reminder.status='snoozed'; reminder.due_at=datetime.datetime.combine(until,datetime.time(9,0)); record_audit('reminder_snoozed','reminder_item',reminder.id,meta={'days':days,'bill_id':reminder.entity_id}); db.session.commit(); flash(f'Reminder snoozed for {days} day(s).','success'); return redirect(url_for('dashboard')+'#live-reminders')
+
+@app.route('/admin/vault')
+@admin_required
+def vault_page():
+    entries=VaultSecret.query.order_by(VaultSecret.id.desc()).all(); audits=AuditEvent.query.filter(AuditEvent.module.in_(['vault','electricity'])).order_by(AuditEvent.id.desc()).limit(150).all()
+    edit_secret_id=(request.args.get('edit_secret') or '').strip(); edit_provider_id=(request.args.get('edit_provider') or '').strip()
+    edit_secret=db.session.get(VaultSecret,int(edit_secret_id)) if edit_secret_id.isdigit() else None; edit_provider=db.session.get(ElectricityProvider,int(edit_provider_id)) if edit_provider_id.isdigit() else None
+    return render_template('admin_vault.html',entries=entries,audits=audits,providers=_electricity_provider_rows(include_inactive=True),connections=ElectricityConnection.query.order_by(ElectricityConnection.property_name).all(),allowed_secret_types=sorted(ALLOWED_SECRET_TYPES),vault_ready=bool(os.getenv('LIVENZA_VAULT_MASTER_KEY','').strip()),edit_secret=edit_secret,edit_provider=edit_provider)
+
+@app.route('/admin/vault/save',methods=['POST'])
+@admin_required
+def vault_secret_save():
+    master=os.getenv('LIVENZA_VAULT_MASTER_KEY','').strip()
+    if not master: flash('LIVENZA_VAULT_MASTER_KEY is not configured on the server.','danger'); return redirect(url_for('vault_page'))
+    sid=(request.form.get('id') or '').strip(); entry=db.session.get(VaultSecret,int(sid)) if sid.isdigit() else None
+    try: secret_type=validate_secret_type(request.form.get('secret_type',''))
+    except ValueError as exc: flash(str(exc),'danger'); return redirect(url_for('vault_page'))
+    username=(request.form.get('username') or '').strip(); secret=request.form.get('secret_value') or ''
+    if entry and not username and entry.ciphertext:
+        try: username=str(json.loads(decrypt_secret(entry.ciphertext,entry.nonce,master)).get('username') or '')
+        except Exception: username=''
+    if not secret and not entry: flash('Enter the secret value.','danger'); return redirect(url_for('vault_page'))
+    if not entry: entry=VaultSecret(secret_type=secret_type,label=(request.form.get('label') or 'Vault Entry')[:180],ciphertext='',nonce='',created_by_user_id=current_user().id); db.session.add(entry)
+    entry.secret_type=secret_type; entry.label=(request.form.get('label') or entry.label or 'Vault Entry')[:180]
+    if username: entry.username_masked=mask_secret(username)
+    if secret:
+        payload=json.dumps({'username':username,'secret':secret},ensure_ascii=False); entry.ciphertext,entry.nonce=encrypt_secret(payload,master)
+    provider_id=(request.form.get('linked_provider_id') or '').strip(); connection_id=(request.form.get('linked_connection_id') or '').strip(); entry.linked_provider_id=int(provider_id) if provider_id.isdigit() else None; entry.linked_connection_id=int(connection_id) if connection_id.isdigit() else None; entry.updated_by_user_id=current_user().id
+    db.session.flush()
+    if entry.linked_connection_id:
+        linked=db.session.get(ElectricityConnection,entry.linked_connection_id)
+        if linked: linked.vault_credential_id=entry.id
+    record_audit('vault_secret_saved','vault_secret',entry.id,module='vault',meta={'secret_type':entry.secret_type,'linked_provider_id':entry.linked_provider_id,'linked_connection_id':entry.linked_connection_id}); db.session.commit(); flash('Vault entry encrypted and saved.','success'); return redirect(url_for('vault_page'))
+
+@app.route('/admin/vault/<int:sid>/reveal',methods=['POST'])
+@admin_required
+def vault_secret_reveal(sid):
+    entry=db.session.get(VaultSecret,sid) or abort(404); admin=current_user()
+    if not check_password_hash(admin.password_hash,request.form.get('admin_password','')): return jsonify(ok=False,error='Administrator password did not match.'),403
+    master=os.getenv('LIVENZA_VAULT_MASTER_KEY','').strip()
+    try: payload=json.loads(decrypt_secret(entry.ciphertext,entry.nonce,master))
+    except Exception: return jsonify(ok=False,error='Vault secret could not be decrypted.'),422
+    record_audit('vault_secret_revealed','vault_secret',entry.id,module='vault',meta={'secret_type':entry.secret_type}); db.session.commit(); response=jsonify(ok=True,username=payload.get('username',''),secret=payload.get('secret','')); response.headers['Cache-Control']='no-store, private'; return response
+
+@app.route('/admin/vault/<int:sid>/delete',methods=['POST'])
+@admin_required
+def vault_secret_delete(sid):
+    entry=db.session.get(VaultSecret,sid) or abort(404); ElectricityConnection.query.filter_by(vault_credential_id=sid).update({'vault_credential_id':None}); record_audit('vault_secret_deleted','vault_secret',entry.id,module='vault',meta={'secret_type':entry.secret_type}); db.session.delete(entry); db.session.commit(); flash('Vault entry deleted.','success'); return redirect(url_for('vault_page'))
+
+@app.route('/admin/electricity/providers/save',methods=['POST'])
+@admin_required
+def electricity_provider_save():
+    pid=(request.form.get('id') or '').strip(); provider=db.session.get(ElectricityProvider,int(pid)) if pid.isdigit() else None
+    if not provider: provider=ElectricityProvider(name='Provider',state='',city=''); db.session.add(provider)
+    provider.name=(request.form.get('name') or '').strip()[:180]; provider.state=(request.form.get('state') or '').strip()[:120]; provider.city=(request.form.get('city') or '').strip()[:120]
+    if not provider.name or not provider.state: flash('Provider name and state are required.','danger'); return redirect(url_for('vault_page')+'#providers')
+    provider.official_website_url=safe_official_url(request.form.get('official_website_url','')); provider.official_payment_url=safe_official_url(request.form.get('official_payment_url','')); provider.official_login_url=safe_official_url(request.form.get('official_login_url',''))
+    provider.identifier_types_json=json.dumps([x.strip().upper().replace(' ','_') for x in (request.form.get('identifier_types') or 'CONSUMER_NO').split(',') if x.strip()]); provider.bbps_biller_id=(request.form.get('bbps_biller_id') or '')[:120]; provider.supports_bbps_fetch=request.form.get('supports_bbps_fetch')=='1'; provider.supports_bbps_payment=request.form.get('supports_bbps_payment')=='1'; provider.embedding_mode=request.form.get('embedding_mode') if request.form.get('embedding_mode') in ('inline','external','none') else 'external'; provider.workflow_mode=request.form.get('workflow_mode') if request.form.get('workflow_mode') in ('bbps','portal','upload_only','hybrid') else 'hybrid'; provider.active=request.form.get('active')=='1'; provider.notes=(request.form.get('notes') or '')[:1000]
+    db.session.flush(); record_audit('provider_saved','electricity_provider',provider.id,meta={'state':provider.state,'city':provider.city}); db.session.commit(); flash('Electricity provider saved.','success'); return redirect(url_for('vault_page')+'#providers')
+
+@app.route('/admin/electricity/providers/<int:pid>/delete',methods=['POST'])
+@admin_required
+def electricity_provider_delete(pid):
+    provider=db.session.get(ElectricityProvider,pid) or abort(404)
+    if ElectricityConnection.query.filter_by(provider_id=pid).first() or VaultSecret.query.filter_by(linked_provider_id=pid).first(): flash('This provider is linked to saved connections or Vault entries and cannot be deleted. Disable it instead.','warning'); return redirect(url_for('vault_page')+'#providers')
+    record_audit('provider_deleted','electricity_provider',provider.id,meta={'state':provider.state}); db.session.delete(provider); db.session.commit(); flash('Electricity provider removed.','success'); return redirect(url_for('vault_page')+'#providers')
+
 @app.route('/banking')
 @permission_required('banking')
 def banking_suite():
@@ -3106,6 +3711,8 @@ HELP_FEATURES = {
     'spreadsheet': 'In Queries, click Spreadsheet View. Edit cells directly like a sheet. Existing rows auto-save when a cell changes; use + New Row to create a fresh enquiry line.',
     'video': 'Open Video Wall. Add media, create TV/screen endpoints, assign a different playlist to each TV, set rotation/fit/loop options, or start a Festive Takeover to run one commercial across all enabled screens.',
     'billing': 'Open Billing for the Livenza Billing Suite. It embeds the configured billing manager when the external service allows embedding and otherwise provides a direct-open fallback.',
+    'electricity': 'Open Applications → Electricity Bill Studio to manage saved utility connections, fetch or upload electricity bills, track K/CA/Consumer numbers, export the Bill Register, view due reminders and use official payment/provider flows. Connection identifiers, provider setup and payment confirmation are Admin-controlled.',
+    'vault': 'Admins can open the profile menu → Livenza Vault to store approved electricity utility logins and operational API secrets encrypted at rest. Vault reveal requires the current Admin password. Banking passwords, UPI/card PINs, CVVs, OTPs, CAPTCHA answers and banking session cookies are not allowed.',
     'food': 'Open Food for orders and settlements. Use Integrations to configure Swiggy, Zomato, Toing or another partner using webhook/API details, and Live Partner Websites to open their official restaurant portals inside Operations Cloud when embedding is allowed.',
     'whatsapp': 'Open WhatsApp to send Cloud API messages and view the incoming message feed. Admin must configure the Meta token, phone-number ID and webhook verification secrets.',
     'email': 'Open Email to view the latest Gmail inbox metadata and compose messages without leaving Livenza. An admin must connect Google once from the Admin panel.',
@@ -3130,6 +3737,8 @@ def _local_help_answer(question):
         (('video wall','tv','screen','festive','playlist'), 'video'),
         (('food','swiggy','zomato','toing','restaurant partner','delivery order'), 'food'),
         (('billing','rentok','rent ok'), 'billing'),
+        (('electricity','electric bill','electricity bill','k no','consumer no','ca no','meter bill','discom','power bill','utility bill'), 'electricity'),
+        (('vault','credential','utility password','secret'), 'vault'),
         (('whatsapp','message','chat'), 'whatsapp'),
         (('email','gmail','mail','inbox'), 'email'),
         (('drive','google drive','cloud file','upload'), 'drive'),
@@ -3141,7 +3750,7 @@ def _local_help_answer(question):
     ]
     for words,key in aliases:
         if any(w in q for w in words):return HELP_FEATURES[key]
-    return 'I can guide you through Agreements, Rooms, Tenants, Reviews, Queries and Spreadsheet View, Video Wall, Billing, Banking & Reconciliation, Fullscreen/Rotate, users/permissions and city setup. Ask a specific question about the feature you want to use.'
+    return 'I can guide you through Agreements, Rooms, Tenants, Reviews, Queries and Spreadsheet View, Video Wall, Billing, Banking & Reconciliation, Electricity Bill Studio, Livenza Vault, Live Reminders, Fullscreen/Rotate, users/permissions and city setup. Ask a specific question about the feature you want to use.'
 
 @app.route('/api/help',methods=['POST'])
 @login_required
@@ -3534,8 +4143,8 @@ def admin_user_save():
             profile=profile_photo_data_uri_from_bytes(raw)
             avatar,mode,_=create_live_avatar(raw,prefer_ai=request.form.get('use_ai_avatar','1')=='1')
             if profile: u.photo_data_uri=profile
-            if avatar:
-                u.avatar_data_uri=avatar; u.avatar_generation_mode=mode; u.avatar_updated_at=datetime.datetime.utcnow()
+            u.avatar_data_uri=avatar or ''; u.avatar_generation_mode=mode or 'default'; u.avatar_updated_at=datetime.datetime.utcnow()
+            record_audit('mascot_generated' if avatar else 'mascot_defaulted','user',u.id if u.id else None,module='identity',meta={'mode':u.avatar_generation_mode})
     last4=''.join(ch for ch in request.form.get('aadhaar_last4','') if ch.isdigit())[-4:]
     if last4: u.aadhaar_last4=last4
     if request.form.get('aadhaar_name') is not None: u.aadhaar_name=request.form.get('aadhaar_name','').strip()
@@ -3550,7 +4159,7 @@ def admin_user_save():
         flash('Pattern was not changed: connect at least 4 different dots.','warning')
     perms=[m for m in MODULES if request.form.get(f'perm_{m}')=='1']
     u.permissions_json=json.dumps(perms)
-    db.session.commit(); flash('User access saved.','success'); return redirect(url_for('admin_panel'))
+    db.session.flush(); record_audit('user_permissions_changed','user',u.id,module='identity',meta={'role':u.role,'permissions':perms}); db.session.commit(); flash('User access saved.','success'); return redirect(url_for('admin_panel'))
 
 @app.route('/admin/users/<int:uid>/delete', methods=['POST'])
 @admin_required
@@ -3569,11 +4178,11 @@ def admin_user_avatar(uid):
     upload=request.files.get('photo') or request.files.get('avatar_photo')
     action=(request.form.get('avatar_action') or '').strip()
     if action=='reset':
-        u.avatar_data_uri=''; u.avatar_generation_mode=''; u.avatar_updated_at=datetime.datetime.utcnow(); db.session.commit()
+        u.avatar_data_uri=''; u.avatar_generation_mode='default'; u.avatar_updated_at=datetime.datetime.utcnow(); record_audit('mascot_reset','user',u.id,module='identity'); db.session.commit()
         flash(f'Default Livenza mascot restored for {u.full_name or u.username}.','success')
         return redirect(url_for('admin_panel')+f'#user-{u.id}')
     if action=='remove_photo':
-        u.photo_data_uri=''; u.avatar_data_uri=''; u.avatar_generation_mode=''; u.avatar_updated_at=datetime.datetime.utcnow(); db.session.commit()
+        u.photo_data_uri=''; u.avatar_data_uri=''; u.avatar_generation_mode='default'; u.avatar_updated_at=datetime.datetime.utcnow(); record_audit('mascot_photo_removed','user',u.id,module='identity'); db.session.commit()
         flash(f'Photo and mascot removed for {u.full_name or u.username}.','success')
         return redirect(url_for('admin_panel')+f'#user-{u.id}')
     if upload and upload.filename:
@@ -3589,11 +4198,10 @@ def admin_user_avatar(uid):
     avatar,mode,message=create_live_avatar(raw,prefer_ai=request.form.get('use_ai_avatar','1')=='1')
     if profile:
         u.photo_data_uri=profile
-    if avatar:
-        u.avatar_data_uri=avatar; u.avatar_generation_mode=mode; u.avatar_updated_at=datetime.datetime.utcnow(); db.session.commit()
-        flash(f'{u.full_name or u.username}: {message}','success')
-    else:
-        flash(message,'danger')
+    u.avatar_data_uri=avatar or ''; u.avatar_generation_mode=mode or 'default'; u.avatar_updated_at=datetime.datetime.utcnow()
+    record_audit('mascot_generated' if avatar else 'mascot_defaulted','user',u.id,module='identity',meta={'mode':u.avatar_generation_mode})
+    db.session.commit()
+    flash(f'{u.full_name or u.username}: {message}',('success' if avatar else 'warning'))
     return redirect(url_for('admin_panel')+f'#user-{u.id}')
 
 @app.route('/admin/cities/save', methods=['POST'])
@@ -3641,6 +4249,7 @@ def bootstrap():
     db.create_all()
     ensure_v150_user_columns()
     ensure_v1512_user_columns()
+    ensure_electricity_provider_seed()
     if User.query.count()==0:
         username=os.getenv('ADMIN_USERNAME','admin').strip() or 'admin'
         password=os.getenv('ADMIN_PASSWORD','')

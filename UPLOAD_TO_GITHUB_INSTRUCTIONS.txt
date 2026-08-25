@@ -1,0 +1,19 @@
+LIVENZA WEB 1.6.2 -> 1.7.0 GITHUB BROWSER UPDATE
+
+This update contains only the production files that changed or were added in Web 1.7.0.
+Total application files: 20 (plus this instruction file).
+
+IMPORTANT:
+1. Extract this ZIP on your computer.
+2. Do NOT upload this ZIP itself to GitHub.
+3. Upload/replace files in the SAME paths shown inside this package.
+4. Root files go in the repository root.
+5. Open templates/ in GitHub and upload the files from templates/.
+6. Open static/ in GitHub and upload the files from static/.
+7. Create/open data/ and upload electricity_providers_india.json.
+8. Open migrations/ and upload web_v1_7_0.sql.
+9. Commit changes, then let Render redeploy.
+10. Check /version after deployment; it should report Web 1.7.0.
+
+No existing application files need to be manually deleted for this update.
+The old __pycache__ files that existed in the packaged 1.6.2 archive are generated Python cache files and can be ignored.

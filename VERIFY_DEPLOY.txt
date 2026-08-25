@@ -9,3 +9,14 @@ LIVENZA WEB 1.6.0 — DEPLOYMENT VERIFICATION
 7. Confirm matched/review/missing/extra counts display and reconciliation CSV export downloads.
 8. Download a saved statement from the encrypted vault and confirm it opens correctly.
 9. Restart/redeploy once and confirm previously saved banking files remain decryptable. Keep INTEGRATION_ENCRYPTION_KEY unchanged.
+
+WEB 1.7.0 VERIFICATION
+1. Open /version and confirm Web 1.7.0.
+2. Open Electricity Bill Studio from Applications.
+3. Admin: open Livenza Vault and verify master-key status.
+4. Add a test electricity connection and upload a bill.
+5. Confirm the bill appears in Electricity Bill Register and CSV/XLSX exports.
+6. Confirm due bills appear in Home > Live Reminders.
+7. Confirm non-admin users cannot edit utility connections, Vault secrets, providers or payment confirmations.
+8. Admin mascot test: upload a profile photo; if AI generation fails, the standard Livenza mascot must remain active instead of the source photo.
+
