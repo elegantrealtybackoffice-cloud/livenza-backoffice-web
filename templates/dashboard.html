@@ -9,16 +9,14 @@
       <strong>Welcome back, {{current_user.full_name or current_user.username}}!</strong>
       <span>Your workspace is ready. Let’s make today exceptional.</span>
     </div>
-    <div class="mascot-stage{% if current_user.avatar_data_uri %} personal-welcome-stage{% endif %}" aria-hidden="true">
+    <div class="mascot-stage host3d-welcome-stage" aria-hidden="true">
       <i class="mascot-star star-one">✦</i><i class="mascot-star star-two">✦</i><i class="mascot-star star-three">•</i><i class="mascot-star star-four">✦</i>
-      <span class="mascot-spotlight"></span>
-      {% if current_user.avatar_data_uri %}<div class="mascot-character welcome-personal-avatar"><span class="welcome-avatar-halo"></span><img src="{{current_user.avatar_data_uri}}" alt=""><i>✦</i></div>{% else %}<div class="mascot-character"><img src="{{url_for('static',filename='livenza_welcome_mascot.png')}}" alt=""></div>{% endif %}
-      <span class="mascot-floor-shadow"></span>
+      <span class="mascot-spotlight"></span><div class="host3d-welcome-mark"><span>3D</span><b>LIVENZA HOST</b></div><span class="mascot-floor-shadow"></span>
     </div>
   </div>
 </section>
 {% endif %}
-<section class="hero compact lively-hero liquid-card">
+<section class="hero compact lively-hero liquid-card safe-content-after-sticky" data-layout-contract="safe-tabs Live Ask Livenza">
   <div>
     <p class="eyebrow">SYSTEM ONLINE • LIVE CLOUD</p>
     <h1>Livenza Life <span>Back Office</span></h1>
@@ -52,18 +50,18 @@
 {% endif %}
 
 <section class="experience-gallery" aria-label="Livenza visual operations">
-  <a class="experience-shot experience-wide" href="https://unsplash.com/photos/clean-well-lit-room-with-several-neatly-made-beds-0xJJ2k72AQs" target="_blank" rel="noopener">
+  <figure class="experience-shot experience-wide" aria-label="Stay Experience">
     <img src="https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&amp;fit=crop&amp;q=76&amp;w=1200" srcset="https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&amp;fit=crop&amp;q=62&amp;w=640 640w, https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&amp;fit=crop&amp;q=76&amp;w=1200 1200w" sizes="(max-width:700px) 94vw, 54vw" alt="Bright modern shared accommodation room" loading="lazy" decoding="async" referrerpolicy="no-referrer">
     <span><small>STAY EXPERIENCE</small><b>Rooms that feel ready</b></span>
-  </a>
-  <a class="experience-shot" href="https://unsplash.com/photos/restaurant-staff-preparing-food-in-a-professional-kitchen-Ew2PDNZB4qA" target="_blank" rel="noopener">
+  </figure>
+  <figure class="experience-shot" aria-label="Food Operations">
     <img src="https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&amp;fit=crop&amp;q=74&amp;w=900" srcset="https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&amp;fit=crop&amp;q=62&amp;w=560 560w, https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&amp;fit=crop&amp;q=74&amp;w=900 900w" sizes="(max-width:700px) 94vw, 24vw" alt="Hospitality team preparing food in a professional kitchen" loading="lazy" decoding="async" referrerpolicy="no-referrer">
     <span><small>FOOD OPERATIONS</small><b>Service in motion</b></span>
-  </a>
-  <a class="experience-shot" href="https://unsplash.com/photos/modern-office-space-with-city-view-and-desks-56U797Gamac" target="_blank" rel="noopener">
+  </figure>
+  <figure class="experience-shot" aria-label="Connected Workspace">
     <img src="https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&amp;fit=crop&amp;q=74&amp;w=900" srcset="https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&amp;fit=crop&amp;q=62&amp;w=560 560w, https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&amp;fit=crop&amp;q=74&amp;w=900 900w" sizes="(max-width:700px) 94vw, 24vw" alt="Modern operations workspace" loading="lazy" decoding="async" referrerpolicy="no-referrer">
     <span><small>ONE WORKSPACE</small><b>Everything connected</b></span>
-  </a>
+  </figure>
 </section>
 
 <div class="section-head">
@@ -75,7 +73,7 @@
   {% else %}<div class="placeholder compact-placeholder liquid-card">No cities added yet.{% if is_admin %} Add cities from Admin.{% endif %}</div>{% endfor %}
 </div>
 
-<div class="section-head" id="applications"><div><p class="eyebrow">LIVENZA WORKSPACE</p><h2 class="section-title">Applications</h2></div><span class="section-kicker">Select a module to begin</span></div>
+<div class="section-head safe-toolbar" id="applications"><div><p class="eyebrow">LIVENZA WORKSPACE</p><h2 class="section-title">Applications</h2></div><span class="section-kicker">Select a module to begin</span></div>
 <div class="module-grid">
   {% set office_photo='https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&fit=crop&q=76&w=900' %}
   {% set room_photo='https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&fit=crop&q=76&w=900' %}

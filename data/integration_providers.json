@@ -1,0 +1,13 @@
+[
+  {"provider_key":"openai","display_name":"OpenAI / AI Services","category":"ai","workflow_module":"integrations","portal_url":"https://platform.openai.com/","developer_url":"https://platform.openai.com/docs","embed_mode":"external","capabilities":["ai_text","ai_image"]},
+  {"provider_key":"whatsapp_cloud","display_name":"WhatsApp Cloud API","category":"whatsapp","workflow_module":"whatsapp","portal_url":"https://business.facebook.com/","developer_url":"https://developers.facebook.com/docs/whatsapp/","embed_mode":"external","capabilities":["messages","documents","templates"]},
+  {"provider_key":"google_email","display_name":"Google Gmail","category":"google_email","workflow_module":"email","portal_url":"https://mail.google.com/","developer_url":"https://developers.google.com/gmail/api","embed_mode":"external","capabilities":["read_mail","send_mail"]},
+  {"provider_key":"google_drive","display_name":"Google Drive","category":"google_drive","workflow_module":"drive","portal_url":"https://drive.google.com/","developer_url":"https://developers.google.com/drive/api","embed_mode":"external","capabilities":["files","upload","download"]},
+  {"provider_key":"swiggy","display_name":"Swiggy Restaurant Partner","category":"food","workflow_module":"food","portal_url":"https://partner.swiggy.com/","developer_url":"","embed_mode":"external","capabilities":["portal","sync"]},
+  {"provider_key":"zomato","display_name":"Zomato Restaurant Partner","category":"food","workflow_module":"food","portal_url":"https://www.zomato.com/partners/","developer_url":"","embed_mode":"external","capabilities":["portal","sync"]},
+  {"provider_key":"bbps_electricity","display_name":"Bharat Connect / Electricity","category":"electricity","workflow_module":"electricity","portal_url":"","developer_url":"","embed_mode":"external","capabilities":["bill_fetch","payment"]},
+  {"provider_key":"bank_portals","display_name":"Official Bank Portals","category":"banking","workflow_module":"banking","portal_url":"","developer_url":"","embed_mode":"external","capabilities":["portal"]},
+  {"provider_key":"rentok","display_name":"RentOK / Billing Portal","category":"billing","workflow_module":"rentok","portal_url":"","developer_url":"","embed_mode":"external","capabilities":["portal"]},
+  {"provider_key":"payment_provider","display_name":"Payment Provider","category":"payments","workflow_module":"integrations","portal_url":"","developer_url":"","embed_mode":"external","capabilities":["payment"]},
+  {"provider_key":"webhooks","display_name":"Webhooks & Lead Connectors","category":"webhooks","workflow_module":"integrations","portal_url":"","developer_url":"","embed_mode":"external","capabilities":["webhook"]}
+]

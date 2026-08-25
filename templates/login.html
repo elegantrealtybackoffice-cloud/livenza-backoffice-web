@@ -40,19 +40,19 @@
 
     <div id="authFallbackLayer" class="auth-fallback-layer {{'is-open' if auth_error else ''}}" {% if not auth_error %}hidden{% endif %}>
       <div class="auth-fallback-divider"><span>Choose one fallback</span></div>
-      <div class="auth-fallback-tabs" role="tablist" aria-label="Alternative sign-in methods">
-        <button type="button" id="passwordMethodTab" role="tab" data-auth-method-tab="password" aria-controls="passwordFallback" aria-selected="{{'true' if fallback_mode=='password' else 'false'}}" class="{{'active' if fallback_mode=='password' else ''}}">
+      <div class="auth-fallback-tabs safe-tabs safe-scroll-tabs" role="tablist" aria-label="Alternative sign-in methods">
+        <button type="button" id="passwordMethodTab" role="tab" data-tv-tab="auth-password" data-tv-group="auth-fallback" data-tv-target="auth-password" data-auth-method-tab="password" aria-controls="passwordFallback" aria-selected="{{'true' if fallback_mode=='password' else 'false'}}" class="safe-tab {{'active' if fallback_mode=='password' else ''}}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4"></circle><path d="M12 12h8M17 12v3M20 12v2"></path></svg>
           <span><b>Use Password Login</b><small>Standard secure entry</small></span>
           <em>Biometric-free option</em>
         </button>
-        <button type="button" id="patternMethodTab" role="tab" data-auth-method-tab="pattern" aria-controls="patternFallback" aria-selected="{{'true' if fallback_mode=='pattern' else 'false'}}" class="{{'active' if fallback_mode=='pattern' else ''}}">
+        <button type="button" id="patternMethodTab" role="tab" data-tv-tab="auth-pattern" data-tv-group="auth-fallback" data-tv-target="auth-pattern" data-auth-method-tab="pattern" aria-controls="patternFallback" aria-selected="{{'true' if fallback_mode=='pattern' else 'false'}}" class="safe-tab {{'active' if fallback_mode=='pattern' else ''}}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="1.5"></circle><circle cx="12" cy="6" r="1.5"></circle><circle cx="18" cy="6" r="1.5"></circle><circle cx="6" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="18" cy="12" r="1.5"></circle><circle cx="6" cy="18" r="1.5"></circle><circle cx="12" cy="18" r="1.5"></circle><circle cx="18" cy="18" r="1.5"></circle></svg>
           <span><b>Gesture or Keypad</b><small>Touch on mobile · numbers on desktop</small></span>
         </button>
       </div>
 
-      <section class="auth-method-panel" id="passwordFallback" role="tabpanel" aria-labelledby="passwordMethodTab" data-auth-method-panel="password" {% if fallback_mode!='password' %}hidden{% endif %}>
+      <section class="auth-method-panel" id="passwordFallback" role="tabpanel" aria-labelledby="passwordMethodTab" data-tv-panel="auth-password" data-tv-group="auth-fallback" data-auth-method-panel="password" {% if fallback_mode!='password' %}hidden{% endif %}>
         <div class="auth-method-heading"><div><b>Use Password Login</b><small>Enter the password for this Login ID.</small></div><span class="auth-state-badge">Biometric-free option</span></div>
         <div class="auth-field {{'has-error' if auth_error.field=='password' else ''}}" data-auth-field="password">
           <label for="loginPassword">Password</label>
@@ -67,7 +67,7 @@
         <button class="secondary auth-method-submit" id="normalLoginButton" data-submit-auth="password">Sign in with Password</button>
       </section>
 
-      <section class="auth-method-panel" id="patternFallback" role="tabpanel" aria-labelledby="patternMethodTab" data-auth-method-panel="pattern" {% if fallback_mode!='pattern' %}hidden{% endif %}>
+      <section class="auth-method-panel" id="patternFallback" role="tabpanel" aria-labelledby="patternMethodTab" data-tv-panel="auth-pattern" data-tv-group="auth-fallback" data-auth-method-panel="pattern" {% if fallback_mode!='pattern' %}hidden{% endif %}>
         <div class="auth-method-heading"><div><b>Gesture Pattern</b><small class="touch-instruction">Touch or drag across at least four different points.</small><small class="keypad-instruction">Type at least four different numbers from 1 to 9.</small></div><span class="auth-state-badge">Touch + keyboard</span></div>
         <div class="pattern-entry-shell {{'has-error' if auth_error.field=='pattern' else ''}}">
           <div class="pattern-grid gesture-matrix" data-pattern-widget data-pattern-label="Login gesture or numeric pattern" role="group" aria-label="Login gesture or numeric pattern">

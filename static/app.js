@@ -737,8 +737,8 @@ initPageFeatures(document);
     if(!messages)return;const div=document.createElement('div');div.className=`assistant-message ${who}`;div.textContent=text;messages.appendChild(div);messages.scrollTop=messages.scrollHeight;
   }
   async function askAssistant(text){
-    text=(text||'').trim();if(!text)return;window.LivenzaCompanion?.open?.('chat');addMessage(text,'user');if(input)input.value='';const thinking=document.createElement('div');thinking.className='assistant-message bot thinking';thinking.textContent='Thinking…';messages?.appendChild(thinking);messages.scrollTop=messages.scrollHeight;
-    try{const r=await fetch('/api/help',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({message:text})});const d=await r.json();thinking.remove();addMessage(d.answer||d.error||'I could not answer that right now.','bot')}catch(e){thinking.remove();addMessage('I could not reach the help service. Please try again.','bot')}
+    text=(text||'').trim();if(!text)return;window.LivenzaHost3D?.requestState?.('listen',{length:text.length});window.LivenzaCompanion?.open?.('chat');addMessage(text,'user');if(input)input.value='';const thinking=document.createElement('div');thinking.className='assistant-message bot thinking';thinking.textContent='Thinking…';messages?.appendChild(thinking);messages.scrollTop=messages.scrollHeight;
+    try{const r=await fetch('/api/help',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({message:text})});const d=await r.json();thinking.remove();const answer=d.answer||d.error||'I could not answer that right now.';addMessage(answer,'bot');window.LivenzaHost3D?.requestState?.('speak',{length:String(answer).length})}catch(e){thinking.remove();addMessage('I could not reach the help service. Please try again.','bot')}
   }
   form?.addEventListener('submit',e=>{e.preventDefault();askAssistant(input?.value)});
   document.addEventListener('click',e=>{const b=e.target.closest('[data-help-prompt]');if(b)askAssistant(b.dataset.helpPrompt)});
@@ -800,21 +800,8 @@ initPageFeatures(document);
 
 // ===== Web 1.5.0 • reference-style apps menu + configurable live marquee =====
 (()=>{
-  const toggle=document.getElementById('appsMenuToggle'),menu=document.getElementById('appsMenu'),close=document.getElementById('appsMenuClose'),backdrop=document.getElementById('appsMenuBackdrop');
-  function positionDrawer(){
-    const header=document.querySelector('.showcase-header'),marquee=document.getElementById('liveOperationsMarquee');
-    const headerBottom=header?.getBoundingClientRect().bottom||0,marqueeBottom=marquee?.getBoundingClientRect().bottom||0;
-    document.documentElement.style.setProperty('--apps-drawer-top',`${Math.ceil(Math.max(headerBottom,marqueeBottom)+8)}px`);
-  }
-  function setMenu(open){
-    if(!menu||!toggle)return;positionDrawer();
-    if(open){menu.hidden=false;if(backdrop)backdrop.hidden=false;menu.setAttribute('aria-hidden','false');requestAnimationFrame(()=>{menu.classList.add('open');backdrop?.classList.add('open')})}
-    else{menu.classList.remove('open');backdrop?.classList.remove('open');menu.setAttribute('aria-hidden','true');window.setTimeout(()=>{if(!menu.classList.contains('open')){menu.hidden=true;if(backdrop)backdrop.hidden=true}},260)}
-    toggle.classList.toggle('active',open);toggle.setAttribute('aria-expanded',String(open));document.body.classList.toggle('apps-drawer-open',open);
-  }
-  toggle?.addEventListener('click',e=>{e.stopPropagation();setMenu(menu.hidden||!menu.classList.contains('open'))});close?.addEventListener('click',()=>setMenu(false));backdrop?.addEventListener('click',()=>setMenu(false));menu?.addEventListener('click',e=>{if(e.target.closest('a'))setMenu(false)});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu?.hidden)setMenu(false)});
-  window.addEventListener('resize',()=>{if(menu&&!menu.hidden)positionDrawer()},{passive:true});window.addEventListener('scroll',()=>{if(menu&&!menu.hidden)positionDrawer()},{passive:true});
+  // Core Applications/Account drawer behavior is owned by the ES5 tv_compat bundle.
+  // Compatibility marker: apps-drawer-open state is owned by tv_compat.js.
 
   const ticker=document.getElementById('liveMarqueeTrack');
   function tickerNode(item){
@@ -852,7 +839,7 @@ initPageFeatures(document);
     removeTimer=window.setTimeout(()=>{welcome.remove();window.dispatchEvent(new CustomEvent('livenza:mascot-welcome-done'))},reduce?420:1250);
   }
 
-  requestAnimationFrame(()=>requestAnimationFrame(()=>welcome.classList.add('is-visible')));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{welcome.classList.add('is-visible');window.LivenzaHost3D?.requestState?.('greet')}));
   danceTimer=window.setTimeout(()=>{if(!reduce&&!departed)welcome.classList.add('is-dancing')},820);
   leaveTimer=window.setTimeout(depart,reduce?3900:6100);
   skip?.addEventListener('click',depart);
@@ -892,7 +879,8 @@ initPageFeatures(document);
     modeViews.forEach(view=>{const active=view.dataset.companionView===chosen;view.hidden=!active;view.classList.toggle('active',active)});
     panel.dataset.mode=chosen;if(focus&&chosen==='chat')window.setTimeout(()=>document.getElementById('assistantInput')?.focus(),70);
   }
-  modeTabs.forEach(tab=>tab.addEventListener('click',()=>showMode(tab.dataset.companionTab,true)));
+  // Mode tab activation is handled by tv_compat so older TV engines keep working.
+  document.addEventListener('click',event=>{const tab=event.target.closest?.('[data-companion-tab]');if(tab)showMode(tab.dataset.companionTab,true)});
   window.LivenzaCompanion={open:(mode='live')=>{setPanel(true);showMode(mode,mode==='chat')},close:()=>setPanel(false,true),showMode};
   showMode('live');
   let scrollFrame=0;
@@ -993,8 +981,11 @@ initPageFeatures(document);
     finally{companion.classList.remove('is-syncing')}
   }
 
-  const funnyActions=['funny-wave','funny-hop','funny-peek','funny-wobble','funny-celebrate'];
-  function performFunnyAction(){if(!panel?.hidden||reduce)return;const choices=mobilePerformance?['funny-wave','funny-wobble']:funnyActions;const action=choices[Math.floor(Math.random()*choices.length)];companion.classList.add(action);window.setTimeout(()=>companion.classList.remove(action),1800)}
-  window.setTimeout(performFunnyAction,mobilePerformance?8500:4200);window.setInterval(performFunnyAction,mobilePerformance?30000:10500);
+  const hostAmbientStates=['greet','turn-left','turn-right','explain'];
+  function performHostAmbientAction(){if(!panel?.hidden||reduce)return;const state=hostAmbientStates[Math.floor(Math.random()*hostAmbientStates.length)];window.LivenzaHost3D?.requestState?.(state)}
+  window.setTimeout(performHostAmbientAction,mobilePerformance?12000:6500);window.setInterval(performHostAmbientAction,mobilePerformance?42000:18000);
   loadPulse(currentCity,true);
 })();
+
+// Web 1.8.0 capability health signal.
+window.LivenzaModernReady=true;

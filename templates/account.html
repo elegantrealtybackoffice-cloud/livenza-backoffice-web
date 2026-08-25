@@ -1,59 +1,29 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-head account-page-head">
-  <div>
-    <p class="eyebrow">MY SECURE PROFILE</p>
-    <h1>Account Overview</h1>
-    <p class="muted">Your live mascot, password, login ID and identity details are controlled only by Admin.</p>
-  </div>
-</div>
+<div class="page-head account-page-head"><div><p class="eyebrow">MY SECURE PROFILE</p><h1>Account Overview</h1><p class="muted">Personalize the branded 3D Livenza host while protected identity, login and access controls remain Admin-managed.</p></div></div>
 
-<section class="avatar-studio liquid-card" aria-labelledby="avatarStudioTitle">
-  <div class="avatar-studio-preview">
-    <div id="avatarPreviewShell" class="avatar-preview-shell{% if user.avatar_data_uri %} is-ready{% endif %}">
-      <span class="avatar-preview-orbit orbit-a"></span><span class="avatar-preview-orbit orbit-b"></span>
-      {% if user.avatar_data_uri %}
-        <img id="avatarPreview" src="{{user.avatar_data_uri}}" alt="Current live mascot for {{user.full_name or user.username}}">
-      {% else %}
-        <img id="avatarPreview" src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}" alt="Default Livenza live mascot">
-      {% endif %}
-      <span class="avatar-preview-spark s-one">✦</span><span class="avatar-preview-spark s-two">✦</span>
-      <span class="avatar-live-pill"><i></i> LIVE MASCOT</span>
+<section id="mascot-settings" class="form-card liquid-card host-preferences-card">
+  <div class="settings-section-head"><div class="settings-picture host3d-settings-mark">3D</div><div><p class="eyebrow">PERSONAL DIGITAL HOST</p><h2>Mascot Settings</h2><p class="muted">These settings apply only to your account. The 3D character identity remains the official branded Livenza host.</p></div></div>
+  <form method="post" action="{{url_for('account_mascot_settings')}}" class="stack">
+    <div class="marquee-option-grid companion-option-grid">
+      <label class="perm-chip"><input type="hidden" name="enabled" value="0"><input type="checkbox" name="enabled" value="1" {% if mascot_preferences.enabled %}checked{% endif %}><span>Show 3D Host</span></label>
+      <label class="perm-chip"><input type="hidden" name="operational_updates" value="0"><input type="checkbox" name="operational_updates" value="1" {% if mascot_preferences.operational_updates %}checked{% endif %}><span>Operational Updates</span></label>
+      <label class="perm-chip"><input type="hidden" name="weather_reactions" value="0"><input type="checkbox" name="weather_reactions" value="1" {% if mascot_preferences.weather_reactions %}checked{% endif %}><span>Weather Reactions</span></label>
+      <label class="perm-chip"><input type="hidden" name="motivational_messages" value="0"><input type="checkbox" name="motivational_messages" value="1" {% if mascot_preferences.motivational_messages %}checked{% endif %}><span>Motivational Messages</span></label>
     </div>
-  </div>
-  <div class="avatar-studio-copy">
-    <p class="eyebrow">ADMIN MANAGED IDENTITY</p>
-    <h2 id="avatarStudioTitle">Your mascot is managed by an administrator</h2>
-    <p>Only administrators can change profile photos, generate or reset the live mascot, update passwords, modify access, or edit identity information.</p>
-    <div class="avatar-trust-row"><span>✓ Read-only for users</span><span>✓ Admin approval required</span><span>✓ Sensitive data protected</span></div>
-    <p class="avatar-engine-status"><span class="engine-dot {{'online' if avatar_ai_ready else 'fallback'}}"></span><b>{{'AI mascot engine available' if avatar_ai_ready else 'Standard Livenza mascot active'}}</b><small>{{'Admins can upload a source photo in Admin → User Profile, Live Mascot, Permissions & Security.' if avatar_ai_ready else 'Admins can still store a source profile photo; the standard Livenza mascot stays active until AI mascot generation is available.'}}</small></p>
-    <div class="account-lock-note">
-      <b>Changes are locked</b>
-      <small>Contact your administrator if you need a new mascot, password, login update, or any change to protected information.</small>
+    <div class="form-grid">
+      <label>Animation Mode<select name="intensity"><option value="full" {% if mascot_preferences.requested_intensity=='full' %}selected{% endif %}>Full</option><option value="gentle" {% if mascot_preferences.requested_intensity=='gentle' %}selected{% endif %}>Gentle</option><option value="static" {% if mascot_preferences.requested_intensity=='static' %}selected{% endif %}>Static</option></select><small>Full uses all gestures; Gentle reduces movement; Static keeps the genuine 3D render without continuous joint motion.</small></label>
+      <label>Host Size<select name="size"><option value="small" {% if mascot_preferences.size=='small' %}selected{% endif %}>Small</option><option value="medium" {% if mascot_preferences.size=='medium' %}selected{% endif %}>Medium</option><option value="large" {% if mascot_preferences.size=='large' %}selected{% endif %}>Large</option></select></label>
+      <label>Screen Position<select name="position"><option value="bottom-left" {% if mascot_preferences.position=='bottom-left' %}selected{% endif %}>Bottom Left</option><option value="bottom-right" {% if mascot_preferences.position=='bottom-right' %}selected{% endif %}>Bottom Right</option></select></label>
+      <label>Weather City<input name="weather_city" maxlength="120" value="{{mascot_preferences.weather_city}}" placeholder="Gurugram"></label>
     </div>
-  </div>
+    {% if mascot_preferences.requested_intensity != mascot_preferences.intensity %}<p class="note-inline">Your requested mode is <b>{{mascot_preferences.requested_intensity|title}}</b>, but the current Admin performance policy limits the effective mode to <b>{{mascot_preferences.intensity|title}}</b>.</p>{% endif %}
+    <div class="actions"><button class="primary" name="mascot_action" value="save">Save Mascot Settings</button><button class="secondary" name="mascot_action" value="reset">Reset to Livenza Defaults</button></div>
+  </form>
 </section>
 
 <section class="readonly-account-grid">
-  <article class="form-card liquid-card">
-    <h2>Profile Details</h2>
-    <div class="stack read-only-list">
-      <label>Full Name<input value="{{user.full_name or ''}}" readonly></label>
-      <label>Login ID<input value="{{user.username}}" readonly></label>
-      <label>Role<input value="{{user.role|title}}" readonly></label>
-      <label>Aadhaar Name<input value="{{user.aadhaar_name or ''}}" readonly></label>
-      <label>Masked Aadhaar<input value="{{masked_aadhaar(user.aadhaar_last4) or ''}}" readonly></label>
-      <label>Mascot Mode<input value="{{'AI Live Mascot' if user.avatar_generation_mode=='ai_mascot' else 'Default Livenza Mascot'}}" readonly></label>
-    </div>
-  </article>
-  <article class="form-card liquid-card">
-    <h2>Access & Support</h2>
-    <div class="stack read-only-list">
-      <label>Account Status<input value="{{'Active' if user.active else 'Inactive'}}" readonly></label>
-      <label>Fingerprint / Passkey<input value="{{'Allowed by Admin' if user.webauthn_enabled else 'Disabled by Admin'}}" readonly></label>
-      <label>Avatar Updated<input value="{{user.avatar_updated_at.strftime('%d %b %Y %I:%M %p') if user.avatar_updated_at else 'Not yet generated'}}" readonly></label>
-    </div>
-    <p class="muted">Need changes? Ask Admin to open <b>Admin → User Profile, Live Mascot, Permissions & Security</b>.</p>
-  </article>
+  <article class="form-card liquid-card"><h2>Profile Details</h2><div class="stack read-only-list"><label>Full Name<input value="{{user.full_name or ''}}" readonly></label><label>Login ID<input value="{{user.username}}" readonly></label><label>Role<input value="{{user.role|title}}" readonly></label><label>Aadhaar Name<input value="{{user.aadhaar_name or ''}}" readonly></label><label>Masked Aadhaar<input value="{{masked_aadhaar(user.aadhaar_last4) or ''}}" readonly></label><label>3D Host Identity<input value="Branded Livenza Digital Host" readonly></label></div></article>
+  <article class="form-card liquid-card"><h2>Access & Identity</h2><div class="stack read-only-list"><label>Account Status<input value="{{'Active' if user.active else 'Inactive'}}" readonly></label><label>Fingerprint / Passkey<input value="{{'Allowed by Admin' if user.webauthn_enabled else 'Disabled by Admin'}}" readonly></label><label>Profile Photo Updated<input value="{{user.avatar_updated_at.strftime('%d %b %Y %I:%M %p') if user.avatar_updated_at else 'Not set'}}" readonly></label></div><p class="muted">Profile photos, passwords, login IDs and access permissions remain protected Admin controls. Your photo is not used as the 3D host identity.</p></article>
 </section>
 {% endblock %}

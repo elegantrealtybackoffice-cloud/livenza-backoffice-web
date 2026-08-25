@@ -1,0 +1,17 @@
+{% if workflow=='email' %}
+<section class="integration-workflow safe-stack" id="workflow-email">
+  <div class="section-head"><div><p class="eyebrow">GOOGLE GMAIL</p><h3>Email Workspace</h3></div><span class="status-badge">{{'Connected' if workflow_data.connected else 'Not connected'}}</span></div>
+  {% if is_admin %}<div class="integration-actions">{% if workflow_data.connected %}<form method="post" action="{{url_for('google_disconnect')}}"><button class="secondary">Disconnect Google</button></form>{% else %}<a class="primary btn" href="{{url_for('google_connect')}}">Connect Gmail + Drive</a>{% endif %}</div>{% endif %}
+  <form method="post" action="{{url_for('email_workspace')}}" class="form-grid"><label>To<input name="to" type="email" required></label><label>Subject<input name="subject"></label><label class="span2">Message<textarea name="body" rows="4" required></textarea></label><button class="primary">Send Email</button></form>
+  {% if workflow_data.error %}<p class="notice danger">{{workflow_data.error}}</p>{% endif %}
+  <div class="integration-stream">{% for m in workflow_data.messages %}<article><div><b>{{m.subject}}</b><small>{{m.from}} · {{m.date}}</small></div><p>{{m.snippet}}</p><a class="small-link" href="{{url_for('email_message',message_id=m.id)}}">Open message</a></article>{% else %}<p class="muted">No Gmail messages available.</p>{% endfor %}</div>
+</section>
+{% elif workflow=='drive' %}
+<section class="integration-workflow safe-stack" id="workflow-drive">
+  <div class="section-head"><div><p class="eyebrow">GOOGLE DRIVE</p><h3>Operational Files</h3></div><span class="status-badge">{{'Connected' if workflow_data.connected else 'Not connected'}}</span></div>
+  {% if is_admin %}<div class="integration-actions">{% if workflow_data.connected %}<form method="post" action="{{url_for('google_disconnect')}}"><button class="secondary">Disconnect Google</button></form>{% else %}<a class="primary btn" href="{{url_for('google_connect')}}">Connect Gmail + Drive</a>{% endif %}</div>{% endif %}
+  <form method="post" enctype="multipart/form-data" action="{{url_for('drive_workspace')}}" class="form-grid"><label class="span2">Upload file<input type="file" name="file" required></label><button class="primary">Upload to Drive</button></form>
+  {% if workflow_data.error %}<p class="notice danger">{{workflow_data.error}}</p>{% endif %}
+  <div class="integration-stream">{% for f in workflow_data.files %}<article><div><b>{{f.name}}</b><small>{{f.modifiedTime or ''}}</small></div><a class="small-link" href="{{url_for('drive_file_download',file_id=f.id)}}">Download</a>{% if f.webViewLink %}<a class="small-link" href="{{f.webViewLink}}" target="_blank" rel="noopener">Open in Google ↗</a>{% endif %}</article>{% else %}<p class="muted">No Drive files available.</p>{% endfor %}</div>
+</section>
+{% endif %}

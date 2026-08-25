@@ -26,10 +26,12 @@ from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agr
 from electricity_core import normalize_bill_payload, bill_dedupe_key, reminder_status, transition_payment_status, build_electricity_csv, build_electricity_xlsx, fetch_bill_from_provider
 from electricity_providers import load_seed_providers, seed_electricity_providers, safe_official_url
 from vault_core import encrypt_secret, decrypt_secret, mask_secret, validate_secret_type, ALLOWED_SECRET_TYPES, encrypt_blob, decrypt_blob
+from integrations_core import category_module, user_can_access_category, safe_connection_summary, validate_integration_secret_name, normalize_nonsecret_config
+from integrations_catalog import load_integration_catalog, seed_integration_providers, legacy_connection_status, provider_workflow_url
 from party_master_core import (MASTER_FIELD_SET, SENSITIVE_FIELDS, DOCUMENT_CATEGORIES, LANDLORD_AGREEMENT_MAP, TENANT_AGREEMENT_MAP, normalize_master_payload, safe_master_summary, identifier_lookup_hash, identifier_lookup_hashes, mask_identifier, master_display_payload, validate_master_document, legacy_profile_to_master, apply_master_mapping, parse_annexure_ids)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.7.1'
+APP_VERSION = 'Web 1.8.0'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -338,6 +340,75 @@ class VaultSecret(db.Model):
     created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     updated_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class IntegrationProvider(db.Model):
+    __tablename__ = 'integration_provider'
+    id = db.Column(db.Integer, primary_key=True)
+    provider_key = db.Column(db.String(80), nullable=False, unique=True, index=True)
+    display_name = db.Column(db.String(180), nullable=False)
+    category = db.Column(db.String(60), nullable=False, index=True)
+    workflow_module = db.Column(db.String(60), nullable=False, default='integrations')
+    portal_url = db.Column(db.Text, default='')
+    developer_url = db.Column(db.Text, default='')
+    embed_mode = db.Column(db.String(24), default='external')
+    capabilities_json = db.Column(db.Text, default='[]')
+    active = db.Column(db.Boolean, default=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    @property
+    def capabilities(self):
+        try:
+            value=json.loads(self.capabilities_json or '[]')
+            return value if isinstance(value,list) else []
+        except Exception:
+            return []
+
+class IntegrationConnection(db.Model):
+    __tablename__ = 'integration_connection'
+    id = db.Column(db.Integer, primary_key=True)
+    provider_id = db.Column(db.Integer, db.ForeignKey('integration_provider.id'), nullable=False, index=True)
+    display_name = db.Column(db.String(180), nullable=False)
+    property_scope = db.Column(db.String(180), default='', index=True)
+    source_mode = db.Column(db.String(24), default='native')
+    status = db.Column(db.String(32), default='unconfigured', index=True)
+    nonsecret_config_json = db.Column(db.Text, default='{}')
+    last_test_status = db.Column(db.String(32), default='')
+    last_test_message = db.Column(db.Text, default='')
+    last_tested_at = db.Column(db.DateTime, nullable=True)
+    last_success_status = db.Column(db.String(32), default='')
+    last_success_message = db.Column(db.Text, default='')
+    last_success_at = db.Column(db.DateTime, nullable=True)
+    active = db.Column(db.Boolean, default=True, index=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    updated_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    provider = db.relationship('IntegrationProvider', foreign_keys=[provider_id])
+
+class IntegrationSecretRef(db.Model):
+    __tablename__ = 'integration_secret_ref'
+    id = db.Column(db.Integer, primary_key=True)
+    connection_id = db.Column(db.Integer, db.ForeignKey('integration_connection.id'), nullable=False, index=True)
+    secret_name = db.Column(db.String(80), nullable=False)
+    vault_secret_id = db.Column(db.Integer, db.ForeignKey('vault_secret.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('connection_id','secret_name',name='uq_integration_connection_secret'),)
+
+class MascotPreference(db.Model):
+    __tablename__ = 'mascot_preference'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True, index=True)
+    enabled = db.Column(db.Boolean, default=True)
+    intensity = db.Column(db.String(24), default='full')
+    size = db.Column(db.String(16), default='medium')
+    position = db.Column(db.String(24), default='bottom-right')
+    operational_updates = db.Column(db.Boolean, default=True)
+    motivational_messages = db.Column(db.Boolean, default=True)
+    weather_reactions = db.Column(db.Boolean, default=True)
+    weather_city = db.Column(db.String(120), default='Gurugram')
     updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
 class ElectricityConnection(db.Model):
@@ -1311,6 +1382,7 @@ MODULES = {
     'whatsapp': 'WhatsApp Workspace',
     'email': 'Email Workspace',
     'drive': 'Google Drive Files',
+    'integrations': 'Integrations Center',
 }
 
 BASE_REQUIRED_AGREEMENT_FIELDS = []
@@ -2048,6 +2120,42 @@ def current_user():
     return db.session.get(User, session.get('uid')) if session.get('uid') else None
 
 
+HOST3D_INTENSITIES = {'static': 0, 'gentle': 1, 'full': 2}
+HOST3D_SIZES = {'small', 'medium', 'large'}
+HOST3D_POSITIONS = {'bottom-left', 'bottom-right'}
+
+
+def _setting_bool(key, default='1'):
+    return str(setting(key, default)).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def mascot_preferences_for(user):
+    global_default = setting('host3d_default_intensity', 'full').strip().lower()
+    if global_default not in HOST3D_INTENSITIES:
+        global_default = 'full'
+    policy_max = setting('host3d_max_intensity', 'full').strip().lower()
+    if policy_max not in HOST3D_INTENSITIES:
+        policy_max = 'full'
+    row = MascotPreference.query.filter_by(user_id=user.id).first() if user else None
+    requested = (row.intensity if row and row.intensity in HOST3D_INTENSITIES else global_default)
+    effective = requested if HOST3D_INTENSITIES[requested] <= HOST3D_INTENSITIES[policy_max] else policy_max
+    size = row.size if row and row.size in HOST3D_SIZES else 'medium'
+    position = row.position if row and row.position in HOST3D_POSITIONS else 'bottom-right'
+    default_city = setting('host3d_default_city', setting('companion_default_city', 'Gurugram'))[:120]
+    return {
+        'enabled': bool(row.enabled) if row else _setting_bool('companion_enabled', '1'),
+        'intensity': effective,
+        'requested_intensity': requested,
+        'policy_max_intensity': policy_max,
+        'size': size,
+        'position': position,
+        'operational_updates': bool(row.operational_updates) if row else _setting_bool('host3d_operational_updates_default', setting('companion_operations_enabled', '1')),
+        'motivational_messages': bool(row.motivational_messages) if row else _setting_bool('host3d_motivational_default', setting('companion_quotes_enabled', '1')),
+        'weather_reactions': bool(row.weather_reactions) if row else _setting_bool('host3d_weather_default', setting('companion_weather_effects', '1')),
+        'weather_city': (row.weather_city or default_city)[:120] if row else default_city,
+    }
+
+
 def parse_date(v):
     if not v: return None
     for f in ('%Y-%m-%d','%d-%m-%Y','%d/%m/%Y'):
@@ -2111,13 +2219,17 @@ def all_form_data(preset_name=None):
 
 @app.context_processor
 def inject_common():
+    user=current_user()
+    mascot_preferences=mascot_preferences_for(user) if user else {}
     return dict(
-        current_user=current_user(), app_version=APP_VERSION,
+        current_user=user, app_version=APP_VERSION,
         can_access=can_access, module_labels=MODULES,
-        is_admin=bool(current_user() and (current_user().role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar,
+        is_admin=bool(user and (user.role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar,
         kiosk_mode_enabled=setting('kiosk_mode_enabled','0')=='1', marquee_enabled=setting('marquee_enabled','1')=='1',
-        companion_enabled=setting('companion_enabled','1')=='1', companion_default_city=setting('companion_default_city','Gurugram'),
-        companion_weather_effects=setting('companion_weather_effects','1')=='1'
+        companion_enabled=setting('companion_enabled','1')=='1' and bool(mascot_preferences.get('enabled',True)),
+        companion_default_city=mascot_preferences.get('weather_city') or setting('companion_default_city','Gurugram'),
+        companion_weather_effects=setting('companion_weather_effects','1')=='1' and bool(mascot_preferences.get('weather_reactions',True)),
+        mascot_preferences=mascot_preferences
     )
 
 @app.before_request
@@ -2211,7 +2323,7 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','left-glass-app-drawer','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture','avatar-camera-device-selector','avatar-direct-blob-submit','reliable-local-avatar-fallback','banking-suite','official-bank-launcher','encrypted-bank-statement-vault','reconciliation-template-library','bank-statement-reconciliation','admin-managed-profile-control','admin-avatar-studio','admin-role-permissions','electricity-bill-studio','all-india-electricity-directory','livenza-vault','bill-register-export','live-payment-reminders','bbps-adapter','utility-portal-fallback','electricity-payment-status','admin-electricity-controls','electricity-audit-log','ai-live-mascot','no-photo-mascot-fallback','landlord-master','tenant-master','encrypted-master-documents','agreement-master-autofill','agreement-master-annexures','agreement-master-audit','legacy-party-profile-migration'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','left-glass-app-drawer','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture','avatar-camera-device-selector','avatar-direct-blob-submit','reliable-local-avatar-fallback','banking-suite','official-bank-launcher','encrypted-bank-statement-vault','reconciliation-template-library','bank-statement-reconciliation','admin-managed-profile-control','admin-avatar-studio','admin-role-permissions','electricity-bill-studio','all-india-electricity-directory','livenza-vault','bill-register-export','live-payment-reminders','bbps-adapter','utility-portal-fallback','electricity-payment-status','admin-electricity-controls','electricity-audit-log','ai-live-mascot','no-photo-mascot-fallback','landlord-master','tenant-master','encrypted-master-documents','agreement-master-autofill','agreement-master-annexures','agreement-master-audit','legacy-party-profile-migration','full-webgl-3d-host','articulated-livenza-digital-host','role-aware-integrations-center','vault-backed-integration-secrets','layout-overlap-safety','tv-legacy-navigation-bootstrap','tv-adaptive-3d-quality','stable-non-clickable-photos','per-user-3d-host-preferences'])
 
 def version_v1513():
     return jsonify(version=APP_VERSION,features=[
@@ -2286,7 +2398,43 @@ def account():
     if request.method=='POST':
         flash('Only administrators can change user details, passwords, photos or avatars.','danger')
         return redirect(url_for('account'))
-    return render_template('account.html', user=u, avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()))
+    return render_template('account.html', user=u, avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()), mascot_preferences=mascot_preferences_for(u))
+
+@app.route('/account/mascot-settings', methods=['POST'])
+@login_required
+def account_mascot_settings():
+    u = current_user()
+    action = (request.form.get('mascot_action') or 'save').strip().lower()
+    row = MascotPreference.query.filter_by(user_id=u.id).first()
+    if action == 'reset':
+        if row:
+            db.session.delete(row)
+            db.session.commit()
+        flash('Your 3D host preferences were reset to Livenza defaults.', 'success')
+        return redirect(url_for('account') + '#mascot-settings')
+    if not row:
+        row = MascotPreference(user_id=u.id)
+        db.session.add(row)
+    def form_bool(name, default=True):
+        values = request.form.getlist(name)
+        if not values:
+            return default
+        return str(values[-1]).strip().lower() in ('1', 'true', 'yes', 'on')
+    intensity = (request.form.get('intensity') or 'full').strip().lower()
+    size = (request.form.get('size') or 'medium').strip().lower()
+    position = (request.form.get('position') or 'bottom-right').strip().lower()
+    row.enabled = form_bool('enabled', True)
+    row.intensity = intensity if intensity in HOST3D_INTENSITIES else 'full'
+    row.size = size if size in HOST3D_SIZES else 'medium'
+    row.position = position if position in HOST3D_POSITIONS else 'bottom-right'
+    row.operational_updates = form_bool('operational_updates', True)
+    row.motivational_messages = form_bool('motivational_messages', True)
+    row.weather_reactions = form_bool('weather_reactions', True)
+    row.weather_city = (request.form.get('weather_city') or setting('host3d_default_city', 'Gurugram')).strip()[:120] or 'Gurugram'
+    db.session.commit()
+    flash('Your 3D host settings were saved.', 'success')
+    return redirect(url_for('account') + '#mascot-settings')
+
 
 @app.route('/account/avatar',methods=['POST'])
 @login_required
@@ -3162,12 +3310,12 @@ def food():
 @app.route('/food/integrations')
 @permission_required('food')
 def food_integrations():
-    ensure_default_food_integrations()
+    return redirect(url_for('integrations_center',category='food',workflow='food_connections'))
     rows=FoodIntegration.query.order_by(FoodIntegration.platform,FoodIntegration.display_name,FoodIntegration.id).all()
     return render_template('food_integrations.html',integrations=rows,webhook_token_configured=bool(setting('food_webhook_token','')),official=OFFICIAL_FOOD_PORTALS)
 
 @app.route('/food/integrations/save',methods=['POST'])
-@permission_required('food')
+@admin_required
 def food_integration_save():
     iid=request.form.get('id','').strip(); row=db.session.get(FoodIntegration,int(iid)) if iid.isdigit() else FoodIntegration()
     if not iid: db.session.add(row)
@@ -3184,20 +3332,20 @@ def food_integration_save():
     for attr in ('portal_url','developer_url','api_base_url'):
         val=getattr(row,attr) or ''
         if val and not re.match(r'^https?://',val,re.I):
-            flash(f'{attr.replace("_"," ").title()} must start with https:// or http://','danger');return redirect(url_for('food_integrations'))
-    db.session.commit();flash('Food partner integration saved.','success');return redirect(url_for('food_integrations'))
+            flash(f'{attr.replace("_"," ").title()} must start with https:// or http://','danger');return redirect(url_for('integrations_center',category='food',workflow='food_connections'))
+    db.session.commit();flash('Food partner integration saved.','success');return redirect(url_for('integrations_center',category='food',workflow='food_connections'))
 
 @app.route('/food/integrations/<int:iid>/delete',methods=['POST'])
-@permission_required('food')
+@admin_required
 def food_integration_delete(iid):
-    row=db.session.get(FoodIntegration,iid) or abort(404);db.session.delete(row);db.session.commit();flash('Integration removed.','success');return redirect(url_for('food_integrations'))
+    row=db.session.get(FoodIntegration,iid) or abort(404);db.session.delete(row);db.session.commit();flash('Integration removed.','success');return redirect(url_for('integrations_center',category='food',workflow='food_connections'))
 
 @app.route('/food/integrations/<int:iid>/sync',methods=['POST'])
 @permission_required('food')
 def food_integration_sync(iid):
     row=db.session.get(FoodIntegration,iid) or abort(404)
     if not row.active or not row.api_enabled or not (row.api_base_url or '').strip():
-        flash('Enable API Sync and add the official/API endpoint supplied by the platform first.','warning');return redirect(url_for('food_integrations'))
+        flash('Enable API Sync and add the official/API endpoint supplied by the platform first.','warning');return redirect(url_for('integrations_center',category='food',workflow='food_connections'))
     headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.13'}
     bearer=os.getenv((row.api_token_env or '').strip(),'').strip() if row.api_token_env else ''
     api_key=os.getenv((row.api_key_env or '').strip(),'').strip() if row.api_key_env else ''
@@ -3208,12 +3356,12 @@ def food_integration_sync(iid):
         row.last_sync_at=datetime.datetime.utcnow();row.last_sync_count=count;row.last_sync_status=f'OK • {count} record(s) received';db.session.commit();flash(f'{row.platform} sync completed: {count} order record(s).','success')
     except Exception as e:
         db.session.rollback();row=db.session.get(FoodIntegration,iid);row.last_sync_at=datetime.datetime.utcnow();row.last_sync_count=0;row.last_sync_status=f'ERROR • {str(e)[:300]}';db.session.commit();flash(f'{row.platform} API sync failed. Check the endpoint, partner access and Render environment credentials.','danger')
-    return redirect(url_for('food_integrations'))
+    return redirect(url_for('integrations_center',category='food',workflow='food_connections'))
 
 @app.route('/food/portals')
 @permission_required('food')
 def food_portals():
-    ensure_default_food_integrations(); rows=FoodIntegration.query.filter_by(active=True).order_by(FoodIntegration.platform,FoodIntegration.display_name).all()
+    return redirect(url_for('integrations_center',category='food',workflow='food_portals'))
     selected_id=request.args.get('id','');selected=None
     if selected_id.isdigit(): selected=db.session.get(FoodIntegration,int(selected_id))
     if not selected and rows: selected=rows[0]
@@ -4459,19 +4607,14 @@ def webauthn_credential_delete(credential_id):
 @app.route('/whatsapp',methods=['GET','POST'])
 @permission_required('whatsapp')
 def whatsapp_workspace():
-    if request.method=='POST':
-        to=wa_number(request.form.get('to','')); body=request.form.get('body','').strip()
-        if not (to and body):
-            flash('Enter a valid WhatsApp number and message.','danger'); return redirect(url_for('whatsapp_workspace'))
-        ok,result=whatsapp_cloud_text(to,body)
-        if ok:
-            mid=result if result.startswith('wamid.') else None
-            db.session.add(WhatsAppMessage(direction='outbound',wa_id=to,message_id=mid,body=body,status='sent',raw_json=json.dumps({'api_result':result})))
-            db.session.commit(); flash('WhatsApp message sent.','success')
-        else: flash('WhatsApp send failed: '+result,'danger')
-        return redirect(url_for('whatsapp_workspace'))
-    rows=WhatsAppMessage.query.order_by(WhatsAppMessage.created_at.desc()).limit(250).all()
-    return render_template('whatsapp.html',messages=rows,configured=whatsapp_cloud_configured(),webhook_url=url_for('whatsapp_messages_webhook',_external=True))
+    if request.method=='GET': return redirect(url_for('integrations_center',category='whatsapp',workflow='whatsapp'))
+    to=wa_number(request.form.get('to','')); body=request.form.get('body','').strip()
+    if not (to and body): flash('Enter a valid WhatsApp number and message.','danger'); return redirect(url_for('integrations_center',category='whatsapp',workflow='whatsapp'))
+    ok,result=whatsapp_cloud_text(to,body)
+    if ok:
+        mid=result if result.startswith('wamid.') else None; db.session.add(WhatsAppMessage(direction='outbound',wa_id=to,message_id=mid,body=body,status='sent',raw_json=json.dumps({'api_result':result}))); db.session.commit(); flash('WhatsApp message sent.','success')
+    else: flash('WhatsApp send failed: '+result,'danger')
+    return redirect(url_for('integrations_center',category='whatsapp',workflow='whatsapp'))
 
 @app.route('/webhooks/whatsapp/messages',methods=['GET','POST'])
 def whatsapp_messages_webhook():
@@ -4506,7 +4649,7 @@ def whatsapp_messages_webhook():
 @admin_required
 def google_connect():
     if not google_oauth_configured():
-        flash('Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET first.','danger'); return redirect(url_for('admin_panel')+'#cloud-integrations')
+        flash('Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET first.','danger'); return redirect(url_for('integrations_center',category='google_email',workflow='email'))
     state=secrets.token_urlsafe(30); session['google_oauth_state']=state
     redirect_uri=url_for('google_callback',_external=True,_scheme='https' if os.getenv('FORCE_HTTPS','1')=='1' else request.scheme)
     params={'client_id':os.getenv('GOOGLE_CLIENT_ID'),'redirect_uri':redirect_uri,'response_type':'code','scope':' '.join(GOOGLE_SCOPES),'access_type':'offline','include_granted_scopes':'true','prompt':'consent','state':state}
@@ -4516,7 +4659,7 @@ def google_connect():
 @admin_required
 def google_callback():
     if not hmac.compare_digest(str(session.pop('google_oauth_state','')),str(request.args.get('state',''))):
-        flash('Google connection state did not match. Please try again.','danger'); return redirect(url_for('admin_panel')+'#cloud-integrations')
+        flash('Google connection state did not match. Please try again.','danger'); return redirect(url_for('integrations_center',category='google_email',workflow='email'))
     redirect_uri=url_for('google_callback',_external=True,_scheme='https' if os.getenv('FORCE_HTTPS','1')=='1' else request.scheme)
     try:
         r=requests.post('https://oauth2.googleapis.com/token',data={'code':request.args.get('code',''),'client_id':os.getenv('GOOGLE_CLIENT_ID'),'client_secret':os.getenv('GOOGLE_CLIENT_SECRET'),'redirect_uri':redirect_uri,'grant_type':'authorization_code'},timeout=25)
@@ -4524,7 +4667,7 @@ def google_callback():
         data=r.json(); data['expires_at']=datetime.datetime.utcnow().timestamp()+int(data.get('expires_in') or 3600)
         _encrypted_setting_set('google_oauth_token',json.dumps(data)); ensure_google_drive_folder(); flash('Google Drive and Gmail connected.','success')
     except Exception as exc: flash(f'Google connection failed: {exc}','danger')
-    return redirect(url_for('admin_panel')+'#cloud-integrations')
+    return redirect(url_for('integrations_center',category='google_email',workflow='email'))
 
 @app.route('/integrations/google/disconnect',methods=['POST'])
 @admin_required
@@ -4534,35 +4677,22 @@ def google_disconnect():
         try: requests.post('https://oauth2.googleapis.com/revoke',params={'token':token},timeout=15)
         except Exception: pass
     _encrypted_setting_set('google_oauth_token',''); flash('Google connection removed.','success')
-    return redirect(url_for('admin_panel')+'#cloud-integrations')
+    return redirect(url_for('integrations_center',category='google_email',workflow='email'))
 
 @app.route('/admin/google/settings',methods=['POST'])
 @admin_required
 def google_settings():
     set_setting('google_drive_folder_id',request.form.get('google_drive_folder_id','').strip())
     set_setting('google_drive_auto_backup','1' if request.form.get('google_drive_auto_backup')=='1' else '0')
-    flash('Google Drive settings saved.','success'); return redirect(url_for('admin_panel')+'#cloud-integrations')
+    flash('Google Drive settings saved.','success'); return redirect(url_for('integrations_center',category='google_email',workflow='email'))
 
 @app.route('/drive',methods=['GET','POST'])
 @permission_required('drive')
 def drive_workspace():
-    if request.method=='POST':
-        f=request.files.get('file')
-        if not f or not f.filename:
-            flash('Choose a file to upload.','danger'); return redirect(url_for('drive_workspace'))
-        data=f.read(); row,err=google_drive_upload_bytes(data,f.filename,f.mimetype or 'application/octet-stream','manual',current_user())
-        flash(('Uploaded to Google Drive.' if row else err),('success' if row else 'danger')); return redirect(url_for('drive_workspace'))
-    live=[]; error=''
-    headers=_google_headers()
-    if headers:
-        try:
-            folder=ensure_google_drive_folder()
-            params={'pageSize':100,'orderBy':'modifiedTime desc','fields':'files(id,name,mimeType,size,modifiedTime,webViewLink)','q':f"'{folder}' in parents and trashed=false" if folder else 'trashed=false'}
-            r=requests.get('https://www.googleapis.com/drive/v3/files',headers=headers,params=params,timeout=25)
-            if r.ok: live=r.json().get('files',[])
-            else: error=r.text[:400]
-        except Exception as exc: error=str(exc)
-    return render_template('drive.html',files=live,connected=bool(headers),error=error,folder_id=setting('google_drive_folder_id',''))
+    if request.method=='GET': return redirect(url_for('integrations_center',category='google_drive',workflow='drive'))
+    f=request.files.get('file')
+    if not f or not f.filename: flash('Choose a file to upload.','danger'); return redirect(url_for('integrations_center',category='google_drive',workflow='drive'))
+    data=f.read(); row,err=google_drive_upload_bytes(data,f.filename,f.mimetype or 'application/octet-stream','manual',current_user()); flash(('Uploaded to Google Drive.' if row else err),('success' if row else 'danger')); return redirect(url_for('integrations_center',category='google_drive',workflow='drive'))
 
 @app.route('/drive/files/<file_id>/download')
 @permission_required('drive')
@@ -4603,28 +4733,13 @@ def _gmail_plain_text(part):
 @app.route('/email',methods=['GET','POST'])
 @permission_required('email')
 def email_workspace():
-    headers=_google_headers(); messages=[]; error=''
-    if request.method=='POST':
-        if not headers:
-            flash('Connect Google in Admin first.','danger'); return redirect(url_for('email_workspace'))
-        to=request.form.get('to','').strip(); subject=request.form.get('subject','').strip(); body=request.form.get('body','').strip()
-        if not (to and body):
-            flash('Recipient and message are required.','danger'); return redirect(url_for('email_workspace'))
-        mail=EmailMessage(); mail['To']=to; mail['Subject']=subject; mail.set_content(body)
-        raw=base64.urlsafe_b64encode(mail.as_bytes()).decode('ascii').rstrip('=')
-        r=requests.post('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',headers=dict(headers,**{'Content-Type':'application/json'}),json={'raw':raw},timeout=30)
-        flash(('Email sent.' if r.ok else 'Email send failed: '+r.text[:300]),('success' if r.ok else 'danger')); return redirect(url_for('email_workspace'))
-    if headers:
-        try:
-            listing=requests.get('https://gmail.googleapis.com/gmail/v1/users/me/messages',headers=headers,params={'maxResults':15},timeout=25)
-            for item in (listing.json().get('messages',[]) if listing.ok else []):
-                r=requests.get(f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{item['id']}",headers=headers,params={'format':'metadata','metadataHeaders':['From','Subject','Date']},timeout=20)
-                if not r.ok: continue
-                data=r.json(); hs={x.get('name','').lower():x.get('value','') for x in (data.get('payload',{}).get('headers',[]) or [])}
-                messages.append({'id':item['id'],'from':hs.get('from',''),'subject':hs.get('subject','(no subject)'),'date':hs.get('date',''),'snippet':data.get('snippet','')})
-            if not listing.ok: error=listing.text[:400]
-        except Exception as exc: error=str(exc)
-    return render_template('email.html',messages=messages,connected=bool(headers),error=error)
+    if request.method=='GET': return redirect(url_for('integrations_center',category='google_email',workflow='email'))
+    headers=_google_headers()
+    if not headers: flash('Connect Google in Integrations Center first.','danger'); return redirect(url_for('integrations_center',category='google_email',workflow='email'))
+    to=request.form.get('to','').strip(); subject=request.form.get('subject','').strip(); body=request.form.get('body','').strip()
+    if not (to and body): flash('Recipient and message are required.','danger'); return redirect(url_for('integrations_center',category='google_email',workflow='email'))
+    mail=EmailMessage(); mail['To']=to; mail['Subject']=subject; mail.set_content(body); raw=base64.urlsafe_b64encode(mail.as_bytes()).decode('ascii').rstrip('=')
+    r=requests.post('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',headers=dict(headers,**{'Content-Type':'application/json'}),json={'raw':raw},timeout=30); flash(('Email sent.' if r.ok else 'Email send failed: '+r.text[:300]),('success' if r.ok else 'danger')); return redirect(url_for('integrations_center',category='google_email',workflow='email'))
 
 @app.route('/email/messages/<message_id>')
 @permission_required('email')
@@ -4638,12 +4753,177 @@ def email_message(message_id):
     message={'from':hs.get('from',''),'to':hs.get('to',''),'subject':hs.get('subject','(no subject)'),'date':hs.get('date',''),'body':_gmail_plain_text(data.get('payload') or {}) or data.get('snippet','')}
     return render_template('email_message.html',message=message)
 
+
+# ===== Web 1.8.0 • Central Integrations Center =====
+INTEGRATION_CATEGORY_LABELS={
+    'ai':'AI Services','whatsapp':'WhatsApp','google_email':'Email','google_drive':'Google Drive','food':'Food Partners',
+    'electricity':'Electricity & Bharat Connect','banking':'Banking Portals','billing':'Billing / RentOK','payments':'Payments','webhooks':'Webhooks & APIs'
+}
+
+def _integration_legacy_settings_snapshot():
+    keys=('food_webhook_token','query_webhook_token','google_oauth_token')
+    return {k:setting(k,'') for k in keys}
+
+def _integration_workflow_data(workflow):
+    workflow=(workflow or '').strip()
+    if workflow=='whatsapp':
+        return {'configured':whatsapp_cloud_configured(),'messages':WhatsAppMessage.query.order_by(WhatsAppMessage.created_at.desc()).limit(150).all()}
+    if workflow=='email':
+        headers=_google_headers(); messages=[]; error=''
+        if headers:
+            try:
+                listing=requests.get('https://gmail.googleapis.com/gmail/v1/users/me/messages',headers=headers,params={'maxResults':15},timeout=25)
+                for item in (listing.json().get('messages',[]) if listing.ok else []):
+                    r=requests.get(f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{item['id']}",headers=headers,params={'format':'metadata','metadataHeaders':['From','Subject','Date']},timeout=20)
+                    if not r.ok: continue
+                    data=r.json(); hs={x.get('name','').lower():x.get('value','') for x in (data.get('payload',{}).get('headers',[]) or [])}
+                    messages.append({'id':item['id'],'from':hs.get('from',''),'subject':hs.get('subject','(no subject)'),'date':hs.get('date',''),'snippet':data.get('snippet','')})
+                if not listing.ok: error=listing.text[:400]
+            except Exception as exc: error=str(exc)
+        return {'connected':bool(headers),'messages':messages,'error':error}
+    if workflow=='drive':
+        headers=_google_headers(); live=[]; error=''
+        if headers:
+            try:
+                folder=ensure_google_drive_folder(); params={'pageSize':100,'orderBy':'modifiedTime desc','fields':'files(id,name,mimeType,size,modifiedTime,webViewLink)','q':f"'{folder}' in parents and trashed=false" if folder else 'trashed=false'}
+                r=requests.get('https://www.googleapis.com/drive/v3/files',headers=headers,params=params,timeout=25)
+                if r.ok: live=r.json().get('files',[])
+                else: error=r.text[:400]
+            except Exception as exc: error=str(exc)
+        return {'connected':bool(headers),'files':live,'error':error,'folder_id':setting('google_drive_folder_id','')}
+    if workflow in ('food_connections','food_portals'):
+        ensure_default_food_integrations(); return {'integrations':FoodIntegration.query.order_by(FoodIntegration.platform,FoodIntegration.display_name).all(),'official':OFFICIAL_FOOD_PORTALS}
+    if workflow=='electricity_connections':
+        return {'providers':_electricity_provider_rows(include_inactive=False)}
+    if workflow=='bank_portals':
+        return {'banks':BANK_PORTALS}
+    if workflow=='billing_portal': return {}
+    if workflow=='ai':
+        return {'configured':bool(os.getenv('OPENAI_API_KEY','').strip()) or bool(IntegrationSecretRef.query.join(IntegrationConnection).join(IntegrationProvider).filter(IntegrationProvider.category=='ai',IntegrationConnection.active.is_(True)).first())}
+    if workflow=='webhooks': return {}
+    return {}
+
+def _integration_center_context(active_category=None,active_provider=None,workflow=None):
+    user=current_user(); admin=bool(user and (user.role or '').lower()=='admin'); modules=user_permissions(user)
+    rows=IntegrationProvider.query.filter_by(active=True).order_by(IntegrationProvider.category,IntegrationProvider.display_name).all()
+    allowed=[]
+    for key,label in INTEGRATION_CATEGORY_LABELS.items():
+        if user_can_access_category(modules,key,is_admin=admin): allowed.append({'key':key,'label':label})
+    allowed_keys={x['key'] for x in allowed}
+    if active_category not in allowed_keys: active_category=(allowed[0]['key'] if allowed else None)
+    providers=[p for p in rows if p.category==active_category and p.category in allowed_keys]
+    provider=None
+    if active_provider:
+        provider=next((p for p in providers if p.provider_key==active_provider or str(p.id)==str(active_provider)),None)
+    if not provider and providers: provider=providers[0]
+    connections=IntegrationConnection.query.filter_by(provider_id=provider.id,active=True).order_by(IntegrationConnection.id.desc()).all() if provider else []
+    env=dict(os.environ); settings_snapshot=_integration_legacy_settings_snapshot(); db_state={'food_integrations':bool(FoodIntegration.query.first())}
+    provider_status={p.provider_key:legacy_connection_status(p.provider_key,env=env,settings=settings_snapshot,db_state=db_state) for p in rows}
+    for c in connections:
+        provider_status.setdefault(provider.provider_key,{}); provider_status[provider.provider_key]['configured']=True
+    workflow_urls={'whatsapp':url_for('integrations_center',category='whatsapp',workflow='whatsapp'),'google_email':url_for('integrations_center',category='google_email',workflow='email'),'google_drive':url_for('integrations_center',category='google_drive',workflow='drive'),'food':url_for('food'),'electricity':url_for('electricity_studio'),'banking':url_for('banking_suite'),'billing':url_for('billing')}
+    workflow_templates={'whatsapp':'integration_workflow_whatsapp.html','email':'integration_workflow_google.html','drive':'integration_workflow_google.html','food_portals':'integration_workflow_food.html','food_connections':'integration_workflow_food.html','electricity_connections':'integration_workflow_electricity.html','bank_portals':'integration_workflow_banking.html','billing_portal':'integration_workflow_billing.html','ai':'integration_workflow_ai.html','webhooks':'integration_workflow_webhooks.html'}
+    return dict(categories=allowed,active_category=active_category,providers=providers,active_provider=provider,connections=connections,provider_status=provider_status,workflow_url=workflow_urls.get(active_category,''),workflow=workflow,workflow_template=workflow_templates.get(workflow,''),workflow_data=_integration_workflow_data(workflow),portal_embed_url='')
+
+@app.route('/integrations')
+@login_required
+def integrations_center():
+    category=(request.args.get('category') or '').strip().lower(); provider=(request.args.get('provider') or '').strip(); workflow=(request.args.get('workflow') or '').strip()
+    return render_template('integrations.html',**_integration_center_context(category,provider,workflow))
+
+@app.route('/integrations/connections/save',methods=['POST'])
+@admin_required
+def integration_connection_save():
+    pid=(request.form.get('provider_id') or '').strip(); provider=db.session.get(IntegrationProvider,int(pid)) if pid.isdigit() else None
+    if not provider: abort(404)
+    cid=(request.form.get('id') or '').strip(); row=db.session.get(IntegrationConnection,int(cid)) if cid.isdigit() else None
+    if row and row.provider_id!=provider.id: abort(400)
+    if not row:
+        row=IntegrationConnection(provider_id=provider.id,display_name='Connection',created_by_user_id=current_user().id); db.session.add(row)
+    row.display_name=(request.form.get('display_name') or provider.display_name)[:180]; row.property_scope=(request.form.get('property_scope') or '')[:180]
+    config={}
+    if request.form.get('portal_url'): config['portal_url']=request.form.get('portal_url')
+    try: config=normalize_nonsecret_config(config)
+    except ValueError as exc: flash(str(exc),'danger'); return redirect(url_for('integrations_center',category=provider.category,provider=provider.provider_key))
+    row.nonsecret_config_json=json.dumps(config,separators=(',',':')); row.status='configured'; row.updated_by_user_id=current_user().id
+    db.session.flush(); record_audit('integration_connection_saved','integration_connection',row.id,module='integrations',meta={'provider_id':provider.id,'category':provider.category}); db.session.commit(); flash('Integration connection saved.','success')
+    return redirect(url_for('integrations_center',category=provider.category,provider=provider.provider_key))
+
+@app.route('/integrations/connections/<int:connection_id>/secret',methods=['POST'])
+@admin_required
+def integration_connection_secret_save(connection_id):
+    row=db.session.get(IntegrationConnection,connection_id) or abort(404); admin=current_user()
+    if not check_password_hash(admin.password_hash,request.form.get('admin_password','')): flash('Administrator password is required to change integration secrets.','danger'); return redirect(url_for('integrations_center',category=row.provider.category,provider=row.provider.provider_key))
+    try: name=validate_integration_secret_name(request.form.get('secret_name',''))
+    except ValueError as exc: flash(str(exc),'danger'); return redirect(url_for('integrations_center',category=row.provider.category,provider=row.provider.provider_key))
+    value=request.form.get('secret_value') or ''
+    if not value: flash('Enter the new secret value.','danger'); return redirect(url_for('integrations_center',category=row.provider.category,provider=row.provider.provider_key))
+    master=os.getenv('LIVENZA_VAULT_MASTER_KEY','').strip()
+    if not master: flash('LIVENZA_VAULT_MASTER_KEY is not configured.','danger'); return redirect(url_for('integrations_center',category=row.provider.category,provider=row.provider.provider_key))
+    ref=IntegrationSecretRef.query.filter_by(connection_id=row.id,secret_name=name).first(); vault=db.session.get(VaultSecret,ref.vault_secret_id) if ref else None
+    if not vault:
+        vault=VaultSecret(secret_type='operational_api_secret',label=f'{row.provider.display_name} • {name}',ciphertext='',nonce='',created_by_user_id=admin.id); db.session.add(vault); db.session.flush()
+        if not ref: ref=IntegrationSecretRef(connection_id=row.id,secret_name=name,vault_secret_id=vault.id); db.session.add(ref)
+        else: ref.vault_secret_id=vault.id
+    vault.secret_type='operational_api_secret'; vault.updated_by_user_id=admin.id; vault.ciphertext,vault.nonce=encrypt_secret(json.dumps({'secret':value}),master)
+    row.status='configured'; record_audit('integration_secret_replace','integration_connection',row.id,module='integrations',meta={'provider_id':row.provider_id,'secret_name':name}); db.session.commit(); flash('Integration secret encrypted and saved.','success')
+    return redirect(url_for('integrations_center',category=row.provider.category,provider=row.provider.provider_key))
+
+@app.route('/integrations/connections/<int:connection_id>/secret/<name>/reveal',methods=['POST'])
+@admin_required
+def integration_connection_secret_reveal(connection_id,name):
+    row=db.session.get(IntegrationConnection,connection_id) or abort(404); admin=current_user()
+    if not check_password_hash(admin.password_hash,request.form.get('admin_password','')): return jsonify(ok=False,error='Administrator password did not match.'),403
+    try: name=validate_integration_secret_name(name)
+    except ValueError: abort(400)
+    ref=IntegrationSecretRef.query.filter_by(connection_id=row.id,secret_name=name).first() or abort(404); vault=db.session.get(VaultSecret,ref.vault_secret_id) or abort(404)
+    try: payload=json.loads(decrypt_secret(vault.ciphertext,vault.nonce,os.getenv('LIVENZA_VAULT_MASTER_KEY','').strip()))
+    except Exception: return jsonify(ok=False,error='Integration secret could not be decrypted.'),422
+    record_audit('integration_secret_reveal','integration_connection',row.id,module='integrations',meta={'provider_id':row.provider_id,'secret_name':name}); db.session.commit(); response=jsonify(ok=True,secret=payload.get('secret','')); response.headers['Cache-Control']='no-store, private'; return response
+
+@app.route('/integrations/connections/<int:connection_id>/test',methods=['POST'])
+@admin_required
+def integration_connection_test(connection_id):
+    row=db.session.get(IntegrationConnection,connection_id) or abort(404); provider=row.provider; now=datetime.datetime.utcnow(); status='configured'; message='Configuration is present; provider-side authorization is not probed automatically.'
+    config={}
+    try: config=json.loads(row.nonsecret_config_json or '{}')
+    except Exception: config={}
+    if provider.category in ('banking','billing'):
+        status='portal_available' if provider_workflow_url(provider,{'nonsecret_config':config}) else 'needs_configuration'; message='Official portal is available.' if status=='portal_available' else 'Add an official portal URL.'
+    elif provider.category in ('food','webhooks'):
+        status='configured' if (config or provider.portal_url) else 'needs_configuration'; message='Workflow configuration is present.' if status=='configured' else 'No endpoint or portal is configured.'
+    else:
+        legacy=legacy_connection_status(provider.provider_key,env=os.environ,settings=_integration_legacy_settings_snapshot(),db_state={'food_integrations':bool(FoodIntegration.query.first())})
+        refs=IntegrationSecretRef.query.filter_by(connection_id=row.id).count(); status='configured' if (refs or config) else ('configured_legacy' if legacy.get('configured') else 'needs_configuration'); message='Native integration configuration is present.' if status=='configured' else ('Legacy configuration detected.' if status=='configured_legacy' else 'Connection needs configuration.')
+    row.last_test_status=status; row.last_test_message=message[:500]; row.last_tested_at=now
+    if status in ('configured','configured_legacy','portal_available'):
+        row.last_success_status=status; row.last_success_message=message[:500]; row.last_success_at=now; row.status=status
+    record_audit('integration_connection_test','integration_connection',row.id,module='integrations',status=status,meta={'provider_id':provider.id}); db.session.commit(); flash(message,'success' if status!='needs_configuration' else 'warning')
+    return redirect(url_for('integrations_center',category=provider.category,provider=provider.provider_key))
+
+@app.route('/integrations/connections/<int:connection_id>/archive',methods=['POST'])
+@admin_required
+def integration_connection_archive(connection_id):
+    row=db.session.get(IntegrationConnection,connection_id) or abort(404); row.active=False; row.status='archived'; record_audit('integration_connection_archived','integration_connection',row.id,module='integrations',meta={'provider_id':row.provider_id}); db.session.commit(); flash('Integration connection archived.','success'); return redirect(url_for('integrations_center',category=row.provider.category))
+
+@app.route('/integrations/providers/<int:provider_id>/portal')
+@login_required
+def integration_provider_portal(provider_id):
+    provider=db.session.get(IntegrationProvider,provider_id) or abort(404); user=current_user(); admin=(user.role or '').lower()=='admin'
+    if not user_can_access_category(user_permissions(user),provider.category,is_admin=admin): abort(403)
+    target=provider_workflow_url(provider)
+    if not target: flash('No official portal URL is configured for this provider.','warning'); return redirect(url_for('integrations_center',category=provider.category,provider=provider.provider_key))
+    if provider.embed_mode=='inline':
+        context=_integration_center_context(provider.category,provider.provider_key); context['portal_embed_url']=target; return render_template('integrations.html',**context)
+    return redirect(target)
+
 @app.route('/settings', methods=['GET','POST'])
 @admin_required
 def settings_page():
     keys=('food_webhook_token','whatsapp_recipient','empty_report_time','default_google_review_url','vacant_report_enabled','vacant_report_time','vacant_report_recipients','query_webhook_token',
           'marquee_enabled','marquee_show_username','marquee_show_tenants','marquee_show_vacant_beds','marquee_show_earnings','marquee_show_favorites','marquee_show_stocks','marquee_favorites','marquee_custom_text','marquee_manual_earnings','marquee_stock_pages','marquee_refresh_seconds',
-          'companion_enabled','companion_weather_enabled','companion_weather_effects','companion_quotes_enabled','companion_operations_enabled','companion_default_city','companion_effect_seconds')
+          'companion_enabled','companion_weather_enabled','companion_weather_effects','companion_quotes_enabled','companion_operations_enabled','companion_default_city','companion_effect_seconds',
+          'host3d_default_intensity','host3d_max_intensity','host3d_default_city','host3d_operational_updates_default','host3d_weather_default','host3d_motivational_default')
     if request.method=='POST':
         for k in keys:
             if k in request.form:
@@ -4657,7 +4937,8 @@ def settings_page():
                 set_setting(k,val)
         flash('Settings saved.','success'); return redirect(url_for('settings_page'))
     defaults={'marquee_enabled':'1','marquee_show_username':'1','marquee_show_tenants':'1','marquee_show_vacant_beds':'1','marquee_show_earnings':'1','marquee_refresh_seconds':'60',
-              'companion_enabled':'1','companion_weather_enabled':'1','companion_weather_effects':'1','companion_quotes_enabled':'1','companion_operations_enabled':'1','companion_default_city':'Gurugram','companion_effect_seconds':'11'}
+              'companion_enabled':'1','companion_weather_enabled':'1','companion_weather_effects':'1','companion_quotes_enabled':'1','companion_operations_enabled':'1','companion_default_city':'Gurugram','companion_effect_seconds':'11',
+              'host3d_default_intensity':'full','host3d_max_intensity':'full','host3d_default_city':'Gurugram','host3d_operational_updates_default':'1','host3d_weather_default':'1','host3d_motivational_default':'1'}
     return render_template('settings.html',settings={k:setting(k,defaults.get(k,'')) for k in keys})
 
 @app.route('/admin')
@@ -4826,12 +5107,22 @@ def ensure_v1512_user_columns():
     for sql in statements: db.session.execute(db.text(sql))
     if statements: db.session.commit()
 
+def ensure_integration_provider_seed():
+    try:
+        rows=load_integration_catalog(os.path.join(BASE_DIR,'data','integration_providers.json'))
+        return seed_integration_providers(db.session,IntegrationProvider,rows)
+    except Exception as exc:
+        db.session.rollback()
+        print('Integration provider seed warning:',exc)
+        return {'created':0,'updated':0}
+
 def bootstrap():
     os.makedirs(os.path.join(BASE_DIR,'instance'),exist_ok=True)
     db.create_all()
     ensure_v150_user_columns()
     ensure_v1512_user_columns()
     ensure_electricity_provider_seed()
+    ensure_integration_provider_seed()
     migrate_legacy_party_profiles()
     if User.query.count()==0:
         username=os.getenv('ADMIN_USERNAME','admin').strip() or 'admin'

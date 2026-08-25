@@ -1,20 +1,22 @@
-LIVENZA WEB 1.7.1 — GITHUB BROWSER UPDATE
+LIVENZA WEB v1.8.0 — GITHUB BROWSER UPDATE
 
-This ZIP contains only production files changed/new from Web 1.7.0 to Web 1.7.1.
-It is designed to stay below GitHub's 100-file browser upload limit.
+Base required: Web 1.7.1
+Target: Web 1.8.0
+
+This package contains only production files changed/new from v1.7.1 to v1.8.0.
+It is below GitHub's 100-file browser-upload limit.
+
+UPLOAD
+1. Extract this ZIP on your computer.
+2. Open your existing Livenza GitHub repository.
+3. Upload the extracted production files to the matching repository paths. Root files go to the repository root; files under data/, migrations/, static/, and templates/ go into those existing folders.
+4. Replace/overwrite older files when GitHub asks.
+5. Commit with a message such as: Upgrade Livenza Web to 1.8.0
+6. Let Render redeploy.
+7. Open /version and confirm Web 1.8.0.
 
 IMPORTANT
-1. Extract this ZIP on your computer.
-2. In GitHub, upload each root-level file to the repository root and replace existing files when asked.
-3. For files under templates/, static/, and migrations/, open the matching folder in GitHub before uploading those files so the paths remain identical.
-4. Do NOT upload the ZIP itself as the application update. Upload its extracted contents.
-5. In Render/production Environment, set and keep LIVENZA_VAULT_MASTER_KEY stable. Never commit this secret to GitHub.
-6. If your managed database does not allow automatic table creation, apply migrations/web_v1_7_1.sql.
-7. Commit the GitHub changes and let Render redeploy.
-8. After deployment, open /version and confirm Web 1.7.1.
-
-KEY UI CHECKS
-- Applications opens as a translucent left-side drawer instead of the old large white mega-menu.
-- Agreement Studio exposes Landlord Master and Tenant Master.
-- Sensitive master values are masked. Admin re-authentication is required for reveal/protected document download.
-- Applying a master fills empty agreement fields by default; Replace Existing Values is explicit.
+- Do not upload this ZIP itself as the application. Upload its extracted contents.
+- Keep LIVENZA_VAULT_MASTER_KEY stable in Render.
+- Apply migrations/web_v1_8_0.sql if your production database does not permit automatic schema creation.
+- The full WebGL host is local code; no CDN dependency is required for the live 3D host.

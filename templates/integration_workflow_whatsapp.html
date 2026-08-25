@@ -1,0 +1,5 @@
+<section class="integration-workflow safe-stack" id="workflow-whatsapp">
+  <div class="section-head"><div><p class="eyebrow">WHATSAPP CLOUD API</p><h3>Messages</h3><p class="muted">Send and review operational WhatsApp messages without leaving Integrations Center.</p></div><span class="status-badge">{{'Connected' if workflow_data.configured else 'Not configured'}}</span></div>
+  <form method="post" action="{{url_for('whatsapp_workspace')}}" class="form-grid integration-message-form"><label>Recipient<input name="to" placeholder="9198..." required></label><label class="span2">Message<textarea name="body" rows="3" required></textarea></label><button class="primary">Send WhatsApp</button></form>
+  <div class="integration-stream">{% for m in workflow_data.messages %}<article><div><b>{{m.contact_name or m.wa_id}}</b><small>{{m.direction|title}} · {{m.status}}</small></div><p>{{m.body}}</p></article>{% else %}<p class="muted">No WhatsApp messages stored yet.</p>{% endfor %}</div>
+</section>
