@@ -25,10 +25,11 @@ except Exception:
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 from electricity_core import normalize_bill_payload, bill_dedupe_key, reminder_status, transition_payment_status, build_electricity_csv, build_electricity_xlsx, fetch_bill_from_provider
 from electricity_providers import load_seed_providers, seed_electricity_providers, safe_official_url
-from vault_core import encrypt_secret, decrypt_secret, mask_secret, validate_secret_type, ALLOWED_SECRET_TYPES
+from vault_core import encrypt_secret, decrypt_secret, mask_secret, validate_secret_type, ALLOWED_SECRET_TYPES, encrypt_blob, decrypt_blob
+from party_master_core import (MASTER_FIELD_SET, SENSITIVE_FIELDS, DOCUMENT_CATEGORIES, LANDLORD_AGREEMENT_MAP, TENANT_AGREEMENT_MAP, normalize_master_payload, safe_master_summary, identifier_lookup_hash, identifier_lookup_hashes, mask_identifier, master_display_payload, validate_master_document, legacy_profile_to_master, apply_master_mapping, parse_annexure_ids)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.7.0'
+APP_VERSION = 'Web 1.7.1'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -129,6 +130,77 @@ class AgreementPartyProfile(db.Model):
             return value if isinstance(value,dict) else {}
         except Exception:
             return {}
+
+class LandlordMaster(db.Model):
+    __tablename__='landlord_master'
+    id=db.Column(db.Integer,primary_key=True)
+    master_code=db.Column(db.String(32),unique=True,nullable=False,index=True)
+    profile_name=db.Column(db.String(180),nullable=False,index=True)
+    party_type=db.Column(db.String(40),default='individual',index=True)
+    legal_name=db.Column(db.String(220),default='',index=True)
+    primary_mobile=db.Column(db.String(40),default='',index=True)
+    email=db.Column(db.String(220),default='',index=True)
+    city=db.Column(db.String(120),default='',index=True)
+    state=db.Column(db.String(120),default='',index=True)
+    country=db.Column(db.String(120),default='India')
+    verification_status=db.Column(db.String(40),default='unverified',index=True)
+    tags=db.Column(db.String(500),default='',index=True)
+    search_text=db.Column(db.Text,default='')
+    identifier_lookup_json=db.Column(db.Text,default='[]')
+    active=db.Column(db.Boolean,default=True,index=True)
+    encrypted_payload=db.Column(db.Text,nullable=False,default='')
+    encrypted_nonce=db.Column(db.Text,nullable=False,default='')
+    legacy_profile_id=db.Column(db.Integer,unique=True,nullable=True)
+    created_by_user_id=db.Column(db.Integer,db.ForeignKey('user.id'),nullable=True)
+    updated_by_user_id=db.Column(db.Integer,db.ForeignKey('user.id'),nullable=True)
+    created_at=db.Column(db.DateTime,default=datetime.datetime.utcnow)
+    updated_at=db.Column(db.DateTime,default=datetime.datetime.utcnow,onupdate=datetime.datetime.utcnow)
+
+class TenantMaster(db.Model):
+    __tablename__='tenant_master'
+    id=db.Column(db.Integer,primary_key=True)
+    master_code=db.Column(db.String(32),unique=True,nullable=False,index=True)
+    profile_name=db.Column(db.String(180),nullable=False,index=True)
+    party_type=db.Column(db.String(40),default='individual',index=True)
+    legal_name=db.Column(db.String(220),default='',index=True)
+    primary_mobile=db.Column(db.String(40),default='',index=True)
+    email=db.Column(db.String(220),default='',index=True)
+    city=db.Column(db.String(120),default='',index=True)
+    state=db.Column(db.String(120),default='',index=True)
+    country=db.Column(db.String(120),default='India')
+    verification_status=db.Column(db.String(40),default='unverified',index=True)
+    tags=db.Column(db.String(500),default='',index=True)
+    search_text=db.Column(db.Text,default='')
+    identifier_lookup_json=db.Column(db.Text,default='[]')
+    active=db.Column(db.Boolean,default=True,index=True)
+    encrypted_payload=db.Column(db.Text,nullable=False,default='')
+    encrypted_nonce=db.Column(db.Text,nullable=False,default='')
+    legacy_profile_id=db.Column(db.Integer,unique=True,nullable=True)
+    created_by_user_id=db.Column(db.Integer,db.ForeignKey('user.id'),nullable=True)
+    updated_by_user_id=db.Column(db.Integer,db.ForeignKey('user.id'),nullable=True)
+    created_at=db.Column(db.DateTime,default=datetime.datetime.utcnow)
+    updated_at=db.Column(db.DateTime,default=datetime.datetime.utcnow,onupdate=datetime.datetime.utcnow)
+
+class MasterDocument(db.Model):
+    __tablename__='master_document'
+    id=db.Column(db.Integer,primary_key=True)
+    owner_type=db.Column(db.String(20),nullable=False,index=True)
+    landlord_master_id=db.Column(db.Integer,db.ForeignKey('landlord_master.id'),nullable=True,index=True)
+    tenant_master_id=db.Column(db.Integer,db.ForeignKey('tenant_master.id'),nullable=True,index=True)
+    category=db.Column(db.String(80),nullable=False,index=True)
+    display_label=db.Column(db.String(180),nullable=False)
+    storage_id=db.Column(db.String(64),unique=True,nullable=False,index=True)
+    extension=db.Column(db.String(16),nullable=False)
+    mime_type=db.Column(db.String(120),nullable=False)
+    ciphertext=db.Column(db.Text,nullable=False)
+    nonce=db.Column(db.Text,nullable=False)
+    issue_date=db.Column(db.Date,nullable=True)
+    expiry_date=db.Column(db.Date,nullable=True,index=True)
+    verification_status=db.Column(db.String(40),default='unverified')
+    replaced_document_id=db.Column(db.Integer,nullable=True)
+    active=db.Column(db.Boolean,default=True,index=True)
+    uploaded_by_user_id=db.Column(db.Integer,db.ForeignKey('user.id'),nullable=True)
+    uploaded_at=db.Column(db.DateTime,default=datetime.datetime.utcnow)
 
 class Room(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -2139,7 +2211,7 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture','avatar-camera-device-selector','avatar-direct-blob-submit','reliable-local-avatar-fallback','banking-suite','official-bank-launcher','encrypted-bank-statement-vault','reconciliation-template-library','bank-statement-reconciliation','admin-managed-profile-control','admin-avatar-studio','admin-role-permissions','electricity-bill-studio','all-india-electricity-directory','livenza-vault','bill-register-export','live-payment-reminders','bbps-adapter','utility-portal-fallback','electricity-payment-status','admin-electricity-controls','electricity-audit-log','ai-live-mascot','no-photo-mascot-fallback'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','left-glass-app-drawer','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture','avatar-camera-device-selector','avatar-direct-blob-submit','reliable-local-avatar-fallback','banking-suite','official-bank-launcher','encrypted-bank-statement-vault','reconciliation-template-library','bank-statement-reconciliation','admin-managed-profile-control','admin-avatar-studio','admin-role-permissions','electricity-bill-studio','all-india-electricity-directory','livenza-vault','bill-register-export','live-payment-reminders','bbps-adapter','utility-portal-fallback','electricity-payment-status','admin-electricity-controls','electricity-audit-log','ai-live-mascot','no-photo-mascot-fallback','landlord-master','tenant-master','encrypted-master-documents','agreement-master-autofill','agreement-master-annexures','agreement-master-audit','legacy-party-profile-migration'])
 
 def version_v1513():
     return jsonify(version=APP_VERSION,features=[
@@ -2301,13 +2373,13 @@ def agreement_editor_context(ag=None, data=None):
     city_names=[c.name for c in City.query.filter_by(active=True).order_by(City.name).all()]
     preset=d.get('agreement_template') or 'Strong Residential - 11 Months'
     profile=FORMAT_PROFILES.get(preset, FORMAT_PROFILES.get('Strong Residential - 11 Months',{}))
-    party_profiles={'landlord':[],'tenant':[]}
-    for saved in AgreementPartyProfile.query.order_by(AgreementPartyProfile.profile_type,AgreementPartyProfile.name).all():
-        if saved.profile_type in party_profiles:
-            party_profiles[saved.profile_type].append({'id':saved.id,'name':saved.name,'fields':saved.data})
+    landlord_masters=[safe_master_summary('landlord',row) for row in LandlordMaster.query.filter_by(active=True).order_by(LandlordMaster.profile_name).all()]
+    tenant_masters=[safe_master_summary('tenant',row) for row in TenantMaster.query.filter_by(active=True).order_by(TenantMaster.profile_name).all()]
     return dict(ag=ag,d=d,presets=PRESETS,field_map=fields,groups=AGREEMENT_GROUPS,
                 required_fields=agreement_required_fields(preset,d),city_names=city_names,preset_profile=profile,
-                party_profiles=party_profiles)
+                landlord_masters=landlord_masters,tenant_masters=tenant_masters,
+                selected_landlord_master_id=str(d.get('landlord_master_id') or ''),selected_tenant_master_id=str(d.get('tenant_master_id') or ''),
+                annexure_documents=[])
 
 def _agreement_aadhaar_extract_payload(upload):
     if not upload or not upload.filename:
@@ -2408,9 +2480,360 @@ def agreement_party_profile_delete(profile_id):
     db.session.delete(saved);db.session.commit()
     return jsonify(ok=True,message='Saved party profile removed.')
 
+# ===== Web 1.7.1 • Separate Landlord / Tenant Masters =====
+def _master_model(kind):
+    if kind=='landlord': return LandlordMaster
+    if kind=='tenant': return TenantMaster
+    abort(404)
+
+def _master_list_query(Model):
+    q=(request.args.get('q') or '').strip()
+    status=(request.args.get('status') or 'active').strip().lower()
+    party_type=(request.args.get('party_type') or '').strip().lower()
+    city=(request.args.get('city') or '').strip()
+    query=Model.query
+    if status=='active': query=query.filter_by(active=True)
+    elif status=='archived': query=query.filter_by(active=False)
+    if party_type: query=query.filter(func.lower(Model.party_type)==party_type)
+    if city: query=query.filter(func.lower(Model.city)==city.lower())
+    if q:
+        like=f'%{q.lower()}%'
+        query=query.filter(or_(func.lower(Model.profile_name).like(like),func.lower(Model.legal_name).like(like),func.lower(Model.primary_mobile).like(like),func.lower(Model.email).like(like),func.lower(Model.city).like(like),func.lower(Model.tags).like(like)))
+    return query.order_by(Model.active.desc(),Model.updated_at.desc())
+
+def _master_rows_with_admin_exact_identifier(Model,kind):
+    rows=_master_list_query(Model).all()
+    q=(request.args.get('q') or '').strip()
+    user=current_user()
+    if not q or not user or (user.role or '').lower()!='admin': return rows
+    try: wanted=identifier_lookup_hash(q,_master_key())
+    except Exception: return rows
+    if not wanted: return rows
+    seen={row.id for row in rows}
+    for row in Model.query.order_by(Model.active.desc(),Model.updated_at.desc()).all():
+        if row.id in seen: continue
+        try: hashes=json.loads(row.identifier_lookup_json or '[]')
+        except Exception: hashes=[]
+        if wanted in hashes:
+            rows.append(row);seen.add(row.id)
+    return rows
+
+def _master_form_payload(kind,row=None):
+    supplied={key:request.form.get(key,'') for key in MASTER_FIELD_SET[kind]}
+    old=_master_payload(row) if row else {}
+    normalized=normalize_master_payload(kind,supplied)
+    for key in SENSITIVE_FIELDS[kind]:
+        if not str(supplied.get(key) or '').strip() and old.get(key): normalized[key]=old[key]
+    # Re-normalize derived search text after preservation without ever indexing sensitive values.
+    normalized=normalize_master_payload(kind,normalized)
+    return normalized
+
+def _master_agreement_usage(kind,mid):
+    if kind not in ('landlord','tenant'): return []
+    key='landlord_master_id' if kind=='landlord' else 'tenant_master_id'
+    wanted=str(mid)
+    return [ag for ag in Agreement.query.order_by(Agreement.updated_at.desc()).all() if str(ag.data.get(key) or '')==wanted]
+
+def _safe_audit_note(value):
+    note=str(value or '').strip()[:180]
+    if not note: return ''
+    lowered=note.lower()
+    blocked=('aadhaar','passport','bank account','ifsc','upi','password','secret','otp','cvv','card pin','upi pin')
+    if any(term in lowered for term in blocked): return ''
+    return note
+
+def _safe_master_audit_history(kind,mid,limit=80):
+    target_type=f'{kind}_master'
+    rows=AuditEvent.query.filter_by(module='agreement_master',target_type=target_type,target_id=mid).order_by(AuditEvent.id.desc()).limit(limit).all()
+    actor_ids={row.actor_user_id for row in rows if row.actor_user_id}
+    actors={u.id:(u.full_name or u.username) for u in User.query.filter(User.id.in_(actor_ids)).all()} if actor_ids else {}
+    return [{'action':row.action,'status':row.status,'created_at':row.created_at,'actor':actors.get(row.actor_user_id,'System'),'note':_safe_audit_note(row.note)} for row in rows]
+
+def _master_template_context(kind,row=None,read_only=False):
+    payload=_master_payload(row) if row else normalize_master_payload(kind,{})
+    display_payload=master_display_payload(kind,payload)
+    documents=[];usage=[];audit_history=[]
+    if row:
+        documents=MasterDocument.query.filter_by(**({'landlord_master_id':row.id} if kind=='landlord' else {'tenant_master_id':row.id})).order_by(MasterDocument.uploaded_at.desc()).all()
+        usage=_master_agreement_usage(kind,row.id)
+        audit_history=_safe_master_audit_history(kind,row.id)
+    return dict(master=row,kind=kind,display_payload=display_payload,field_names=MASTER_FIELD_SET[kind],sensitive_fields=SENSITIVE_FIELDS[kind],document_categories=DOCUMENT_CATEGORIES,documents=documents,usage=usage,audit_history=audit_history,read_only=read_only)
+
+@app.route('/agreements/landlords')
+@permission_required('agreements')
+def landlord_masters():
+    rows=_master_rows_with_admin_exact_identifier(LandlordMaster,'landlord');return render_template('landlord_masters.html',items=rows,usage_counts={row.id:len(_master_agreement_usage('landlord',row.id)) for row in rows},q=(request.args.get('q') or ''),status=(request.args.get('status') or 'active'),is_master_admin=(current_user().role or '').lower()=='admin')
+
+@app.route('/agreements/tenants/master')
+@permission_required('agreements')
+def tenant_masters():
+    rows=_master_rows_with_admin_exact_identifier(TenantMaster,'tenant');return render_template('tenant_masters.html',items=rows,usage_counts={row.id:len(_master_agreement_usage('tenant',row.id)) for row in rows},q=(request.args.get('q') or ''),status=(request.args.get('status') or 'active'),is_master_admin=(current_user().role or '').lower()=='admin')
+
+@app.route('/agreements/landlords/<int:mid>')
+@permission_required('agreements')
+def landlord_master_safe_view(mid):
+    row=db.session.get(LandlordMaster,mid) or abort(404)
+    payload=master_display_payload('landlord',_master_payload(row))
+    mapped=[{'field':agreement_key,'label':agreement_key.replace('_',' ').title(),'value':payload.get(master_key,'')} for master_key,agreement_key in LANDLORD_AGREEMENT_MAP.items() if str(payload.get(master_key,'') or '').strip()]
+    return render_template('master_safe_view.html',kind='landlord',master=row,summary=safe_master_summary('landlord',row),mapped=mapped,usage_count=len(_master_agreement_usage('landlord',row.id)))
+
+@app.route('/agreements/tenants/master/<int:mid>')
+@permission_required('agreements')
+def tenant_master_safe_view(mid):
+    row=db.session.get(TenantMaster,mid) or abort(404)
+    payload=master_display_payload('tenant',_master_payload(row))
+    mapped=[{'field':agreement_key,'label':agreement_key.replace('_',' ').title(),'value':payload.get(master_key,'')} for master_key,agreement_key in TENANT_AGREEMENT_MAP.items() if str(payload.get(master_key,'') or '').strip()]
+    return render_template('master_safe_view.html',kind='tenant',master=row,summary=safe_master_summary('tenant',row),mapped=mapped,usage_count=len(_master_agreement_usage('tenant',row.id)))
+
+@app.route('/agreements/landlords/new',methods=['GET','POST'])
+@app.route('/agreements/landlords/<int:mid>/edit',methods=['GET','POST'])
+@admin_required
+def landlord_master_edit(mid=None):
+    row=db.session.get(LandlordMaster,mid) if mid else None
+    if mid and not row: abort(404)
+    if request.method=='POST':
+        try:
+            payload=_master_form_payload('landlord',row)
+            if not payload.get('profile_name') and not payload.get('full_legal_name'):
+                flash('Profile name or legal name is required.','danger');return render_template('landlord_master_edit.html',**_master_template_context('landlord',row))
+            created=row is None
+            if not row:
+                row=LandlordMaster(master_code=_new_master_code('landlord'),profile_name=payload.get('profile_name') or payload.get('full_legal_name') or 'Landlord',created_by_user_id=current_user().id)
+                db.session.add(row);db.session.flush()
+            _set_master_payload(row,payload);row.updated_by_user_id=current_user().id
+            record_audit('landlord_master_created' if created else 'landlord_master_updated','landlord_master',row.id,module='agreement_master',meta={'party_type':row.party_type,'city':row.city,'verification_status':row.verification_status})
+            db.session.commit();flash('Landlord Master saved securely.','success');return redirect(url_for('landlord_master_edit',mid=row.id))
+        except Exception as exc:
+            db.session.rollback();flash(str(exc),'danger')
+    return render_template('landlord_master_edit.html',**_master_template_context('landlord',row))
+
+@app.route('/agreements/tenants/master/new',methods=['GET','POST'])
+@app.route('/agreements/tenants/master/<int:mid>/edit',methods=['GET','POST'])
+@admin_required
+def tenant_master_edit(mid=None):
+    row=db.session.get(TenantMaster,mid) if mid else None
+    if mid and not row: abort(404)
+    if request.method=='POST':
+        try:
+            payload=_master_form_payload('tenant',row)
+            if not payload.get('profile_name') and not payload.get('full_legal_name'):
+                flash('Profile name or legal name is required.','danger');return render_template('tenant_master_edit.html',**_master_template_context('tenant',row))
+            created=row is None
+            if not row:
+                row=TenantMaster(master_code=_new_master_code('tenant'),profile_name=payload.get('profile_name') or payload.get('full_legal_name') or 'Tenant',created_by_user_id=current_user().id)
+                db.session.add(row);db.session.flush()
+            _set_master_payload(row,payload);row.updated_by_user_id=current_user().id
+            record_audit('tenant_master_created' if created else 'tenant_master_updated','tenant_master',row.id,module='agreement_master',meta={'party_type':row.party_type,'city':row.city,'verification_status':row.verification_status})
+            db.session.commit();flash('Tenant Master saved securely.','success');return redirect(url_for('tenant_master_edit',mid=row.id))
+        except Exception as exc:
+            db.session.rollback();flash(str(exc),'danger')
+    return render_template('tenant_master_edit.html',**_master_template_context('tenant',row))
+
+@app.route('/agreements/landlords/<int:mid>/duplicate',methods=['POST'])
+@admin_required
+def landlord_master_duplicate(mid):
+    source=db.session.get(LandlordMaster,mid) or abort(404);payload=_master_payload(source)
+    payload['profile_name']=((payload.get('profile_name') or source.profile_name)+' Copy')[:180];payload['verification_status']='unverified'
+    row=LandlordMaster(master_code=_new_master_code('landlord'),profile_name=payload['profile_name'],created_by_user_id=current_user().id,updated_by_user_id=current_user().id)
+    _set_master_payload(row,payload);db.session.add(row);db.session.flush();record_audit('landlord_master_duplicated','landlord_master',row.id,module='agreement_master',meta={'source_master_id':source.id});db.session.commit()
+    flash('Landlord Master duplicated without copying protected documents.','success');return redirect(url_for('landlord_master_edit',mid=row.id))
+
+@app.route('/agreements/tenants/master/<int:mid>/duplicate',methods=['POST'])
+@admin_required
+def tenant_master_duplicate(mid):
+    source=db.session.get(TenantMaster,mid) or abort(404);payload=_master_payload(source)
+    payload['profile_name']=((payload.get('profile_name') or source.profile_name)+' Copy')[:180];payload['verification_status']='unverified'
+    row=TenantMaster(master_code=_new_master_code('tenant'),profile_name=payload['profile_name'],created_by_user_id=current_user().id,updated_by_user_id=current_user().id)
+    _set_master_payload(row,payload);db.session.add(row);db.session.flush();record_audit('tenant_master_duplicated','tenant_master',row.id,module='agreement_master',meta={'source_master_id':source.id});db.session.commit()
+    flash('Tenant Master duplicated without copying protected documents.','success');return redirect(url_for('tenant_master_edit',mid=row.id))
+
+@app.route('/agreements/landlords/<int:mid>/archive',methods=['POST'])
+@admin_required
+def landlord_master_archive(mid):
+    row=db.session.get(LandlordMaster,mid) or abort(404);row.active=not bool(row.active);record_audit('landlord_master_reactivated' if row.active else 'landlord_master_archived','landlord_master',row.id,module='agreement_master');db.session.commit();flash('Landlord Master reactivated.' if row.active else 'Landlord Master archived.','success');return redirect(url_for('landlord_masters'))
+
+@app.route('/agreements/tenants/master/<int:mid>/archive',methods=['POST'])
+@admin_required
+def tenant_master_archive(mid):
+    row=db.session.get(TenantMaster,mid) or abort(404);row.active=not bool(row.active);record_audit('tenant_master_reactivated' if row.active else 'tenant_master_archived','tenant_master',row.id,module='agreement_master');db.session.commit();flash('Tenant Master reactivated.' if row.active else 'Tenant Master archived.','success');return redirect(url_for('tenant_masters'))
+
+def _agreement_master_reverse_payload(kind,fields,profile_name=''):
+    if kind not in ('landlord','tenant'): abort(404)
+    mapping=LANDLORD_AGREEMENT_MAP if kind=='landlord' else TENANT_AGREEMENT_MAP
+    reverse={agreement_key:master_key for master_key,agreement_key in mapping.items()}
+    payload={}
+    for agreement_key,master_key in reverse.items():
+        value=str((fields or {}).get(agreement_key) or '').strip()
+        if value: payload[master_key]=value
+    if profile_name: payload['profile_name']=str(profile_name).strip()[:180]
+    elif payload.get('full_legal_name'): payload['profile_name']=payload['full_legal_name']
+    return payload
+
+@app.route('/api/agreement-masters/<kind>/<int:mid>/apply')
+@permission_required('agreements')
+def agreement_master_apply(kind,mid):
+    if kind not in ('landlord','tenant'): abort(404)
+    row=db.session.get(_master_model(kind),mid) or abort(404)
+    if not row.active: return jsonify(ok=False,error='This master profile is archived.'),409
+    payload=_master_payload(row);fields,_=apply_master_mapping(kind,payload,{},replace=True)
+    record_audit('master_applied_to_agreement',f'{kind}_master',row.id,module='agreement_master',meta={'master_type':kind});db.session.commit()
+    return jsonify(ok=True,master={'id':row.id,'name':row.profile_name},fields=fields)
+
+@app.route('/api/agreement-masters/<kind>/from-agreement',methods=['POST'])
+@admin_required
+def agreement_master_from_agreement(kind):
+    if kind not in ('landlord','tenant'): abort(404)
+    body=request.get_json(silent=True) or {};fields=body.get('fields') if isinstance(body.get('fields'),dict) else {}
+    payload=_agreement_master_reverse_payload(kind,fields,body.get('profile_name') or '')
+    if not payload.get('full_legal_name'): return jsonify(ok=False,error='Fill the party name before creating a master.'),400
+    Model=_master_model(kind);row=Model(master_code=_new_master_code(kind),profile_name=payload.get('profile_name') or payload['full_legal_name'],created_by_user_id=current_user().id,updated_by_user_id=current_user().id)
+    _set_master_payload(row,payload);db.session.add(row);db.session.flush();record_audit(f'{kind}_master_created_from_agreement',f'{kind}_master',row.id,module='agreement_master');db.session.commit()
+    return jsonify(ok=True,master=safe_master_summary(kind,row),message=f'{kind.title()} Master created from the current agreement details.')
+
+@app.route('/api/agreement-masters/<kind>/<int:mid>/update-from-agreement',methods=['POST'])
+@admin_required
+def agreement_master_update_from_agreement(kind,mid):
+    if kind not in ('landlord','tenant'): abort(404)
+    row=db.session.get(_master_model(kind),mid) or abort(404);body=request.get_json(silent=True) or {};fields=body.get('fields') if isinstance(body.get('fields'),dict) else {}
+    overlay=_agreement_master_reverse_payload(kind,fields);payload=_master_payload(row)
+    for key,value in overlay.items():
+        if str(value or '').strip(): payload[key]=value
+    _set_master_payload(row,payload);row.updated_by_user_id=current_user().id;record_audit(f'{kind}_master_updated_from_agreement',f'{kind}_master',row.id,module='agreement_master');db.session.commit()
+    return jsonify(ok=True,master=safe_master_summary(kind,row),message=f'{kind.title()} Master updated explicitly from this agreement.')
+
+def _require_admin_password_from_form():
+    admin=current_user();supplied=request.form.get('admin_password','')
+    if not admin or (admin.role or '').lower()!='admin' or not check_password_hash(admin.password_hash,supplied):
+        try:
+            record_audit('admin_reauth_failed','agreement_master',None,status='failed',module='agreement_master');db.session.commit()
+        except Exception: db.session.rollback()
+        abort(403)
+    return admin
+
+def _master_document_owner(doc):
+    if not doc: return None
+    if doc.owner_type=='landlord' and doc.landlord_master_id: return db.session.get(LandlordMaster,doc.landlord_master_id)
+    if doc.owner_type=='tenant' and doc.tenant_master_id: return db.session.get(TenantMaster,doc.tenant_master_id)
+    return None
+
+def _master_document_redirect(doc):
+    return url_for('landlord_master_edit',mid=doc.landlord_master_id) if doc.owner_type=='landlord' else url_for('tenant_master_edit',mid=doc.tenant_master_id)
+
+def _read_master_document_upload(upload):
+    if not upload or not upload.filename: raise ValueError('Choose a document to upload.')
+    raw=upload.stream.read(20*1024*1024+1)
+    if len(raw)>20*1024*1024: raise ValueError('Master documents must be 20 MB or smaller.')
+    ext,mime=validate_master_document(upload.filename,upload.mimetype or '',len(raw))
+    if not raw: raise ValueError('The uploaded document is empty.')
+    return raw,ext,mime
+
+def _new_master_document(owner_type,mid,upload,source_doc=None):
+    raw,ext,mime=_read_master_document_upload(upload)
+    category=(request.form.get('category') or (source_doc.category if source_doc else 'miscellaneous')).strip()
+    if category not in DOCUMENT_CATEGORIES: category='miscellaneous'
+    label=(request.form.get('display_label') or DOCUMENT_CATEGORIES.get(category) or 'Supporting document').strip()[:180]
+    ciphertext,nonce=encrypt_blob(raw,_master_key())
+    doc=MasterDocument(owner_type=owner_type,category=category,display_label=label,storage_id=secrets.token_hex(24),extension=ext,mime_type=mime,ciphertext=ciphertext,nonce=nonce,issue_date=parse_date(request.form.get('issue_date')),expiry_date=parse_date(request.form.get('expiry_date')),verification_status=(request.form.get('verification_status') or 'unverified')[:40],replaced_document_id=(source_doc.id if source_doc else None),uploaded_by_user_id=current_user().id)
+    if owner_type=='landlord': doc.landlord_master_id=mid
+    else: doc.tenant_master_id=mid
+    return doc
+
+@app.route('/agreements/landlords/<int:mid>/documents',methods=['POST'])
+@app.route('/agreements/tenants/master/<int:mid>/documents',methods=['POST'])
+@admin_required
+def master_document_upload(mid):
+    owner_type='landlord' if request.path.startswith('/agreements/landlords/') else 'tenant'
+    owner=db.session.get(_master_model(owner_type),mid) or abort(404)
+    try:
+        doc=_new_master_document(owner_type,owner.id,request.files.get('document'))
+        db.session.add(doc);db.session.flush();record_audit('master_document_uploaded','master_document',doc.id,module='agreement_master',meta={'owner_type':owner_type,'owner_id':owner.id,'category':doc.category});db.session.commit();flash('Document encrypted and stored.','success')
+    except Exception as exc:
+        db.session.rollback();flash(str(exc),'danger')
+    return redirect(url_for('landlord_master_edit',mid=mid) if owner_type=='landlord' else url_for('tenant_master_edit',mid=mid))
+
+@app.route('/agreement-master-documents/<int:did>/download',methods=['POST'])
+@admin_required
+def master_document_download(did):
+    doc=db.session.get(MasterDocument,did) or abort(404);_require_admin_password_from_form()
+    try:
+        raw=decrypt_blob(doc.ciphertext,doc.nonce,_master_key())
+    except Exception:
+        record_audit('master_document_download_failed','master_document',doc.id,status='failed',module='agreement_master');db.session.commit();abort(500)
+    record_audit('master_document_downloaded','master_document',doc.id,module='agreement_master',meta={'owner_type':doc.owner_type});db.session.commit()
+    safe_name=f"{doc.owner_type}-{doc.category}-{doc.id}{doc.extension}"
+    response=send_file(io.BytesIO(raw),mimetype=doc.mime_type,as_attachment=True,download_name=safe_name)
+    response.headers['Cache-Control']='no-store, private';response.headers['Pragma']='no-cache'
+    return response
+
+@app.route('/agreement-master-documents/<int:did>/replace',methods=['POST'])
+@admin_required
+def master_document_replace(did):
+    old=db.session.get(MasterDocument,did) or abort(404);_require_admin_password_from_form();owner=_master_document_owner(old) or abort(404)
+    try:
+        new=_new_master_document(old.owner_type,owner.id,request.files.get('document'),source_doc=old)
+        old.active=False;db.session.add(new);db.session.flush();record_audit('master_document_replaced','master_document',new.id,module='agreement_master',meta={'old_document_id':old.id,'owner_type':old.owner_type,'owner_id':owner.id});db.session.commit();flash('New encrypted document version stored; the historical version was retained.','success')
+    except Exception as exc:
+        db.session.rollback();flash(str(exc),'danger')
+    return redirect(_master_document_redirect(old))
+
+@app.route('/agreement-master-documents/<int:did>/delete',methods=['POST'])
+@admin_required
+def master_document_delete(did):
+    doc=db.session.get(MasterDocument,did) or abort(404);doc.active=False;record_audit('master_document_deactivated','master_document',doc.id,module='agreement_master',meta={'owner_type':doc.owner_type});db.session.commit();flash('Document deactivated. Historical encrypted bytes were retained for saved agreement references.','success');return redirect(_master_document_redirect(doc))
+
+@app.route('/agreement-masters/<kind>/<int:mid>/reveal',methods=['POST'])
+@admin_required
+def master_sensitive_reveal(kind,mid):
+    if kind not in ('landlord','tenant'): abort(404)
+    row=db.session.get(_master_model(kind),mid) or abort(404)
+    body=request.get_json(silent=True) or {}
+    admin=current_user();supplied=str(body.get('admin_password') or '')
+    if not check_password_hash(admin.password_hash,supplied):
+        record_audit('master_sensitive_reveal_failed',f'{kind}_master',mid,status='failed',module='agreement_master');db.session.commit();abort(403)
+    requested=body.get('fields') if isinstance(body.get('fields'),list) else []
+    allowed_requested_fields=[str(field) for field in requested if str(field) in SENSITIVE_FIELDS[kind]]
+    payload=_master_payload(row)
+    values={field:payload.get(field,'') for field in allowed_requested_fields}
+    record_audit('master_sensitive_fields_revealed',f'{kind}_master',mid,module='agreement_master',meta={'fields':allowed_requested_fields});db.session.commit()
+    response=jsonify(ok=True,fields=values)
+    response.headers['Cache-Control']='no-store, private';response.headers['Pragma']='no-cache'
+    return response
+
+
+@app.route('/api/agreement-masters/<kind>/<int:mid>/documents-for-annexure')
+@admin_required
+def master_documents_for_annexure(kind,mid):
+    if kind not in ('landlord','tenant'): abort(404)
+    owner=db.session.get(_master_model(kind),mid) or abort(404)
+    filters={'owner_type':kind,'active':True}
+    filters['landlord_master_id' if kind=='landlord' else 'tenant_master_id']=owner.id
+    docs=MasterDocument.query.filter_by(**filters).order_by(MasterDocument.category,MasterDocument.uploaded_at.desc()).all()
+    return jsonify(ok=True,documents=[{
+        'id':doc.id,'category':doc.category,'display_label':doc.display_label,
+        'extension':doc.extension,'verification_status':doc.verification_status,'active':bool(doc.active),
+        'embeddable':doc.extension.lower() in {'.pdf','.jpg','.jpeg','.png','.webp'},
+    } for doc in docs])
+
 @app.route('/agreements')
 @permission_required('agreements')
 def agreements(): return render_template('agreements.html', items=Agreement.query.order_by(Agreement.updated_at.desc()).all())
+
+
+def _validated_annexure_ids_for_data(data):
+    wanted=parse_annexure_ids((data or {}).get('annexure_document_ids',''))
+    landlord_id=str((data or {}).get('landlord_master_id') or '').strip()
+    tenant_id=str((data or {}).get('tenant_master_id') or '').strip()
+    try: landlord_id=int(landlord_id) if landlord_id else 0
+    except ValueError: landlord_id=0
+    try: tenant_id=int(tenant_id) if tenant_id else 0
+    except ValueError: tenant_id=0
+    valid=[]
+    for did in wanted:
+        doc=db.session.get(MasterDocument,did)
+        if not doc: continue
+        if doc.owner_type=='landlord' and landlord_id and doc.landlord_master_id==landlord_id: valid.append(did)
+        elif doc.owner_type=='tenant' and tenant_id and doc.tenant_master_id==tenant_id: valid.append(did)
+    return valid
 
 @app.route('/agreements/new', methods=['GET','POST'])
 @app.route('/agreements/<int:aid>/edit', methods=['GET','POST'])
@@ -2419,11 +2842,16 @@ def agreement_edit(aid=None):
     ag=db.session.get(Agreement,aid) if aid else None
     if request.method=='POST':
         preset=request.form.get('agreement_template') or 'Strong Residential - 11 Months'
+        before_annexures=parse_annexure_ids((ag.data if ag else {}).get('annexure_document_ids',''))
         d=all_form_data(preset)
+        valid_annexures=_validated_annexure_ids_for_data(d)
+        d['annexure_document_ids']=','.join(str(item) for item in valid_annexures)
         if not ag:
             ag=Agreement(name='Agreement',preset=preset,data_json='{}'); db.session.add(ag); db.session.flush()
         ag.preset=preset; ag.data_json=json.dumps(d,ensure_ascii=False)
         ag.name=f"{d.get('tenant_name') or 'Agreement'} - {d.get('room_unit_no') or d.get('property_name') or ag.id}"
+        if before_annexures!=valid_annexures:
+            record_audit('agreement_annexures_updated','agreement',ag.id,module='agreement_master',meta={'document_ids':valid_annexures})
         db.session.commit(); sync_tenant_from_agreement(ag)
         flash(f'{preset} agreement saved. Preset-specific format and clauses have been applied.','success')
         return redirect(url_for('agreement_preview',aid=ag.id,lang=request.form.get('save_lang','en')))
@@ -2468,6 +2896,72 @@ def build_agreement_pdf_bytes(ag):
         else:
             story.append(Paragraph(escaped,body))
     doc.build(story); buf.seek(0); return buf
+
+
+def _annexure_reference_page(reference_lines):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer
+    from reportlab.lib.units import mm
+    buf=io.BytesIO();styles=getSampleStyleSheet()
+    doc=SimpleDocTemplate(buf,pagesize=A4,leftMargin=18*mm,rightMargin=18*mm,topMargin=18*mm,bottomMargin=18*mm)
+    story=[Paragraph('ANNEXURE REFERENCES',styles['Heading2']),Spacer(1,5*mm),Paragraph('The following selected master documents are retained as protected references but were not embedded because their format could not be converted safely.',styles['BodyText']),Spacer(1,5*mm)]
+    for line in reference_lines:
+        story.append(Paragraph(html.escape(str(line)),styles['BodyText']));story.append(Spacer(1,2*mm))
+    doc.build(story);buf.seek(0);return buf
+
+def _image_bytes_as_pdf(raw):
+    image=PILImage.open(io.BytesIO(raw));image=ImageOps.exif_transpose(image)
+    if image.mode!='RGB': image=image.convert('RGB')
+    out=io.BytesIO();image.save(out,format='PDF',resolution=150.0);out.seek(0);return out
+
+def _append_master_annexures(base_pdf,agreement_data):
+    from pypdf import PdfReader,PdfWriter
+    data=dict(agreement_data or {})
+    selected=_validated_annexure_ids_for_data(data)
+    if not selected:
+        base_pdf.seek(0);return base_pdf
+    writer=PdfWriter();base_pdf.seek(0)
+    for page in PdfReader(base_pdf).pages: writer.add_page(page)
+    references=[];embedded=[]
+    for did in selected:
+        doc=db.session.get(MasterDocument,did)
+        if not doc: continue
+        label=f'{doc.display_label or DOCUMENT_CATEGORIES.get(doc.category,"Supporting document")} ({doc.extension.lower()})'
+        ext=(doc.extension or '').lower()
+        if ext not in {'.pdf','.jpg','.jpeg','.png','.webp'}:
+            references.append(label+' — reference only; format not embeddable.')
+            continue
+        try:
+            raw=decrypt_blob(doc.ciphertext,doc.nonce,_master_key())
+            annexure_stream=io.BytesIO(raw) if ext=='.pdf' else _image_bytes_as_pdf(raw)
+            annexure_stream.seek(0)
+            annexure_reader=PdfReader(annexure_stream)
+            if not annexure_reader.pages: raise ValueError('No printable pages')
+            for page in annexure_reader.pages: writer.add_page(page)
+            embedded.append(did)
+        except Exception:
+            references.append(label+' — reference retained; printable conversion unavailable.')
+    if references:
+        ref_stream=_annexure_reference_page(references)
+        for page in PdfReader(ref_stream).pages: writer.add_page(page)
+    output=io.BytesIO();writer.write(output);output.seek(0)
+    return output
+
+@app.route('/agreements/<int:aid>/pdf-with-annexures',methods=['POST'])
+@admin_required
+def agreement_pdf_with_annexures(aid):
+    ag=db.session.get(Agreement,aid) or abort(404)
+    _require_admin_password_from_form()
+    try:
+        output=_append_master_annexures(build_agreement_pdf_bytes(ag),ag.data)
+    except Exception:
+        record_audit('agreement_annexure_pdf_failed','agreement',ag.id,status='failed',module='agreement_master');db.session.commit();abort(500)
+    ids=_validated_annexure_ids_for_data(ag.data)
+    record_audit('agreement_annexure_pdf_downloaded','agreement',ag.id,module='agreement_master',meta={'document_ids':ids});db.session.commit()
+    response=send_file(output,mimetype='application/pdf',as_attachment=True,download_name=f'Livenza_Agreement_{ag.id}_with_annexures.pdf')
+    response.headers['Cache-Control']='no-store, private';response.headers['Pragma']='no-cache'
+    return response
 
 @app.route('/agreements/<int:aid>/pdf')
 @permission_required('agreements')
@@ -3132,6 +3626,94 @@ def wall_heartbeat(token):
     sc.last_seen_at=datetime.datetime.utcnow(); sc.last_ip=(request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:120]; db.session.commit()
     return jsonify(ok=True)
 
+
+# ===== Web 1.7.1 • Landlord / Tenant Master secure storage =====
+def _master_key():
+    value=os.getenv('LIVENZA_VAULT_MASTER_KEY','').strip()
+    if not value:
+        raise RuntimeError('LIVENZA_VAULT_MASTER_KEY is required for master-profile encryption.')
+    return value
+
+def _master_kind_for_row(row):
+    return 'landlord' if isinstance(row,LandlordMaster) else 'tenant'
+
+def _master_payload(row):
+    if not row or not row.encrypted_payload:
+        return {}
+    try:
+        value=json.loads(decrypt_secret(row.encrypted_payload,row.encrypted_nonce,_master_key()))
+        return value if isinstance(value,dict) else {}
+    except Exception:
+        return {}
+
+def _set_master_payload(row,payload):
+    kind=_master_kind_for_row(row)
+    normalized=normalize_master_payload(kind,payload)
+    row.encrypted_payload,row.encrypted_nonce=encrypt_secret(json.dumps(normalized,ensure_ascii=False),_master_key())
+    row.profile_name=(normalized.get('profile_name') or normalized.get('full_legal_name') or 'Unnamed profile')[:180]
+    row.party_type=(normalized.get('party_type') or 'individual')[:40]
+    row.legal_name=(normalized.get('full_legal_name') or normalized.get('entity_legal_name') or normalized.get('corporate_legal_name') or '')[:220]
+    row.primary_mobile=(normalized.get('primary_mobile') or '')[:40]
+    row.email=(normalized.get('email') or '')[:220]
+    row.city=(normalized.get('city') or '')[:120]
+    row.state=(normalized.get('state') or '')[:120]
+    row.country=(normalized.get('country') or 'India')[:120]
+    row.verification_status=(normalized.get('verification_status') or 'unverified')[:40]
+    row.tags=(normalized.get('tags') or '')[:500]
+    row.search_text=(normalized.get('search_text') or '')[:12000]
+    row.identifier_lookup_json=json.dumps(identifier_lookup_hashes(kind,normalized,_master_key()))
+    return normalized
+
+def _new_master_code(kind):
+    prefix='LM' if kind=='landlord' else 'TM'
+    while True:
+        code=f"{prefix}-{datetime.datetime.utcnow():%y%m}-{secrets.token_hex(3).upper()}"
+        Model=LandlordMaster if kind=='landlord' else TenantMaster
+        if not Model.query.filter_by(master_code=code).first():
+            return code
+
+def migrate_legacy_party_profiles():
+    counts={'created':0,'updated':0,'failed':0,'skipped':0}
+    try:
+        _master_key()
+    except Exception:
+        print('Livenza master migration skipped: LIVENZA_VAULT_MASTER_KEY is not configured.')
+        counts['skipped']=AgreementPartyProfile.query.count()
+        return counts
+    for saved in AgreementPartyProfile.query.order_by(AgreementPartyProfile.id).all():
+        if saved.profile_type not in ('landlord','tenant'):
+            counts['skipped']+=1
+            continue
+        Model=LandlordMaster if saved.profile_type=='landlord' else TenantMaster
+        try:
+            converted=legacy_profile_to_master(saved.profile_type,saved.name,saved.data)
+            row=Model.query.filter_by(legacy_profile_id=saved.id).first()
+            created=row is None
+            if not row:
+                row=Model(legacy_profile_id=saved.id,master_code=f"{'LM' if saved.profile_type=='landlord' else 'TM'}-{saved.id:06d}",profile_name=saved.name or 'Legacy profile')
+                db.session.add(row)
+            _set_master_payload(row,converted)
+            row.updated_by_user_id=saved.created_by_user_id
+            if created:
+                row.created_by_user_id=saved.created_by_user_id
+                counts['created']+=1
+            else:
+                counts['updated']+=1
+        except Exception as exc:
+            db.session.rollback()
+            counts['failed']+=1
+            try:
+                record_audit('legacy_party_profile_migration_failed','agreement_party_profile',saved.id,status='failed',module='agreement_master',meta={'profile_type':saved.profile_type})
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            print(f'Livenza master migration skipped legacy profile {saved.id}: {type(exc).__name__}')
+            continue
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    return counts
 
 # ===== Web 1.7.0 • Electricity Bill Studio / Livenza Vault =====
 ELECTRICITY_MAX_FILE_BYTES=16*1024*1024
@@ -4250,6 +4832,7 @@ def bootstrap():
     ensure_v150_user_columns()
     ensure_v1512_user_columns()
     ensure_electricity_provider_seed()
+    migrate_legacy_party_profiles()
     if User.query.count()==0:
         username=os.getenv('ADMIN_USERNAME','admin').strip() or 'admin'
         password=os.getenv('ADMIN_PASSWORD','')

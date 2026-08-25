@@ -138,14 +138,6 @@ function initAgreementWorkspace(root=document){
   if(form.dataset.existing!=='1'){try{const draft=JSON.parse(localStorage.getItem(key)||'null');if(draft?.values){Object.entries(draft.values).forEach(([name,value])=>{const controls=form.querySelectorAll(`[name="${CSS.escape(name)}"]`);controls.forEach(control=>{if(control.type==='checkbox'||control.type==='radio')control.checked=Boolean(value);else if(control.multiple&&Array.isArray(value))[...control.options].forEach(option=>option.selected=value.includes(option.value));else control.value=value})});setSaved('Restored your locally saved draft')}}catch(error){}}
   form.addEventListener('submit',()=>{clearTimeout(saveTimer);try{localStorage.removeItem(key)}catch(error){};setSaved('Saving agreement…','saving')});
 
-  let profileData={landlord:[],tenant:[]};try{profileData=JSON.parse(document.getElementById('partyProfilesData')?.textContent||'{}')}catch(error){}
-  const profileStatus=document.getElementById('partyProfileStatus'),profileFields={landlord:['landlord_name','landlord_father','landlord_entity','landlord_address','landlord_id_type','landlord_id_no','landlord_pan','landlord_mobile','landlord_email','authorized_signatory'],tenant:['tenant_name','tenant_father','tenant_dob','tenant_address','tenant_id_type','tenant_id_no','tenant_mobile','tenant_whatsapp','tenant_email','emergency_contact1','emergency_contact2']};
-  const say=(message,error=false)=>{if(profileStatus){profileStatus.textContent=message;profileStatus.classList.toggle('danger',error)}};
-  const selectedProfile=type=>{const id=Number(form.querySelector(`[data-party-profile-select="${type}"]`)?.value||0);return (profileData[type]||[]).find(item=>Number(item.id)===id)};
-  form.querySelectorAll('[data-party-profile-select]').forEach(select=>select.addEventListener('change',()=>{const type=select.dataset.partyProfileSelect,profile=selectedProfile(type),name=form.querySelector(`[data-party-profile-name="${type}"]`);if(name&&profile)name.value=profile.name}));
-  form.querySelectorAll('[data-party-profile-apply]').forEach(button=>button.addEventListener('click',()=>{const type=button.dataset.partyProfileApply,profile=selectedProfile(type);if(!profile){say(`Choose a saved ${type} profile first.`,true);return}let count=0;Object.entries(profile.fields||{}).forEach(([name,value])=>{const control=form.querySelector(`[name="${CSS.escape(name)}"]`);if(control){control.value=value;control.dispatchEvent(new Event('input',{bubbles:true}));count++}});say(`Applied ${profile.name} · ${count} fields filled.`)}));
-  form.querySelectorAll('[data-party-profile-save]').forEach(button=>button.addEventListener('click',async()=>{const type=button.dataset.partyProfileSave,nameInput=form.querySelector(`[data-party-profile-name="${type}"]`),name=nameInput?.value?.trim()||'';if(!name){say(`Enter a name for the ${type} profile first.`,true);nameInput?.focus();return}const fields={};(profileFields[type]||[]).forEach(field=>{const value=form.querySelector(`[name="${CSS.escape(field)}"]`)?.value?.trim();if(value)fields[field]=value});button.disabled=true;say(`Encrypting and saving ${type} profile…`);try{const data=await sameOriginJson('/api/agreement-party-profiles',{profile_type:type,name,fields}),list=profileData[type]||(profileData[type]=[]),index=list.findIndex(item=>Number(item.id)===Number(data.profile.id));if(index>=0)list[index]=data.profile;else list.push(data.profile);const select=form.querySelector(`[data-party-profile-select="${type}"]`);let option=[...select.options].find(item=>Number(item.value)===Number(data.profile.id));if(!option){option=document.createElement('option');option.value=data.profile.id;select.appendChild(option)}option.textContent=data.profile.name;select.value=String(data.profile.id);say(data.message||`${type} profile saved.`)}catch(error){say(error.message||'Could not save profile.',true)}finally{button.disabled=false}}));
-  form.querySelectorAll('[data-party-profile-delete]').forEach(button=>button.addEventListener('click',async()=>{const type=button.dataset.partyProfileDelete,profile=selectedProfile(type);if(!profile){say(`Choose a saved ${type} profile first.`,true);return}if(!confirm(`Delete the saved profile “${profile.name}”?`))return;try{const response=await fetch(`/api/agreement-party-profiles/${profile.id}`,{method:'DELETE',credentials:'same-origin',headers:{'Accept':'application/json'}}),data=await response.json();if(!response.ok||data.ok===false)throw new Error(data.error||'Could not delete profile.');profileData[type]=(profileData[type]||[]).filter(item=>Number(item.id)!==Number(profile.id));form.querySelector(`[data-party-profile-select="${type}"] option[value="${profile.id}"]`)?.remove();say(data.message||'Saved profile removed.')}catch(error){say(error.message||'Could not delete profile.',true)}}));
   showStep(0,false);
 }
 
@@ -808,11 +800,21 @@ initPageFeatures(document);
 
 // ===== Web 1.5.0 • reference-style apps menu + configurable live marquee =====
 (()=>{
-  const toggle=document.getElementById('appsMenuToggle'),menu=document.getElementById('appsMenu'),close=document.getElementById('appsMenuClose');
-  function setMenu(open){if(!menu||!toggle)return;menu.hidden=!open;menu.classList.toggle('open',open);toggle.classList.toggle('active',open);toggle.setAttribute('aria-expanded',String(open));document.body.classList.toggle('apps-menu-open',open)}
-  toggle?.addEventListener('click',e=>{e.stopPropagation();setMenu(menu.hidden)});close?.addEventListener('click',()=>setMenu(false));menu?.addEventListener('click',e=>{if(e.target.closest('a'))setMenu(false)});
-  document.addEventListener('pointerdown',e=>{if(menu&&!menu.hidden&&!menu.contains(e.target)&&!toggle?.contains(e.target))setMenu(false)});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')setMenu(false)});
+  const toggle=document.getElementById('appsMenuToggle'),menu=document.getElementById('appsMenu'),close=document.getElementById('appsMenuClose'),backdrop=document.getElementById('appsMenuBackdrop');
+  function positionDrawer(){
+    const header=document.querySelector('.showcase-header'),marquee=document.getElementById('liveOperationsMarquee');
+    const headerBottom=header?.getBoundingClientRect().bottom||0,marqueeBottom=marquee?.getBoundingClientRect().bottom||0;
+    document.documentElement.style.setProperty('--apps-drawer-top',`${Math.ceil(Math.max(headerBottom,marqueeBottom)+8)}px`);
+  }
+  function setMenu(open){
+    if(!menu||!toggle)return;positionDrawer();
+    if(open){menu.hidden=false;if(backdrop)backdrop.hidden=false;menu.setAttribute('aria-hidden','false');requestAnimationFrame(()=>{menu.classList.add('open');backdrop?.classList.add('open')})}
+    else{menu.classList.remove('open');backdrop?.classList.remove('open');menu.setAttribute('aria-hidden','true');window.setTimeout(()=>{if(!menu.classList.contains('open')){menu.hidden=true;if(backdrop)backdrop.hidden=true}},260)}
+    toggle.classList.toggle('active',open);toggle.setAttribute('aria-expanded',String(open));document.body.classList.toggle('apps-drawer-open',open);
+  }
+  toggle?.addEventListener('click',e=>{e.stopPropagation();setMenu(menu.hidden||!menu.classList.contains('open'))});close?.addEventListener('click',()=>setMenu(false));backdrop?.addEventListener('click',()=>setMenu(false));menu?.addEventListener('click',e=>{if(e.target.closest('a'))setMenu(false)});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu?.hidden)setMenu(false)});
+  window.addEventListener('resize',()=>{if(menu&&!menu.hidden)positionDrawer()},{passive:true});window.addEventListener('scroll',()=>{if(menu&&!menu.hidden)positionDrawer()},{passive:true});
 
   const ticker=document.getElementById('liveMarqueeTrack');
   function tickerNode(item){

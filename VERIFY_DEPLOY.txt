@@ -1,22 +1,17 @@
-LIVENZA WEB 1.6.0 — DEPLOYMENT VERIFICATION
+LIVENZA WEB 1.7.1 — DEPLOYMENT VERIFICATION
 
-1. Confirm /version returns Web 1.6.0 and the new banking/avatar feature flags.
-2. Open My Account → test Choose Photo → Create My Live Avatar. Confirm a polished avatar is produced even without an external AI key.
-3. Test Open Laptop / Phone Camera over HTTPS. Allow Camera permission, capture a frame, then create the avatar.
-4. If multiple webcams exist, verify the Camera dropdown can switch devices.
-5. Open Banking → confirm SBI/Axis/HDFC/ICICI/Kotak/PNB and other official bank launchers open current domains.
-6. Upload a CSV/XLSX bank statement and a CSV/XLSX reconciliation template, then run Verify All Entries.
-7. Confirm matched/review/missing/extra counts display and reconciliation CSV export downloads.
-8. Download a saved statement from the encrypted vault and confirm it opens correctly.
-9. Restart/redeploy once and confirm previously saved banking files remain decryptable. Keep INTEGRATION_ENCRYPTION_KEY unchanged.
-
-WEB 1.7.0 VERIFICATION
-1. Open /version and confirm Web 1.7.0.
-2. Open Electricity Bill Studio from Applications.
-3. Admin: open Livenza Vault and verify master-key status.
-4. Add a test electricity connection and upload a bill.
-5. Confirm the bill appears in Electricity Bill Register and CSV/XLSX exports.
-6. Confirm due bills appear in Home > Live Reminders.
-7. Confirm non-admin users cannot edit utility connections, Vault secrets, providers or payment confirmations.
-8. Admin mascot test: upload a profile photo; if AI generation fails, the standard Livenza mascot must remain active instead of the source photo.
-
+1. Set `LIVENZA_VAULT_MASTER_KEY` in Render/production and keep it stable. Do not commit it to GitHub.
+2. Apply `migrations/web_v1_7_1.sql` if your managed database role does not allow the application to create the new master/document tables automatically.
+3. Open `/version` and confirm **Web 1.7.1** and the new drawer/master feature flags.
+4. Open Applications and confirm the old large white mega-menu is gone. The new left-side translucent glass drawer should keep dark icon tiles clearly visible and close via backdrop/Escape/navigation.
+5. Open Agreement Studio → Landlord Master. As Admin, create a landlord with identity, contact, address, business/tax and bank fields; reload and confirm sensitive fields remain masked.
+6. Open Tenant Master and create a tenant, including emergency/occupation or foreign-national fields where relevant. Confirm search/list views expose only safe summaries.
+7. Upload a permitted master document. Confirm ordinary users cannot download it; Admin download/reveal must require password re-authentication and responses must be no-store.
+8. In Agreement Studio, select a saved landlord/tenant and use **Apply Empty Fields**. Confirm existing manually entered agreement values are not overwritten.
+9. Use **Replace Existing Values** only when intentionally replacing agreement fields; confirm editing the agreement alone does not mutate the master.
+10. As Admin, test **Save as New Master** / **Update Selected Master** from Agreement Studio.
+11. Select master documents as annexures and create the protected PDF + Annexures. Confirm PDF/JPG/PNG/WebP annexures are embedded; unsupported allowed formats are referenced rather than silently exposed.
+12. Confirm non-admin Agreement users cannot edit/archive/duplicate masters, reveal sensitive fields, upload/download protected documents, or generate protected annexure PDFs.
+13. If legacy reusable landlord/tenant profiles exist, confirm they appear in the appropriate new master once without duplicates; the legacy table must remain intact.
+14. Re-test Electricity Bill Studio, Livenza Vault and Home Live Reminders to confirm v1.7.0 features remain available.
+15. Re-test Admin Avatar Studio: if AI mascot generation fails, the standard Livenza mascot remains active rather than the source photo.

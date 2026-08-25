@@ -32,3 +32,15 @@ def decrypt_secret(ciphertext_b64:str, nonce_b64:str, master_key:str)->str:
 
 def mask_secret(value:str)->str:
     value=value or ''; return '••••••••'+(value[-4:] if value else '')
+
+def encrypt_blob(raw:bytes, master_key:str):
+    key=_key_bytes(master_key)
+    nonce=os.urandom(12)
+    ciphertext=AESGCM(key).encrypt(nonce,raw or b'',b'livenza-master-doc-v1')
+    return base64.b64encode(ciphertext).decode('ascii'),base64.b64encode(nonce).decode('ascii')
+
+def decrypt_blob(ciphertext_b64:str, nonce_b64:str, master_key:str)->bytes:
+    key=_key_bytes(master_key)
+    ciphertext=base64.b64decode(ciphertext_b64)
+    nonce=base64.b64decode(nonce_b64)
+    return AESGCM(key).decrypt(nonce,ciphertext,b'livenza-master-doc-v1')
