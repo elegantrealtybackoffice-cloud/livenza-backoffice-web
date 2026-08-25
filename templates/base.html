@@ -17,7 +17,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static',filename='apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static',filename='site.webmanifest') }}">
   <title>{% block title %}Livenza Back Office{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.4">
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.5">
 </head>
 <body data-page="{{ request.endpoint or '' }}">
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
@@ -90,6 +90,37 @@
         <form id="assistantForm" class="assistant-form"><input id="assistantInput" autocomplete="off" placeholder="Ask about any feature…"><button class="primary" type="submit">Send</button></form>
       </div>
     </section>
+    {% if companion_enabled %}
+    <aside id="mascotCompanion" class="mascot-companion no-print" data-default-city="{{companion_default_city}}" data-weather-effects="{{'1' if companion_weather_effects else '0'}}" aria-label="Livenza Live Companion">
+      <div id="mascotCompanionNudge" class="mascot-companion-nudge liquid-card" role="status" aria-live="polite"><small>YOUR LIVE COMPANION</small><span>Getting today’s update ready…</span></div>
+      <section id="mascotCompanionPanel" class="mascot-companion-panel liquid-card" aria-label="Live weather, operations and inspiration" aria-hidden="true" hidden>
+        <header class="companion-panel-head">
+          <div><span class="companion-ai-star">✦</span><span><b>Livenza Live</b><small>Weather · Operations · Inspiration</small></span></div>
+          <button type="button" id="mascotCompanionClose" aria-label="Close live companion">×</button>
+        </header>
+        <div class="companion-weather-hero">
+          <span id="companionWeatherIcon" class="companion-weather-icon">✦</span>
+          <div><small id="companionWeatherCity">{{companion_default_city}}</small><strong id="companionWeatherTemperature">—°</strong><span id="companionWeatherCondition">Loading live weather…</span></div>
+          <div class="companion-weather-meta"><span id="companionWeatherFeels">Feels —°</span><span id="companionWeatherHumidity">Humidity —%</span><span id="companionWeatherWind">Wind — km/h</span></div>
+        </div>
+        <div id="companionCityTabs" class="companion-city-tabs" aria-label="Forecast city"></div>
+        <div id="companionForecast" class="companion-forecast" aria-label="Four day forecast"></div>
+        <div class="companion-section-label"><span>LIVE OPERATIONS</span><i></i></div>
+        <div id="companionOperations" class="companion-operations"><div class="companion-loading">Syncing Livenza status…</div></div>
+        <div class="companion-quote-card">
+          <span>✦</span><div><small>TODAY’S THOUGHT</small><blockquote id="companionQuote">Small improvements become remarkable systems.</blockquote></div>
+          <button type="button" id="companionNextQuote" aria-label="Show another motivational quote">↻</button>
+        </div>
+        <footer class="companion-panel-footer"><small id="companionWeatherSource">Live forecast</small><button type="button" id="companionReplayWeather">Replay weather scene</button></footer>
+      </section>
+      <button type="button" id="mascotCompanionButton" class="mascot-companion-button" aria-expanded="false" aria-controls="mascotCompanionPanel" title="Open Livenza Live Companion">
+        <span class="companion-float-icon companion-float-one">✦</span><span class="companion-float-icon companion-float-two">✦</span><span class="companion-float-icon companion-float-three">•</span><span class="companion-float-icon companion-float-four">✧</span>
+        <span class="mascot-side-glow"></span><span class="mascot-side-character"><img src="{{url_for('static',filename='livenza_welcome_mascot.png')}}" alt=""></span><span class="mascot-side-shadow"></span>
+        <span id="mascotWeatherChip" class="mascot-weather-chip">LIVE</span>
+      </button>
+    </aside>
+    <div id="livenzaWeatherScene" class="livenza-weather-scene no-print" aria-hidden="true"></div>
+    {% endif %}
     <button type="button" id="livenzaEasterEgg" class="livenza-easter-egg no-print" title="A little Livenza touch" aria-label="Livenza easter egg"><img src="{{url_for('static',filename='livenza_logo.png')}}" alt=""></button>
     <div id="easterToast" class="easter-toast no-print" hidden>Live the Livenza Life ✦</div>
     {% endif %}
@@ -120,7 +151,7 @@
     <button type="button" role="menuitem" data-view-mode="270"><span class="view-menu-icon">↺</span><div><b>Rotate 270°</b><small>Vertical screen, left</small></div></button>
   </div>
 
-  <script src="{{url_for('static',filename='app.js')}}?v=1.5.4"></script>
+  <script src="{{url_for('static',filename='app.js')}}?v=1.5.5"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -1,4 +1,14 @@
-# Livenza Life Operations Cloud — Web 1.5.4
+# Livenza Life Operations Cloud — Web 1.5.5
+
+## Web 1.5.5 Livenza Live Companion
+
+- The welcome mascot now remains at the side of every authenticated page after its login dance instead of disappearing permanently.
+- It performs short, spaced-out playful actions and uses floating generative stars inspired by the supplied Squarespace Design Intelligence reference.
+- Clicking the mascot opens a compact glass panel with live weather, a four-day forecast, Gurugram/Jaipur/Delhi/Mumbai/Bengaluru switching, current tenant/vacancy/earning/query updates and rotating motivational thoughts.
+- Live weather uses a cached, fail-soft Open-Meteo forecast. If weather is unavailable, operational updates and quotes continue working.
+- Rain, storm, cloud, fog, snow, sunlight and night scenes briefly affect the website, fade automatically and play at most once per three-hour weather window. Users can replay the scene manually.
+- Admin Settings can enable or disable the companion, weather, temporary scenes, operations and quotes, choose the default city, and set the scene duration.
+- Reduced-motion mode keeps the information panel while suppressing weather particles, floating effects and mascot routines.
 
 ## Web 1.5.4 translucent workspace refinement
 
@@ -52,7 +62,7 @@
 5. Configure passkeys: `WEBAUTHN_RP_ID=YOUR-SITE-HOST` and `WEBAUTHN_ORIGIN=https://YOUR-SITE`.
 6. In Admin, connect Google, assign the WhatsApp/Email/Drive permissions, enable pattern or fingerprint access per user, and optionally enable kiosk lock.
 
-See `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
+See `README_v1.5.5.md`, `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
 
 ## Web 1.4.9 addition
 - The Livenza Assistant now has a high-contrast cross icon that remains visible after messages are added.

@@ -596,7 +596,7 @@ initPageFeatures(document);
     if(departed)return;departed=true;
     clearTimeout(danceTimer);clearTimeout(leaveTimer);clearTimeout(removeTimer);
     welcome.classList.remove('is-dancing');welcome.classList.add('is-leaving');
-    removeTimer=window.setTimeout(()=>welcome.remove(),reduce?420:1250);
+    removeTimer=window.setTimeout(()=>{welcome.remove();window.dispatchEvent(new CustomEvent('livenza:mascot-welcome-done'))},reduce?420:1250);
   }
 
   requestAnimationFrame(()=>requestAnimationFrame(()=>welcome.classList.add('is-visible')));
@@ -604,4 +604,129 @@ initPageFeatures(document);
   leaveTimer=window.setTimeout(depart,reduce?3900:6100);
   skip?.addEventListener('click',depart);
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.contains(welcome))depart()},{once:true});
+})();
+
+// ===== Web 1.5.5 • persistent live mascot, forecast and weather scenes =====
+(()=>{
+  const companion=document.getElementById('mascotCompanion');
+  if(!companion)return;
+  const button=document.getElementById('mascotCompanionButton');
+  const panel=document.getElementById('mascotCompanionPanel');
+  const close=document.getElementById('mascotCompanionClose');
+  const nudge=document.getElementById('mascotCompanionNudge');
+  const weatherScene=document.getElementById('livenzaWeatherScene');
+  const replay=document.getElementById('companionReplayWeather');
+  const nextQuote=document.getElementById('companionNextQuote');
+  const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  let currentCity=companion.dataset.defaultCity||'Gurugram';
+  let pulse=null,quoteIndex=0,nudgeIndex=0,nudgeTimer=null,refreshTimer=null,sceneTimer=null;
+
+  function setParked(parked){companion.classList.toggle('is-parked',parked)}
+  if(document.getElementById('loginMascotWelcome'))setParked(false);else requestAnimationFrame(()=>setParked(true));
+  window.addEventListener('livenza:mascot-welcome-done',()=>setParked(true));
+
+  function setPanel(open,restoreFocus=false){
+    if(!panel||!button)return;
+    panel.hidden=!open;panel.setAttribute('aria-hidden',String(!open));panel.classList.toggle('open',open);button.setAttribute('aria-expanded',String(open));companion.classList.toggle('panel-open',open);
+    if(open)nudge?.classList.remove('show');else if(restoreFocus)button.focus();
+  }
+  button?.addEventListener('click',()=>setPanel(panel?.hidden));
+  close?.addEventListener('click',()=>setPanel(false,true));
+  document.addEventListener('pointerdown',event=>{if(panel&&!panel.hidden&&!companion.contains(event.target))setPanel(false)});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&panel&&!panel.hidden){event.preventDefault();setPanel(false,true)}});
+
+  function weatherIcon(effect,isDay=true){return ({rain:'☂',storm:'ϟ',snow:'❄',fog:'≋',clouds:'☁',sun:'☀',night:'☾'})[effect]||(isDay?'☀':'☾')}
+  function forecastDay(date,index){
+    if(index===0)return 'Today';
+    try{return new Intl.DateTimeFormat('en-IN',{weekday:'short'}).format(new Date(`${date}T12:00:00`))}catch(e){return date||'—'}
+  }
+  function emptyNode(className,text){const node=document.createElement('div');node.className=className;node.textContent=text;return node}
+
+  function renderLocations(locations=[]){
+    const tabs=document.getElementById('companionCityTabs');if(!tabs)return;tabs.replaceChildren();
+    locations.forEach(city=>{const item=document.createElement('button');item.type='button';item.textContent=city;item.className=city===currentCity?'active':'';item.addEventListener('click',()=>{if(city===currentCity)return;currentCity=city;loadPulse(city,true)});tabs.appendChild(item)});
+  }
+  function renderForecast(weather){
+    const wrap=document.getElementById('companionForecast');if(!wrap)return;wrap.replaceChildren();
+    if(!weather?.forecast?.length){wrap.appendChild(emptyNode('companion-loading','Forecast unavailable'));return}
+    weather.forecast.forEach((day,index)=>{const card=document.createElement('div');card.className='companion-forecast-day';const label=document.createElement('small');label.textContent=forecastDay(day.date,index);const icon=document.createElement('span');icon.textContent=weatherIcon(day.effect,true);const temp=document.createElement('b');temp.textContent=`${day.high??'—'}° / ${day.low??'—'}°`;const rain=document.createElement('i');rain.textContent=`${day.rain_chance||0}% rain`;card.append(label,icon,temp,rain);wrap.appendChild(card)});
+  }
+  function renderOperations(operations=[]){
+    const wrap=document.getElementById('companionOperations');if(!wrap)return;wrap.replaceChildren();
+    if(!operations.length){wrap.appendChild(emptyNode('companion-loading','Operational pulse unavailable'));return}
+    operations.forEach(item=>{const card=document.createElement('div');card.className=`companion-operation tone-${item.tone||'blue'}`;const icon=document.createElement('span');icon.textContent=item.icon||'✦';const copy=document.createElement('div');const label=document.createElement('small');label.textContent=item.label||'Live';const value=document.createElement('b');value.textContent=item.value||'—';copy.append(label,value);card.append(icon,copy);wrap.appendChild(card)});
+  }
+  function showQuote(index=0){
+    const target=document.getElementById('companionQuote');const quotes=pulse?.quotes||[];if(!target||!quotes.length)return;
+    quoteIndex=(index+quotes.length)%quotes.length;target.classList.remove('quote-enter');void target.offsetWidth;target.textContent=quotes[quoteIndex];target.classList.add('quote-enter');
+  }
+  nextQuote?.addEventListener('click',()=>showQuote(quoteIndex+1));
+
+  function nudgeLines(){
+    if(!pulse)return[];const lines=[];const weather=pulse.weather;
+    if(weather?.available)lines.push(`${weather.city}: ${weather.temperature}° · ${weather.condition}`);
+    (pulse.operations||[]).slice(0,3).forEach(item=>lines.push(`${item.label}: ${item.value}`));
+    if(pulse.quotes?.length)lines.push(pulse.quotes[quoteIndex%pulse.quotes.length]);
+    return lines;
+  }
+  function showNextNudge(){
+    if(!nudge||!panel?.hidden)return;const lines=nudgeLines();if(!lines.length)return;
+    const text=nudge.querySelector('span');if(text)text.textContent=lines[nudgeIndex++%lines.length];nudge.classList.add('show');window.setTimeout(()=>nudge.classList.remove('show'),4200);
+  }
+  function restartNudges(){clearInterval(nudgeTimer);window.setTimeout(showNextNudge,1800);nudgeTimer=window.setInterval(showNextNudge,15000)}
+
+  function clearWeatherScene(){
+    clearTimeout(sceneTimer);if(!weatherScene)return;weatherScene.classList.remove('is-active','is-leaving');weatherScene.replaceChildren();weatherScene.removeAttribute('data-effect');document.body.classList.forEach(name=>{if(name.startsWith('weather-tone-'))document.body.classList.remove(name)});
+  }
+  function sceneParticle(className,styles={}){const node=document.createElement('i');node.className=className;Object.entries(styles).forEach(([key,value])=>node.style.setProperty(key,value));weatherScene?.appendChild(node)}
+  function playWeatherScene(effect,seconds=11,force=false){
+    if(reduce||!weatherScene||!effect||effect==='none')return;
+    const block=Math.floor(new Date().getHours()/3),date=new Date().toISOString().slice(0,10),key=`livenza-weather-${currentCity}-${effect}-${date}-${block}`;
+    try{if(!force&&sessionStorage.getItem(key))return;sessionStorage.setItem(key,'1')}catch(e){}
+    clearWeatherScene();weatherScene.dataset.effect=effect;document.body.classList.add(`weather-tone-${effect}`);
+    if(effect==='rain'||effect==='storm'){
+      const count=window.innerWidth<700?38:72;for(let i=0;i<count;i++)sceneParticle('weather-rain-drop',{'--weather-x':`${Math.random()*100}vw`,'--weather-delay':`${(-Math.random()*2.4).toFixed(2)}s`,'--weather-speed':`${.7+Math.random()*.8}s`,'--weather-length':`${18+Math.random()*36}px`});
+      for(let i=0;i<4;i++)sceneParticle('weather-cloud',{'--weather-x':`${-12+i*30}vw`,'--weather-delay':`${-i*2.1}s`,'--weather-scale':`${.72+Math.random()*.55}`});
+      if(effect==='storm')sceneParticle('weather-lightning');
+    }else if(effect==='snow'){
+      const count=window.innerWidth<700?28:48;for(let i=0;i<count;i++)sceneParticle('weather-snowflake',{'--weather-x':`${Math.random()*100}vw`,'--weather-delay':`${(-Math.random()*7).toFixed(2)}s`,'--weather-speed':`${5+Math.random()*5}s`,'--weather-size':`${5+Math.random()*9}px`,'--weather-drift':`${-40+Math.random()*80}px`});
+    }else if(effect==='fog'){
+      for(let i=0;i<7;i++)sceneParticle('weather-fog-band',{'--weather-y':`${9+i*13}vh`,'--weather-delay':`${-i*1.3}s`});
+    }else if(effect==='clouds'){
+      for(let i=0;i<7;i++)sceneParticle('weather-cloud',{'--weather-x':`${-18+i*20}vw`,'--weather-delay':`${-i*1.5}s`,'--weather-scale':`${.65+Math.random()*.65}`});
+    }else if(effect==='sun'){
+      sceneParticle('weather-sun-glow');for(let i=0;i<10;i++)sceneParticle('weather-light-speck',{'--weather-x':`${8+Math.random()*84}vw`,'--weather-y':`${12+Math.random()*76}vh`,'--weather-delay':`${-Math.random()*4}s`});
+    }else if(effect==='night'){
+      for(let i=0;i<24;i++)sceneParticle('weather-night-star',{'--weather-x':`${Math.random()*100}vw`,'--weather-y':`${Math.random()*72}vh`,'--weather-delay':`${-Math.random()*3}s`});
+    }
+    requestAnimationFrame(()=>weatherScene.classList.add('is-active'));
+    const duration=Math.max(7,Math.min(20,Number(seconds)||11))*1000;
+    window.setTimeout(()=>weatherScene.classList.add('is-leaving'),Math.max(1000,duration-1100));sceneTimer=window.setTimeout(clearWeatherScene,duration);
+  }
+  replay?.addEventListener('click',()=>{if(pulse?.weather?.available)playWeatherScene(pulse.weather.effect,pulse.effect_seconds,true)});
+
+  function renderPulse(data,autoEffect=true){
+    pulse=data;const weather=data.weather||{};currentCity=weather.city||currentCity;
+    const city=document.getElementById('companionWeatherCity'),temperature=document.getElementById('companionWeatherTemperature'),condition=document.getElementById('companionWeatherCondition'),icon=document.getElementById('companionWeatherIcon'),chip=document.getElementById('mascotWeatherChip');
+    if(city)city.textContent=weather.city||currentCity;
+    if(temperature)temperature.textContent=weather.available?`${weather.temperature}°`:'—°';
+    if(condition)condition.textContent=weather.condition||'Weather unavailable';
+    if(icon)icon.textContent=weatherIcon(weather.effect,weather.is_day);
+    if(chip)chip.textContent=weather.available?`${weather.temperature}°`:'LIVE';
+    const feels=document.getElementById('companionWeatherFeels'),humidity=document.getElementById('companionWeatherHumidity'),wind=document.getElementById('companionWeatherWind'),source=document.getElementById('companionWeatherSource');
+    if(feels)feels.textContent=`Feels ${weather.feels_like??'—'}°`;if(humidity)humidity.textContent=`Humidity ${weather.humidity??'—'}%`;if(wind)wind.textContent=`Wind ${weather.wind??'—'} km/h`;if(source)source.textContent=weather.available?'Weather by Open-Meteo':'Weather reconnecting';
+    renderLocations(data.locations||[]);renderForecast(weather);renderOperations(data.operations||[]);showQuote(0);restartNudges();
+    if(autoEffect&&data.weather_effects&&companion.dataset.weatherEffects!=='0'&&weather.available)playWeatherScene(weather.effect,data.effect_seconds,false);
+  }
+  async function loadPulse(city=currentCity,autoEffect=true){
+    companion.classList.add('is-syncing');clearTimeout(refreshTimer);
+    try{const response=await fetch(`/api/companion/pulse?city=${encodeURIComponent(city)}`,{credentials:'same-origin',headers:{Accept:'application/json'}}),data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||'Pulse unavailable');if(data.enabled===false){companion.hidden=true;return}renderPulse(data,autoEffect);refreshTimer=window.setTimeout(()=>loadPulse(currentCity,false),Math.max(120000,(data.refresh_seconds||600)*1000))}
+    catch(error){const condition=document.getElementById('companionWeatherCondition');if(condition)condition.textContent='Live update will reconnect shortly';refreshTimer=window.setTimeout(()=>loadPulse(currentCity,false),120000)}
+    finally{companion.classList.remove('is-syncing')}
+  }
+
+  const funnyActions=['funny-wave','funny-hop','funny-peek','funny-wobble','funny-celebrate'];
+  function performFunnyAction(){if(!panel?.hidden||reduce)return;const action=funnyActions[Math.floor(Math.random()*funnyActions.length)];companion.classList.add(action);window.setTimeout(()=>companion.classList.remove(action),1800)}
+  window.setTimeout(performFunnyAction,4200);window.setInterval(performFunnyAction,10500);
+  loadPulse(currentCity,true);
 })();

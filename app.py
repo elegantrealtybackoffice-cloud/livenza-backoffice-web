@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.5.4'
+APP_VERSION = 'Web 1.5.5'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -549,6 +549,109 @@ def _webauthn_context():
     return rp_id,origin
 
 MARKET_QUOTE_CACHE = {}
+WEATHER_CACHE = {}
+
+COMPANION_LOCATIONS = {
+    'Gurugram': (28.4595, 77.0266),
+    'Jaipur': (26.9124, 75.7873),
+    'Delhi': (28.6139, 77.2090),
+    'Mumbai': (19.0760, 72.8777),
+    'Bengaluru': (12.9716, 77.5946),
+}
+
+COMPANION_QUOTES = [
+    'Small improvements become remarkable systems.',
+    'Hospitality is care made visible.',
+    'A calm workspace creates confident decisions.',
+    'Consistency turns everyday service into a trusted brand.',
+    'Make the next useful move, then make it beautifully.',
+    'Great operations feel effortless because the details are intentional.',
+    'Today is a good day to make someone feel at home.',
+    'Progress grows wherever attention and action meet.',
+]
+
+def _weather_description(code):
+    code=int(code or 0)
+    if code==0: return 'Clear sky'
+    if code in (1,2): return 'Partly cloudy'
+    if code==3: return 'Overcast'
+    if code in (45,48): return 'Foggy'
+    if code in (51,53,55,56,57): return 'Light drizzle'
+    if code in (61,63,65,66,67): return 'Rain'
+    if code in (71,73,75,77,85,86): return 'Snow'
+    if code in (80,81,82): return 'Rain showers'
+    if code in (95,96,99): return 'Thunderstorm'
+    return 'Changing weather'
+
+def _weather_effect(code, is_day=True):
+    code=int(code or 0)
+    if code in (95,96,99): return 'storm'
+    if code in (51,53,55,56,57,61,63,65,66,67,80,81,82): return 'rain'
+    if code in (71,73,75,77,85,86): return 'snow'
+    if code in (45,48): return 'fog'
+    if code in (1,2,3): return 'clouds'
+    return 'sun' if is_day else 'night'
+
+def _companion_weather(city):
+    city=next((name for name in COMPANION_LOCATIONS if name.lower()==str(city or '').strip().lower()),None) or 'Gurugram'
+    latitude,longitude=COMPANION_LOCATIONS[city]
+    if city==setting('companion_default_city','Gurugram'):
+        try:
+            latitude=float(os.getenv('WEATHER_LATITUDE',latitude));longitude=float(os.getenv('WEATHER_LONGITUDE',longitude))
+        except (TypeError,ValueError): pass
+    now=datetime.datetime.utcnow().timestamp();cached=WEATHER_CACHE.get(city)
+    if cached and now-cached['at']<600: return cached['value']
+    params={
+        'latitude':latitude,'longitude':longitude,
+        'current':'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,wind_speed_10m',
+        'daily':'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
+        'timezone':'Asia/Kolkata','forecast_days':4,
+    }
+    try:
+        response=requests.get('https://api.open-meteo.com/v1/forecast',params=params,headers={'User-Agent':'LivenzaLife-OperationsCloud/1.5.5'},timeout=10)
+        response.raise_for_status();payload=response.json();current=payload.get('current') or {};daily=payload.get('daily') or {}
+        code=int(current.get('weather_code') or 0);is_day=bool(int(current.get('is_day',1) or 0))
+        dates=daily.get('time') or [];codes=daily.get('weather_code') or [];highs=daily.get('temperature_2m_max') or [];lows=daily.get('temperature_2m_min') or [];rain_chance=daily.get('precipitation_probability_max') or []
+        forecast=[]
+        for index,date in enumerate(dates[:4]):
+            day_code=int(codes[index] if index<len(codes) else 0)
+            forecast.append({
+                'date':date,'condition':_weather_description(day_code),'effect':_weather_effect(day_code,True),
+                'high':round(float(highs[index])) if index<len(highs) and highs[index] is not None else None,
+                'low':round(float(lows[index])) if index<len(lows) and lows[index] is not None else None,
+                'rain_chance':round(float(rain_chance[index])) if index<len(rain_chance) and rain_chance[index] is not None else 0,
+            })
+        value={
+            'available':True,'city':city,'temperature':round(float(current.get('temperature_2m') or 0)),
+            'feels_like':round(float(current.get('apparent_temperature') or current.get('temperature_2m') or 0)),
+            'humidity':round(float(current.get('relative_humidity_2m') or 0)),
+            'wind':round(float(current.get('wind_speed_10m') or 0)),
+            'precipitation':round(float(current.get('precipitation') or 0),1),
+            'condition':_weather_description(code),'effect':_weather_effect(code,is_day),'is_day':is_day,
+            'forecast':forecast,'source':'Open-Meteo','updated_at':current.get('time') or datetime.datetime.now(ZoneInfo('Asia/Kolkata')).isoformat(),
+        }
+        WEATHER_CACHE[city]={'at':now,'value':value};return value
+    except Exception:
+        return {'available':False,'city':city,'temperature':None,'condition':'Weather temporarily unavailable','effect':'none','forecast':[],'source':'Open-Meteo'}
+
+def _companion_operations():
+    try:
+        active=Tenant.query.filter(~Tenant.status.in_(['Vacated','Cancelled','Terminated'])).count()
+        beds=0
+        for room in Room.query.all():
+            if room_status(room)=='Vacant':
+                try: beds+=max(1,int(float(room.capacity or 1)))
+                except Exception: beds+=1
+        earned=float(db.session.query(func.coalesce(func.sum(FoodOrder.net),0)).scalar() or 0)
+        hot=QueryLead.query.filter_by(heat='Hot').count()
+        return [
+            {'label':'Current tenants','value':str(active),'tone':'green','icon':'◉'},
+            {'label':'Vacant beds','value':str(beds),'tone':'gold','icon':'▦'},
+            {'label':'Amount earned','value':'₹'+format(earned,',.0f'),'tone':'blue','icon':'₹'},
+            {'label':'Hot queries','value':str(hot),'tone':'pink','icon':'◎'},
+        ]
+    except Exception:
+        db.session.rollback();return []
 
 def _moneycontrol_quote(label, url):
     """Small, cached, fail-soft reader for a user-selected official Moneycontrol quote page."""
@@ -1062,7 +1165,9 @@ def inject_common():
         current_user=current_user(), app_version=APP_VERSION,
         can_access=can_access, module_labels=MODULES,
         is_admin=bool(current_user() and (current_user().role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar,
-        kiosk_mode_enabled=setting('kiosk_mode_enabled','0')=='1', marquee_enabled=setting('marquee_enabled','1')=='1'
+        kiosk_mode_enabled=setting('kiosk_mode_enabled','0')=='1', marquee_enabled=setting('marquee_enabled','1')=='1',
+        companion_enabled=setting('companion_enabled','1')=='1', companion_default_city=setting('companion_default_city','Gurugram'),
+        companion_weather_effects=setting('companion_weather_effects','1')=='1'
     )
 
 @app.before_request
@@ -1156,7 +1261,7 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion'])
 
 @app.route('/login', methods=['GET','POST'])
 def login():
@@ -1226,6 +1331,25 @@ def marquee_status():
     try: refresh=max(30,min(600,int(setting('marquee_refresh_seconds','60') or 60)))
     except Exception: refresh=60
     return jsonify(ok=True,items=live_marquee_items(),refresh_seconds=refresh,updated_at=datetime.datetime.now(ZoneInfo('Asia/Kolkata')).isoformat())
+
+@app.route('/api/companion/pulse')
+@login_required
+def companion_pulse():
+    enabled=setting('companion_enabled','1')=='1'
+    requested_city=request.args.get('city',setting('companion_default_city','Gurugram'))
+    city=next((name for name in COMPANION_LOCATIONS if name.lower()==str(requested_city or '').strip().lower()),None) or setting('companion_default_city','Gurugram')
+    if city not in COMPANION_LOCATIONS: city='Gurugram'
+    weather=_companion_weather(city) if setting('companion_weather_enabled','1')=='1' else {'available':False,'city':city,'effect':'none','forecast':[]}
+    try: effect_seconds=max(7,min(20,int(setting('companion_effect_seconds','11') or 11)))
+    except Exception: effect_seconds=11
+    return jsonify(
+        ok=True,enabled=enabled,weather=weather,
+        weather_effects=setting('companion_weather_effects','1')=='1',effect_seconds=effect_seconds,
+        operations=_companion_operations() if setting('companion_operations_enabled','1')=='1' else [],
+        quotes=COMPANION_QUOTES if setting('companion_quotes_enabled','1')=='1' else [],
+        locations=list(COMPANION_LOCATIONS.keys()),refresh_seconds=600,
+        updated_at=datetime.datetime.now(ZoneInfo('Asia/Kolkata')).isoformat(),
+    )
 
 @app.route('/api/presets/<path:name>')
 @permission_required('agreements')
@@ -1595,7 +1719,7 @@ def food_integration_sync(iid):
     row=db.session.get(FoodIntegration,iid) or abort(404)
     if not row.active or not row.api_enabled or not (row.api_base_url or '').strip():
         flash('Enable API Sync and add the official/API endpoint supplied by the platform first.','warning');return redirect(url_for('food_integrations'))
-    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.4'}
+    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.5'}
     bearer=os.getenv((row.api_token_env or '').strip(),'').strip() if row.api_token_env else ''
     api_key=os.getenv((row.api_key_env or '').strip(),'').strip() if row.api_key_env else ''
     if bearer: headers['Authorization']=f'Bearer {bearer}'
@@ -2281,7 +2405,8 @@ def email_message(message_id):
 @admin_required
 def settings_page():
     keys=('food_webhook_token','whatsapp_recipient','empty_report_time','default_google_review_url','vacant_report_enabled','vacant_report_time','vacant_report_recipients','query_webhook_token',
-          'marquee_enabled','marquee_show_username','marquee_show_tenants','marquee_show_vacant_beds','marquee_show_earnings','marquee_show_favorites','marquee_show_stocks','marquee_favorites','marquee_custom_text','marquee_manual_earnings','marquee_stock_pages','marquee_refresh_seconds')
+          'marquee_enabled','marquee_show_username','marquee_show_tenants','marquee_show_vacant_beds','marquee_show_earnings','marquee_show_favorites','marquee_show_stocks','marquee_favorites','marquee_custom_text','marquee_manual_earnings','marquee_stock_pages','marquee_refresh_seconds',
+          'companion_enabled','companion_weather_enabled','companion_weather_effects','companion_quotes_enabled','companion_operations_enabled','companion_default_city','companion_effect_seconds')
     if request.method=='POST':
         for k in keys:
             if k in request.form:
@@ -2294,7 +2419,8 @@ def settings_page():
                         return redirect(url_for('settings_page'))
                 set_setting(k,val)
         flash('Settings saved.','success'); return redirect(url_for('settings_page'))
-    defaults={'marquee_enabled':'1','marquee_show_username':'1','marquee_show_tenants':'1','marquee_show_vacant_beds':'1','marquee_show_earnings':'1','marquee_refresh_seconds':'60'}
+    defaults={'marquee_enabled':'1','marquee_show_username':'1','marquee_show_tenants':'1','marquee_show_vacant_beds':'1','marquee_show_earnings':'1','marquee_refresh_seconds':'60',
+              'companion_enabled':'1','companion_weather_enabled':'1','companion_weather_effects':'1','companion_quotes_enabled':'1','companion_operations_enabled':'1','companion_default_city':'Gurugram','companion_effect_seconds':'11'}
     return render_template('settings.html',settings={k:setting(k,defaults.get(k,'')) for k in keys})
 
 @app.route('/admin')
