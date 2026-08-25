@@ -1,6 +1,6 @@
-# Livenza Life Operations Cloud — Web 1.6.0
+# Livenza Life Operations Cloud — Web 1.6.1
 
-## Web 1.6.0 — Avatar reliability, Banking Suite & Reconciliation
+## Web 1.6.1 — Avatar reliability, Banking Suite & Reconciliation
 
 This is the current Livenza Life Operations Cloud release.
 
@@ -15,11 +15,11 @@ This is the current Livenza Life Operations Cloud release.
 
 ### Deployment
 
-- Application version marker: **Web 1.6.0**
+- Application version marker: **Web 1.6.1**
 - Runtime: **Python / Flask**
 - Deploy with the supplied `Dockerfile`, `render.yaml` or another compatible Python hosting service.
 - **GitHub Pages alone cannot run the Flask routes** used by Avatar Studio, Banking, reconciliation, login and other server features.
-- After deployment, open `/version` and confirm the response reports `Web 1.6.0`.
+- After deployment, open `/version` and confirm the response reports `Web 1.6.1`.
 
 ### Security notes
 

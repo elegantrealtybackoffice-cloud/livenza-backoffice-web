@@ -25,7 +25,7 @@ except Exception:
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.6.0'
+APP_VERSION = 'Web 1.6.1'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#071a2c">
   <title>Locked · Livenza Back Office</title>
-  <link rel="stylesheet" href="{{url_for('static',filename='style.css')}}?v=1.5.14">
+  <link rel="stylesheet" href="{{url_for('static',filename='style.css')}}?v={{app_version|replace('Web ','')}}">
 </head>
 <body class="kiosk-lock-body">
   <main class="kiosk-lock-stage">
@@ -35,6 +35,6 @@
       <small>Windows Assigned Access provides the operating-system lock. This PIN protects all Livenza routes.</small>
     </section>
   </main>
-  <script src="{{url_for('static',filename='app.js')}}?v=1.5.14"></script>
+  <script src="{{url_for('static',filename='app.js')}}?v={{app_version|replace('Web ','')}}"></script>
 </body>
 </html>

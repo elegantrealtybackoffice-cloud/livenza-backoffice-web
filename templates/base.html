@@ -20,7 +20,7 @@
   <script>
     (()=>{const small=matchMedia('(max-width:820px)').matches,lowMemory=Number(navigator.deviceMemory||8)<=4,lowCpu=Number(navigator.hardwareConcurrency||8)<=4,saveData=Boolean(navigator.connection?.saveData);if(small||lowMemory||lowCpu||saveData)document.documentElement.classList.add('mobile-performance')})();
   </script>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.14">
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v={{app_version|replace('Web ','')}}">
 </head>
 <body data-page="{{ request.endpoint or '' }}">
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
@@ -142,7 +142,7 @@
   </section>
   {% endif %}
 
-  <script src="{{url_for('static',filename='app.js')}}?v=1.5.14"></script>
+  <script src="{{url_for('static',filename='app.js')}}?v={{app_version|replace('Web ','')}}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
