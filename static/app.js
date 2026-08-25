@@ -55,7 +55,7 @@ async function handleAadhaarExtract(btn){
   try{
     const fd=new FormData();fd.append('aadhaar_file',file);const r=await fetch('/agreements/aadhaar-extract',{method:'POST',body:fd,credentials:'same-origin',signal:controller.signal});
     const contentType=(r.headers.get('content-type')||'').toLowerCase();
-    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.5.12 and retry.`);
+    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.5.13 and retry.`);
     const d=await r.json();
     if(!r.ok||!d.ok)throw new Error([d.error,d.reader_status].filter(Boolean).join(' Reader status: '));
     const fields=d.fields||{};let filled=0;['tenant_name','tenant_father','tenant_dob','tenant_address','tenant_id_type','tenant_id_no'].forEach(k=>{if(fillAgreementField(k,fields[k]))filled++});
@@ -324,6 +324,7 @@ initPageFeatures(document);
     const action=button.dataset.homeDisplay;
     if(action==='lock')setRotationLock(!rotationLocked);
     else if(action==='landscape'||action==='portrait')void applyViewMode(action,true);
+    closeViewMenu();
   }));
   menu?.addEventListener('click',e=>{
     const btn=e.target.closest('[data-view-mode]');if(!btn)return;
@@ -370,7 +371,7 @@ initPageFeatures(document);
   };
 })();
 
-// ===== Web 1.5.12 • personal live-avatar studio =====
+// ===== Web 1.5.13 • personal live-avatar studio =====
 (()=>{
   const form=document.getElementById('avatarForm');
   if(!form)return;
@@ -504,35 +505,35 @@ initPageFeatures(document);
       let drawing=false,moved=false;
       const widgetId=widget.id||`pattern-${Math.random().toString(36).slice(2,9)}`;widget.id=widgetId;
       widget.setAttribute('role','group');widget.setAttribute('aria-label',widget.dataset.patternLabel||'Gesture pattern');
+      nodes.forEach((node,index)=>{const dot=node.querySelector('span')||node.appendChild(document.createElement('span'));dot.classList.add('pattern-dot');if(!node.querySelector('.pattern-number')){const number=document.createElement('b');number.className='pattern-number';number.textContent=String(index+1);number.setAttribute('aria-hidden','true');node.appendChild(number)}});
       let controls=[...widget.parentElement.children].find(item=>item.hasAttribute?.('data-pattern-controls'));
       if(!controls){
         controls=document.createElement('div');controls.className='pattern-control-bar';controls.dataset.patternControls='';
-        const status=document.createElement('span');status.className='pattern-selection-status';status.dataset.patternStatus='';status.setAttribute('aria-live','polite');status.textContent='No points selected';
-        const clearButton=document.createElement('button');clearButton.type='button';clearButton.className='pattern-clear-button';clearButton.dataset.patternClear='';clearButton.innerHTML='<span aria-hidden="true">🧹</span> Clear Grid';
+        const status=document.createElement('span');status.className='pattern-selection-status';status.dataset.patternStatus='';status.setAttribute('aria-live','polite');status.innerHTML='<span class="pattern-progress-dots" data-pattern-progress-dots aria-hidden="true"><i></i><i></i><i></i><i></i></span><b data-pattern-progress-label>0 / 4 selected</b>';
+        const clearButton=document.createElement('button');clearButton.type='button';clearButton.className='pattern-clear-button';clearButton.dataset.patternClear='';clearButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 15 7-7 6 6-7 7H6l-2-2a3 3 0 0 1 0-4Z"></path><path d="m14 11 3-3 3 3-3 3"></path></svg><span>Clear Pattern</span>';
         controls.append(status,clearButton);widget.insertAdjacentElement('afterend',controls);
       }
       const status=controls.querySelector('[data-pattern-status]'),clearButton=controls.querySelector('[data-pattern-clear]');
       if(status){status.id=status.id||`${widgetId}-status`;widget.setAttribute('aria-describedby',status.id)}
+      const progressDots=[...(status?.querySelectorAll('[data-pattern-progress-dots] i')||[])],progressLabel=status?.querySelector('[data-pattern-progress-label]');
+      if(window.matchMedia?.('(pointer:fine)').matches)widget.classList.add('numeric-keypad');
       const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),line=document.createElementNS('http://www.w3.org/2000/svg','polyline');svg.classList.add('pattern-links');svg.setAttribute('aria-hidden','true');line.setAttribute('fill','none');line.setAttribute('vector-effect','non-scaling-stroke');svg.appendChild(line);widget.insertBefore(svg,widget.firstChild);
       const updateLine=()=>{const bounds=widget.getBoundingClientRect();svg.setAttribute('viewBox',`0 0 ${Math.max(1,bounds.width)} ${Math.max(1,bounds.height)}`);line.setAttribute('points',selectedNodes.map(node=>{const r=node.getBoundingClientRect();return `${r.left-bounds.left+r.width/2},${r.top-bounds.top+r.height/2}`}).join(' '))};
-      const announce=()=>{if(!status)return;const count=selected.length;status.textContent=count===0?'No points selected':count<4?`${count} selected — choose ${4-count} more`:`${count} points selected — ready`};
+      const announce=()=>{if(!status)return;const count=selected.length,ready=count>=4;progressDots.forEach((dot,index)=>dot.classList.toggle('filled',index<Math.min(count,4)));status.classList.toggle('is-ready',ready);if(progressLabel)progressLabel.textContent=ready?`Ready · ${count} selected`:`${count} / 4 selected`;status.setAttribute('aria-label',ready?`Pattern ready with ${count} points`:`${count} of 4 required points selected`)};
       const resetHelp=()=>{const help=widget.parentElement.querySelector('[data-pattern-help]');if(help?.dataset.defaultMessage)help.textContent=help.dataset.defaultMessage};
       const clear=(focus=false)=>{selected.splice(0);selectedNodes.splice(0);nodes.forEach(node=>{node.classList.remove('selected');node.setAttribute('aria-pressed','false')});if(hidden)hidden.value='';widget.parentElement.classList.remove('has-error');resetHelp();updateLine();announce();if(focus)nodes[0]?.focus()};
+      const removeLast=()=>{const node=selectedNodes.pop();selected.pop();if(node){node.classList.remove('selected');node.setAttribute('aria-pressed','false')}if(hidden)hidden.value=selected.join('-');updateLine();announce()};
       const add=node=>{if(!node||!widget.contains(node))return;const value=node.dataset.patternNode;if(value===undefined||selected.includes(value))return;selected.push(value);selectedNodes.push(node);node.classList.add('selected');node.setAttribute('aria-pressed','true');if(hidden)hidden.value=selected.join('-');widget.parentElement.classList.remove('has-error');resetHelp();updateLine();announce();widget.dispatchEvent(new CustomEvent('livenza:pattern-change',{bubbles:true,detail:{count:selected.length}}))};
       const nodeAt=(x,y)=>document.elementFromPoint(x,y)?.closest?.('[data-pattern-node]');
-      widget.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse'&&event.button!==0)return;event.preventDefault();clear();drawing=true;moved=false;add(event.target.closest('[data-pattern-node]'));try{widget.setPointerCapture(event.pointerId)}catch(e){}});
+      widget.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse')return;if(event.button!==undefined&&event.button!==0)return;event.preventDefault();clear();drawing=true;moved=false;add(event.target.closest('[data-pattern-node]'));try{widget.setPointerCapture(event.pointerId)}catch(e){}});
       widget.addEventListener('pointermove',event=>{if(!drawing)return;event.preventDefault();moved=true;add(nodeAt(event.clientX,event.clientY))});
       const finish=event=>{if(!drawing)return;drawing=false;try{widget.releasePointerCapture(event.pointerId)}catch(e){};updateLine()};widget.addEventListener('pointerup',finish);widget.addEventListener('pointercancel',finish);
       nodes.forEach((node,index)=>{
-        const row=Math.floor(index/3)+1,column=index%3+1;node.setAttribute('aria-label',node.getAttribute('aria-label')||`Pattern point, row ${row}, column ${column}`);node.setAttribute('aria-pressed','false');node.tabIndex=index===0?0:-1;
+        const row=Math.floor(index/3)+1,column=index%3+1;node.setAttribute('aria-label',node.getAttribute('aria-label')||`Pattern number ${index+1}, row ${row}, column ${column}`);node.setAttribute('aria-pressed','false');node.tabIndex=0;
         node.addEventListener('click',event=>{if(moved){event.preventDefault();moved=false;return}add(node)});
-        node.addEventListener('keydown',event=>{
-          const key=event.key;if(key==='Enter'||key===' '){event.preventDefault();add(node);return}
-          let next=index;if(key==='ArrowRight')next=index%3===2?index-2:index+1;else if(key==='ArrowLeft')next=index%3===0?index+2:index-1;else if(key==='ArrowDown')next=(index+3)%9;else if(key==='ArrowUp')next=(index+6)%9;else if(key==='Home')next=0;else if(key==='End')next=8;else return;
-          event.preventDefault();nodes.forEach(item=>item.tabIndex=-1);nodes[next].tabIndex=0;nodes[next].focus();
-        });
-        node.addEventListener('focus',()=>{nodes.forEach(item=>item.tabIndex=item===node?0:-1)});
+        node.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();add(node)}});
       });
+      document.addEventListener('keydown',event=>{if(widget.closest('[hidden]')||widget.offsetParent===null||event.ctrlKey||event.metaKey||event.altKey)return;if(/^[1-9]$/.test(event.key)){event.preventDefault();add(nodes[Number(event.key)-1])}else if(event.key==='Backspace'){event.preventDefault();removeLast()}else if(event.key==='Delete'){event.preventDefault();clear(true)}});
       clearButton?.addEventListener('click',()=>clear(true));
       window.addEventListener('resize',updateLine,{passive:true});updateLine();announce();
     });
@@ -547,18 +548,24 @@ initPageFeatures(document);
     if(!input)return;const field=input.closest('[data-auth-field]'),feedback=field?.querySelector('.field-feedback');field?.classList.toggle('has-error',error);input.setAttribute('aria-invalid',String(error));if(feedback&&message)feedback.textContent=message;
   }
   function showAuthAlert(message){const alert=document.getElementById('loginFormAlert');if(!alert)return;alert.textContent=message||'';alert.hidden=!message}
+  function selectAuthMethod(mode='password',focus=false){
+    const chosen=mode==='pattern'?'pattern':'password',method=document.getElementById('authMethod');if(method)method.value=chosen;
+    document.querySelectorAll('[data-auth-method-tab]').forEach(tab=>{const active=tab.dataset.authMethodTab===chosen;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1});
+    document.querySelectorAll('[data-auth-method-panel]').forEach(panel=>{const active=panel.dataset.authMethodPanel===chosen;panel.hidden=!active;panel.classList.toggle('active',active)});
+    if(focus)window.setTimeout(()=>document.querySelector(`[data-auth-method-panel="${chosen}"] ${chosen==='pattern'?'[data-pattern-node]':'input'}`)?.focus(),70);
+  }
   function setFallbackLayer(open,focusMode=''){
     const layer=document.getElementById('authFallbackLayer'),toggle=document.getElementById('authFallbackToggle');if(!layer||!toggle)return;
     layer.hidden=!open;layer.classList.toggle('is-open',open);toggle.setAttribute('aria-expanded',String(open));
-    if(open&&focusMode){const target=document.getElementById(focusMode==='pattern'?'patternFallback':'passwordFallback');if(target){target.open=true;window.setTimeout(()=>target.querySelector('summary')?.focus(),60)}}
+    toggle.classList.toggle('is-open',open);if(open)selectAuthMethod(focusMode||document.getElementById('authMethod')?.value||'password',Boolean(focusMode));
   }
   function setCredentialLoader(active){
     const loader=document.getElementById('deviceCredentialLoader'),button=document.getElementById('fingerprintLogin');if(loader)loader.hidden=!active;if(button){button.disabled=active;button.classList.toggle('is-checking',active)}
   }
   function initInlineAuth(){
     const form=document.getElementById('loginForm'),username=document.getElementById('loginUsername'),password=document.getElementById('loginPassword'),method=document.getElementById('authMethod');
-    const fallbackToggle=document.getElementById('authFallbackToggle');fallbackToggle?.addEventListener('click',()=>setFallbackLayer(fallbackToggle.getAttribute('aria-expanded')!=='true'));
-    document.querySelectorAll('#authFallbackLayer details').forEach(details=>details.addEventListener('toggle',()=>{if(!details.open)return;if(method)method.value=details.id==='patternFallback'?'pattern':'password';document.querySelectorAll('#authFallbackLayer details').forEach(other=>{if(other!==details)other.open=false})}));
+    const fallbackToggle=document.getElementById('authFallbackToggle');fallbackToggle?.addEventListener('click',()=>setFallbackLayer(fallbackToggle.getAttribute('aria-expanded')!=='true',method?.value==='pattern'?'pattern':'password'));
+    document.querySelectorAll('[data-auth-method-tab]').forEach(tab=>{tab.addEventListener('click',()=>selectAuthMethod(tab.dataset.authMethodTab,true));tab.addEventListener('keydown',event=>{const tabs=[...document.querySelectorAll('[data-auth-method-tab]')],index=tabs.indexOf(tab);if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:event.key==='ArrowRight'?(index+1)%tabs.length:(index-1+tabs.length)%tabs.length;tabs[next].focus();selectAuthMethod(tabs[next].dataset.authMethodTab,false)})});
     username?.addEventListener('input',()=>{if(username.value.trim()){setFieldState(username,'Use the Login ID assigned by your administrator.',false);showAuthAlert('')}});
     password?.addEventListener('input',()=>{if(password.value){setFieldState(password,'Password is case-sensitive.',false);showAuthAlert('')}});
     password?.addEventListener('keyup',event=>{if(password.value&&event.getModifierState?.('CapsLock'))setFieldState(password,'Caps Lock is on.',false);else if(password.value&&!password.closest('.has-error'))setFieldState(password,'Password is case-sensitive.',false)});
@@ -595,14 +602,12 @@ initPageFeatures(document);
       const result=await jsonRequest('/api/webauthn/register/verify',payload);setStatus(result.message||'Fingerprint/passkey enrolled.');button.textContent='Enrolled ✓';
     }finally{button.disabled=false}
   }
-  document.querySelectorAll('[data-auth-tab]').forEach(tab=>tab.addEventListener('click',()=>{
-    const mode=tab.dataset.authTab;document.querySelectorAll('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===tab));document.querySelectorAll('[data-auth-panel]').forEach(x=>x.hidden=x.dataset.authPanel!==mode);const method=document.getElementById('authMethod');if(method)method.value=mode;const submit=document.getElementById('normalLoginButton');if(submit)submit.hidden=mode==='fingerprint';
-  }));
-  document.getElementById('fingerprintLogin')?.addEventListener('click',async()=>{try{await fingerprintLogin()}catch(e){setStatus(e.message||'Fingerprint login failed.',true)}});
+  document.getElementById('fingerprintLogin')?.addEventListener('click',async()=>{try{await fingerprintLogin()}catch(e){setStatus(`${e.message||'Device verification was unavailable.'} Choose Password or Gesture below.`,true);setFallbackLayer(true,'password')}});
   document.querySelectorAll('[data-submit-auth]').forEach(button=>button.addEventListener('click',()=>{const method=document.getElementById('authMethod');if(method)method.value=button.dataset.submitAuth||'password';showAuthAlert('')}));
-  document.getElementById('loginForm')?.addEventListener('submit',async e=>{if(document.getElementById('authMethod')?.value==='fingerprint'){e.preventDefault();try{await fingerprintLogin()}catch(err){setStatus(err.message||'Fingerprint login failed.',true)}}});
+  document.getElementById('loginForm')?.addEventListener('submit',async e=>{if(document.getElementById('authMethod')?.value==='fingerprint'){e.preventDefault();try{await fingerprintLogin()}catch(err){setStatus(`${err.message||'Device verification was unavailable.'} Choose Password or Gesture below.`,true);setFallbackLayer(true,'password')}}});
   document.addEventListener('click',async e=>{const btn=e.target.closest('[data-enroll-passkey]');if(!btn)return;e.preventDefault();try{await enrollPasskey(btn)}catch(err){setStatus(err.message||'Enrollment failed.',true)}});
-  if(!window.PublicKeyCredential){const method=document.getElementById('authMethod');if(method)method.value='password';setFallbackLayer(true,'password');setStatus('This browser does not support device passkeys. Use your password or gesture pattern.',true)}
+  if(document.getElementById('authFallbackLayer')&&!document.getElementById('authFallbackLayer').hidden)selectAuthMethod(document.getElementById('authMethod')?.value||'password',false);
+  if(!window.PublicKeyCredential){const method=document.getElementById('authMethod');if(method)method.value='password';setFallbackLayer(true,'password');setStatus('This browser does not support device passkeys. Choose Password or Gesture below.',true)}
   initPatternWidgets(document);initPasswordToggles(document);initInlineAuth();window.addEventListener('livenza:page-ready',e=>{initPatternWidgets(e.detail?.root||document);initPasswordToggles(e.detail?.root||document)});
 })();
 

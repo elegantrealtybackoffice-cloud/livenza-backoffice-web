@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.5.12'
+APP_VERSION = 'Web 1.5.13'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -643,7 +643,7 @@ def _companion_weather(city):
         'timezone':'Asia/Kolkata','forecast_days':4,
     }
     try:
-        response=requests.get('https://api.open-meteo.com/v1/forecast',params=params,headers={'User-Agent':'LivenzaLife-OperationsCloud/1.5.12'},timeout=10)
+        response=requests.get('https://api.open-meteo.com/v1/forecast',params=params,headers={'User-Agent':'LivenzaLife-OperationsCloud/1.5.13'},timeout=10)
         response.raise_for_status();payload=response.json();current=payload.get('current') or {};daily=payload.get('daily') or {}
         code=int(current.get('weather_code') or 0);is_day=bool(int(current.get('is_day',1) or 0))
         dates=daily.get('time') or [];codes=daily.get('weather_code') or [];highs=daily.get('temperature_2m_max') or [];lows=daily.get('temperature_2m_min') or [];rain_chance=daily.get('precipitation_probability_max') or []
@@ -683,7 +683,7 @@ def _companion_operations():
             {'label':'Current tenants','value':str(active),'tone':'green','icon':'◉'},
             {'label':'Vacant beds','value':str(beds),'tone':'gold','icon':'▦'},
             {'label':'Amount earned','value':'₹'+format(earned,',.0f'),'tone':'blue','icon':'₹'},
-            {'label':'Hot queries','value':str(hot),'tone':'pink','icon':'◎'},
+            {'label':'Hot queries','value':str(hot),'tone':'pink','icon':'Q'},
         ]
     except Exception:
         db.session.rollback();return []
@@ -1630,7 +1630,7 @@ def diagnostics():
 @app.route('/version')
 def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode'])
 
-def version_v1512():
+def version_v1513():
     return jsonify(version=APP_VERSION,features=[
         'reliable-aadhaar-ocr','json-safe-aadhaar-errors','resumable-video-wall-upload','verified-media-finalization',
         'agreement-wizard','agreement-local-autosave','visual-agreement-presets','encrypted-landlord-profiles','encrypted-tenant-profiles',
@@ -1643,12 +1643,14 @@ def version_v1512():
         'restored-header-rotation','responsive-rotation-popover','website-rotation-modes','rotation-fullscreen-control',
         'personal-live-avatar','profile-photo-avatar-generation','gpt-image-avatar-styling','polished-avatar-fallback',
         'workspace-wide-avatar-identity','responsive-avatar-companion','avatar-upload-progress','avatar-reset-control',
-        'home-rotation-lock','home-horizontal-control','home-vertical-control','persistent-display-lock',
+        'header-rotation-lock','header-horizontal-control','header-vertical-control','persistent-display-lock',
+        'progressive-login-disclosure','fallback-auth-tabs','separated-auth-copy','numeric-keypad-pattern',
+        'realtime-pattern-progress','standardized-svg-icons','utility-legal-footer','header-display-dropdown',
     ])
 
 # Keep the original endpoint identity while exposing the current release's
 # verified feature contract instead of accumulating obsolete UI flags.
-app.view_functions['version']=version_v1512
+app.view_functions['version']=version_v1513
 
 @app.route('/login', methods=['GET','POST'])
 def login():
@@ -1870,7 +1872,7 @@ def _agreement_aadhaar_extract_payload(upload):
             ai_error='AI enhancement could not complete.'
     if not any(data.get(k) for k in ('tenant_name','tenant_dob','tenant_address','tenant_id_no')):
         if local_error and not os.getenv('OPENAI_API_KEY','').strip():
-            message='The secure OCR reader is not ready on this deployment. Redeploy Web 1.5.12 with its updated system and Python dependencies, then try again.'
+            message='The secure OCR reader is not ready on this deployment. Redeploy Web 1.5.13 with its updated system and Python dependencies, then try again.'
         else:
             message='No reliable Aadhaar fields were detected. Use a clear, straight photo in good light or a PDF containing both sides, then try again.'
         return {'ok':False,'error':message,'reader_status':local_error or 'No readable identity fields detected.'},422
@@ -2220,7 +2222,7 @@ def food_integration_sync(iid):
     row=db.session.get(FoodIntegration,iid) or abort(404)
     if not row.active or not row.api_enabled or not (row.api_base_url or '').strip():
         flash('Enable API Sync and add the official/API endpoint supplied by the platform first.','warning');return redirect(url_for('food_integrations'))
-    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.12'}
+    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.13'}
     bearer=os.getenv((row.api_token_env or '').strip(),'').strip() if row.api_token_env else ''
     api_key=os.getenv((row.api_key_env or '').strip(),'').strip() if row.api_key_env else ''
     if bearer: headers['Authorization']=f'Bearer {bearer}'

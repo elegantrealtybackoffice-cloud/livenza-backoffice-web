@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% block title %}Food Delivery Hub • Livenza Life{% endblock %}{% block content %}
 <div class="page-head food-page-head"><div><p class="eyebrow">ORDER & SETTLEMENT CONTROL</p><h1>Food Delivery Hub</h1><p class="muted">One command centre for partner orders, payouts, integrations and restaurant portals.</p></div></div>
-<nav class="food-subnav liquid-card" aria-label="Food Delivery Hub sections"><a class="active" href="{{url_for('food')}}" data-app-nav><span>▦</span> Orders & Settlements</a><a href="{{url_for('food_integrations')}}" data-app-nav><span>⌁</span> Integrations</a><a href="{{url_for('food_portals')}}" data-app-nav><span>◫</span> Live Partner Websites</a></nav>
+<nav class="food-subnav liquid-card" aria-label="Food Delivery Hub sections"><a class="active" href="{{url_for('food')}}" data-app-nav><span>▦</span> Orders & Settlements</a><a href="{{url_for('food_integrations')}}" data-app-nav><span><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8m-3-8v5a3 3 0 0 0 6 0V3m-3 8v10m7-18v18m0-18c3 2 4 5 4 8h-4"></path></svg></span> Integrations</a><a href="{{url_for('food_portals')}}" data-app-nav><span>◫</span> Live Partner Websites</a></nav>
 <div class="partner-status-strip liquid-card">
   {% for i in integrations %}<div class="partner-status-pill"><span class="partner-dot {% if i.active %}on{% endif %}"></span><b>{{i.platform}}</b><small>{% if i.last_sync_at %}{{i.last_sync_status or 'Connected'}}{% else %}Ready to configure{% endif %}</small></div>{% endfor %}
 </div>

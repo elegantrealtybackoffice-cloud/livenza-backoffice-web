@@ -32,11 +32,6 @@
       <span class="ai-spark s1">✦</span><span class="ai-spark s2">✦</span><span class="ai-spark s3">·</span>
     </div>
   </div>
-  <nav class="home-display-dock no-print" aria-label="Home screen orientation controls">
-    <button type="button" data-home-display="lock" aria-pressed="false" title="Lock or unlock website rotation"><span aria-hidden="true">⌾</span><small>Lock</small></button>
-    <button type="button" data-home-display="landscape" aria-pressed="false" title="Horizontal website view"><span aria-hidden="true">▭</span><small>Horizontal</small></button>
-    <button type="button" data-home-display="portrait" aria-pressed="false" title="Vertical website view"><span aria-hidden="true">▯</span><small>Vertical</small></button>
-  </nav>
 </section>
 
 <div class="stats">
@@ -80,9 +75,9 @@
     ('agreement_tile.png','Agreement Studio','Agreements, PDF and WhatsApp sharing.','agreements','agreements','✦',agreement_photo,'Business agreement workflow'),
     ('room_tile.png','Room Status & Tenants','Inventory, tenants and automated vacancy reports.','rooms','rooms','▦',room_photo,'Modern Livenza accommodation'),
     ('review_tile.png','Google Review Generator','AI drafts, Google review link and QR.','reviews','reviews','★',office_photo,'Professional review workspace'),
-    ('','Live Queries Manager','Meta, Google, OTA and direct query command center.','queries','queries','◎',office_photo,'Live query operations workspace'),
+    ('','Live Queries Manager','Meta, Google, OTA and direct query command center.','queries','queries','queries',office_photo,'Live query operations workspace'),
     ('','Video Wall Studio • LIVE','Control every TV, upload media, rotate screens and launch festive takeovers.','video_wall','video_wall','▶',hotel_photo,'Hospitality display experience'),
-    ('food_tile.png','Food Delivery Hub','Live Swiggy/Zomato/Toing feeds, partner portals, orders and settlements.','food','food','⌁',food_photo,'Professional food operations'),
+    ('food_tile.png','Food Delivery Hub','Live Swiggy/Zomato/Toing feeds, partner portals, orders and settlements.','food','food','food',food_photo,'Professional food operations'),
     ('rentok_tile.png','Livenza Billing Suite','Billing, collections and account operations portal.','billing','rentok','◈',office_photo,'Connected billing workspace'),
     ('','WhatsApp Workspace','Send and receive official Cloud API messages inside Livenza.','whatsapp_workspace','whatsapp','◍',office_photo,'Connected communications workspace'),
     ('','Email Workspace','Read recent Gmail messages and send email without leaving Livenza.','email_workspace','email','✉',office_photo,'Connected email workspace'),
@@ -92,7 +87,7 @@
   <a class="module-card liquid-card module-{{loop.index}}" data-app-nav href="{{url_for(endpoint)}}">
     <div class="module-card-media">
       <img class="module-photo" src="{{photo}}" srcset="{{photo|replace('w=900','w=520')}} 520w, {{photo}} 900w" sizes="(max-width:700px) 110px, (max-width:1100px) 130px, 126px" alt="{{photo_alt}}" loading="lazy" decoding="async" referrerpolicy="no-referrer">
-      <div class="glass-icon module-icon">{% if icon %}<img src="{{url_for('static',filename=icon)}}" alt="">{% else %}<span>{{glyph}}</span>{% endif %}</div>
+      <div class="glass-icon module-icon">{% if icon %}<img src="{{url_for('static',filename=icon)}}" alt="">{% elif glyph=='queries' %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19v-7m5 7V5m5 14v-4m5 4V8"></path></svg>{% elif glyph=='food' %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8m-3-8v5a3 3 0 0 0 6 0V3m-3 8v10m7-18v18m0-18c3 2 4 5 4 8h-4"></path></svg>{% else %}<span>{{glyph}}</span>{% endif %}</div>
     </div>
     <div class="module-card-copy"><p class="access">ACCESS // AUTHORIZED</p><h3>{{title}}</h3><p>{{desc}}</p><span>OPEN MODULE →</span></div>
   </a>

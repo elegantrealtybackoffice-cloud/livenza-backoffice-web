@@ -20,7 +20,7 @@
   <script>
     (()=>{const small=matchMedia('(max-width:820px)').matches,lowMemory=Number(navigator.deviceMemory||8)<=4,lowCpu=Number(navigator.hardwareConcurrency||8)<=4,saveData=Boolean(navigator.connection?.saveData);if(small||lowMemory||lowCpu||saveData)document.documentElement.classList.add('mobile-performance')})();
   </script>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.12">
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.13">
 </head>
 <body data-page="{{ request.endpoint or '' }}">
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
@@ -31,6 +31,11 @@
     {% if current_user %}
     <header class="topbar liquid-nav reference-header showcase-header">
       <button type="button" id="appsMenuToggle" class="hamburger-button" aria-label="Open applications menu" aria-controls="appsMenu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <div class="view-controls header-rotation-control no-print">
+        <button type="button" id="viewMenuToggle" class="top-tool header-rotate-toggle" aria-label="Open display orientation controls" aria-controls="viewMenu" aria-expanded="false" title="Display orientation">
+          <svg class="ui-icon tool-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 21h8m-4-4v4"></path></svg><span class="tool-label">Display</span><svg class="ui-icon tool-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"></path></svg>
+        </button>
+      </div>
       <a class="hanging-brand compact-header-brand" href="{{url_for('dashboard')}}" aria-label="Livenza Life home"><span class="hanging-ai-core"><img src="{{url_for('static',filename='livenza_logo_transparent.png')}}" alt="Livenza Life"></span></a>
       <nav id="appsMenu" class="apps-mega-menu liquid-card" aria-label="Applications" hidden>
         <div class="apps-menu-head"><div><p class="eyebrow">LIVENZA APPLICATIONS</p><b>Everything in one workspace</b></div><button type="button" id="appsMenuClose" aria-label="Close applications menu">×</button></div>
@@ -38,36 +43,31 @@
           <a class="{% if request.endpoint=='dashboard' %}active{% endif %}" href="{{url_for('dashboard')}}" data-app-nav><i>⌂</i><span><b>Home</b><small>Live operations overview</small></span></a>
           {% if can_access('agreements') %}<a href="{{url_for('agreements')}}" data-app-nav><i>▤</i><span><b>Agreements</b><small>Documents and sharing</small></span></a>{% endif %}
           {% if can_access('rooms') %}<a href="{{url_for('rooms')}}" data-app-nav><i>▦</i><span><b>Rooms</b><small>Inventory and vacancy</small></span></a><a href="{{url_for('tenants')}}" data-app-nav><i>◉</i><span><b>Tenants</b><small>Resident master records</small></span></a>{% endif %}
-          {% if can_access('queries') %}<a href="{{url_for('queries')}}" data-app-nav><i>◎</i><span><b>Queries</b><small>Live leads and follow-up</small></span></a>{% endif %}
+          {% if can_access('queries') %}<a href="{{url_for('queries')}}" data-app-nav><i><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19v-7m5 7V5m5 14v-4m5 4V8"></path></svg></i><span><b>Queries</b><small>Live leads and follow-up</small></span></a>{% endif %}
           {% if can_access('reviews') %}<a href="{{url_for('reviews')}}" data-app-nav><i>★</i><span><b>Reviews</b><small>Google review studio</small></span></a>{% endif %}
           {% if can_access('video_wall') %}<a href="{{url_for('video_wall')}}" data-app-nav><i>▶</i><span><b>Video Wall</b><small>Screens and commercials</small></span></a>{% endif %}
-          {% if can_access('food') %}<a href="{{url_for('food')}}" data-app-nav><i>⌁</i><span><b>Food</b><small>Delivery partner hub</small></span></a>{% endif %}
+          {% if can_access('food') %}<a href="{{url_for('food')}}" data-app-nav><i><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8m-3-8v5a3 3 0 0 0 6 0V3m-3 8v10m7-18v18m0-18c3 2 4 5 4 8h-4"></path></svg></i><span><b>Food</b><small>Delivery partner hub</small></span></a>{% endif %}
           {% if can_access('rentok') %}<a href="{{url_for('billing')}}" data-app-nav><i>◈</i><span><b>Billing</b><small>Collections and accounts</small></span></a>{% endif %}
           {% if can_access('whatsapp') %}<a href="{{url_for('whatsapp_workspace')}}" data-app-nav><i>◍</i><span><b>WhatsApp</b><small>Cloud conversations</small></span></a>{% endif %}
           {% if can_access('email') %}<a href="{{url_for('email_workspace')}}" data-app-nav><i>✉</i><span><b>Email</b><small>Gmail workspace</small></span></a>{% endif %}
           {% if can_access('drive') %}<a href="{{url_for('drive_workspace')}}" data-app-nav><i>☁</i><span><b>Drive</b><small>Cloud files</small></span></a>{% endif %}
           <a href="{{url_for('account')}}" data-app-nav><i>◉</i><span><b>My Account</b><small>Profile and sign-in security</small></span></a>
-          {% if is_admin %}<a href="{{url_for('admin_panel')}}" data-app-nav><i>⌘</i><span><b>Admin</b><small>Users and access</small></span></a><a href="{{url_for('settings_page')}}" data-app-nav><i>⚙</i><span><b>Settings</b><small>System configuration</small></span></a>{% endif %}
+          {% if is_admin %}<a href="{{url_for('admin_panel')}}" data-app-nav><i>⌘</i><span><b>Admin</b><small>Users and access</small></span></a><a href="{{url_for('settings_page')}}" data-app-nav><i><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path></svg></i><span><b>Settings</b><small>System configuration</small></span></a>{% endif %}
           <a href="{{url_for('logout')}}"><i>↗</i><span><b>Logout</b><small>End this session</small></span></a>
         </div>
       </nav>
-      <div class="view-controls header-rotation-control no-print">
-        <button type="button" id="viewMenuToggle" class="top-tool header-rotate-toggle" aria-label="Rotate website and display options" aria-controls="viewMenu" aria-expanded="false" title="Rotate website">
-          <span class="tool-icon" aria-hidden="true">↻</span><span class="tool-label">Rotate</span><span class="tool-chevron" aria-hidden="true">⌄</span>
-        </button>
-      </div>
       <div class="header-actions icon-header-actions no-print">
         <a class="header-icon-link" href="{{url_for('dashboard')}}#applications" title="Favourite applications" aria-label="Favourite applications">♥</a>
         {% if can_access('rooms') %}<a class="header-icon-link" href="{{url_for('rooms')}}" data-app-nav title="Locations and rooms" aria-label="Locations and rooms">⌖</a>{% endif %}
-        {% if is_admin %}<a class="header-icon-link" href="{{url_for('settings_page')}}" data-app-nav title="Settings" aria-label="Settings">⚙</a>{% endif %}
+        {% if is_admin %}<a class="header-icon-link" href="{{url_for('settings_page')}}" data-app-nav title="Settings" aria-label="Settings"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path></svg></a>{% endif %}
         <details class="nav-dropdown profile-dropdown">
           <summary class="profile-toggle" aria-label="Account menu">{% if current_user.avatar_data_uri or current_user.photo_data_uri %}<img src="{{current_user.avatar_data_uri or current_user.photo_data_uri}}" alt="{{current_user.full_name or current_user.username}} profile avatar">{% else %}<span class="profile-initial">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}<span class="profile-name"><small>{{current_user.role|title}}</small>{{current_user.full_name or current_user.username}}</span><span class="nav-caret">⌄</span></summary>
-          <div class="nav-dropdown-menu account-dropdown-menu liquid-card" role="menu"><div class="nav-dropdown-title"><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}}</small></div><a role="menuitem" href="{{url_for('account')}}"><span class="menu-symbol">◉</span><span><b>My Account</b><small>Profile & identity</small></span></a>{% if is_admin %}<a role="menuitem" href="{{url_for('admin_panel')}}"><span class="menu-symbol">⌘</span><span><b>Admin</b><small>Users & access</small></span></a><a role="menuitem" href="{{url_for('settings_page')}}"><span class="menu-symbol">⚙</span><span><b>Settings</b><small>System configuration</small></span></a>{% endif %}{% if kiosk_mode_enabled %}<form method="post" action="{{url_for('kiosk_relock')}}" class="dropdown-lock-form"><button role="menuitem" type="submit"><span class="menu-symbol">▣</span><span><b>Lock Screen</b><small>Require PIN or password</small></span></button></form>{% endif %}<div class="nav-dropdown-divider"></div><a role="menuitem" class="logout-menu-item" href="{{url_for('logout')}}"><span class="menu-symbol">↗</span><span><b>Logout</b><small>End this session</small></span></a></div>
+          <div class="nav-dropdown-menu account-dropdown-menu liquid-card" role="menu"><div class="nav-dropdown-title"><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}}</small></div><a role="menuitem" href="{{url_for('account')}}"><span class="menu-symbol">◉</span><span><b>My Account</b><small>Profile & identity</small></span></a>{% if is_admin %}<a role="menuitem" href="{{url_for('admin_panel')}}"><span class="menu-symbol">⌘</span><span><b>Admin</b><small>Users & access</small></span></a><a role="menuitem" href="{{url_for('settings_page')}}"><span class="menu-symbol"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path></svg></span><span><b>Settings</b><small>System configuration</small></span></a>{% endif %}{% if kiosk_mode_enabled %}<form method="post" action="{{url_for('kiosk_relock')}}" class="dropdown-lock-form"><button role="menuitem" type="submit"><span class="menu-symbol">▣</span><span><b>Lock Screen</b><small>Require PIN or password</small></span></button></form>{% endif %}<div class="nav-dropdown-divider"></div><a role="menuitem" class="logout-menu-item" href="{{url_for('logout')}}"><span class="menu-symbol">↗</span><span><b>Logout</b><small>End this session</small></span></a></div>
         </details>
       </div>
     </header>
 
-    {% if marquee_enabled %}<div class="operations-marquee live-operations-marquee" id="liveOperationsMarquee" aria-label="Live Livenza operational status"><div class="marquee-live-label"><i></i> LIVE</div><div class="operations-marquee-track" id="liveMarqueeTrack"><span><b>Livenza</b> Loading live operations…</span><i>◆</i></div>{% if is_admin %}<a href="{{url_for('settings_page')}}#marquee-settings" class="marquee-settings-link" title="Configure marquee" aria-label="Configure marquee">⚙</a>{% endif %}</div>{% endif %}
+    {% if marquee_enabled %}<div class="operations-marquee live-operations-marquee" id="liveOperationsMarquee" aria-label="Live Livenza operational status"><div class="marquee-live-label"><i></i> LIVE</div><div class="operations-marquee-track" id="liveMarqueeTrack"><span><b>Livenza</b> Loading live operations…</span><i>◆</i></div>{% if is_admin %}<a href="{{url_for('settings_page')}}#marquee-settings" class="marquee-settings-link" title="Configure marquee" aria-label="Configure marquee"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path></svg></a>{% endif %}</div>{% endif %}
     {% endif %}
 
     <main id="appMain" class="shell {% if not current_user %}login-shell{% endif %}">
@@ -118,7 +118,7 @@
     <div id="easterToast" class="easter-toast no-print" hidden>Live the Livenza Life ✦</div>
     {% endif %}
 
-    <footer class="site-footer liquid-footer" data-livenza-footer="true">
+    <footer class="site-footer liquid-footer utility-legal-footer" data-livenza-footer="true">
       <div class="footer-company">
         <b>© <span id="footerYear"></span> Livenza Life LLP. All rights reserved.</b>
         <small>Head Office: 325 G, Sector 38, Gurugram, Haryana - 122001</small>
@@ -129,21 +129,16 @@
   </div>
 
   {% if current_user %}
-  <section id="viewMenu" class="rotate-menu-global no-print" role="dialog" aria-label="Rotate website and display options" hidden>
-    <div class="rotate-menu-head"><b>Rotate Website</b><small>Choose how the entire Livenza workspace appears on this screen.</small></div>
-    <button type="button" data-view-mode="auto"><span aria-hidden="true">A</span><div><b>Automatic</b><small>Use the browser’s natural orientation</small></div></button>
-    <button type="button" data-view-mode="portrait"><span aria-hidden="true">▯</span><div><b>Portrait</b><small>Compact upright workspace</small></div></button>
-    <button type="button" data-view-mode="landscape"><span aria-hidden="true">▭</span><div><b>Landscape</b><small>Wide screen layout</small></div></button>
-    <button type="button" data-view-mode="90"><span aria-hidden="true">↻</span><div><b>Rotate 90°</b><small>Clockwise for vertical displays</small></div></button>
-    <button type="button" data-view-mode="180"><span aria-hidden="true">↷</span><div><b>Rotate 180°</b><small>Upside-down screen mounting</small></div></button>
-    <button type="button" data-view-mode="270"><span aria-hidden="true">↺</span><div><b>Rotate 270°</b><small>Counter-clockwise vertical view</small></div></button>
-    <div class="rotate-menu-divider"></div>
-    <button type="button" id="fullscreenToggle" class="fullscreen-menu-action" aria-pressed="false"><span aria-hidden="true">⛶</span><div><b class="tool-label">Full Screen</b><small>Use browser fullscreen or safe theatre mode</small></div></button>
+  <section id="viewMenu" class="rotate-menu-global header-display-menu no-print" role="dialog" aria-label="Display orientation" hidden>
+    <div class="rotate-menu-head"><b>Display Orientation</b><small>Keep the website aligned to this screen.</small></div>
+    <button type="button" data-home-display="lock" aria-pressed="false"><span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"></path></svg></span><div><b>Rotation Lock</b><small>Prevent automatic orientation changes</small></div></button>
+    <button type="button" data-home-display="landscape" aria-pressed="false"><span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M9 21h6"></path></svg></span><div><b>Horizontal</b><small>Use a wide landscape workspace</small></div></button>
+    <button type="button" data-home-display="portrait" aria-pressed="false"><span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"></rect><path d="M11 18h2"></path></svg></span><div><b>Vertical</b><small>Use a tall portrait workspace</small></div></button>
     <p id="orientationStatus" class="view-orientation-status" role="status" aria-live="polite">Automatic display active.</p>
   </section>
   {% endif %}
 
-  <script src="{{url_for('static',filename='app.js')}}?v=1.5.12"></script>
+  <script src="{{url_for('static',filename='app.js')}}?v=1.5.13"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

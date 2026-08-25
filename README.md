@@ -1,4 +1,17 @@
-# Livenza Life Operations Cloud — Web 1.5.12
+# Livenza Life Operations Cloud — Web 1.5.13
+
+## Web 1.5.13 progressive authentication and header display controls
+
+- The initial sign-in card now shows only Login ID and a clearly separated **Verify Device** action, with Windows Hello, Touch ID, Face ID and passkey support shown as secondary text.
+- Password and gesture entry remain hidden until device verification fails or the user opens **Try another sign-in method**. The fallback uses accessible Password and Gesture/Keypad tabs so the two methods never compete on screen.
+- Password Login has a distinct **Biometric-free option** status badge, a visibility toggle and field-specific live error guidance.
+- Touch devices retain smooth gesture drawing. Fine-pointer desktop devices receive a numbered 3×3 keypad that accepts number keys 1–9, Backspace and Delete without slow arrow-key navigation.
+- Four live progress nodes show pattern completion and turn green when the four-point minimum is reached. A visible SVG **Clear Pattern** action replaces the old double-tap interaction.
+- Text-symbol interface icons in the authentication and primary navigation surfaces were replaced with scalable inline SVG icons.
+- The legal/company disclosure remains outside the sign-in card in a muted utility footer.
+- Rotation Lock, Horizontal and Vertical are now consolidated into one compact **Display** dropdown immediately beside the three-line Applications button. The old floating Home controls and extra rotation items are removed.
+
+No new database migration is required. Existing installations upgrading from before Web 1.5.12 must still apply `migrations/web_v1_5_12.sql`.
 
 ## Web 1.5.12 personal live avatar and rotation stability
 
@@ -144,7 +157,7 @@ Deploy as usual, then confirm `/version` returns `Web 1.5.9` and includes `unifi
 5. Configure passkeys: `WEBAUTHN_RP_ID=YOUR-SITE-HOST` and `WEBAUTHN_ORIGIN=https://YOUR-SITE`.
 6. In Admin, connect Google, assign the WhatsApp/Email/Drive permissions, enable pattern or fingerprint access per user, and optionally enable kiosk lock.
 
-See `README_v1.5.12.md`, `README_v1.5.11.md`, `README_v1.5.10.md`, `README_v1.5.9.md`, `README_v1.5.8.md`, `README_v1.5.7.md`, `README_v1.5.6.md`, `README_v1.5.5.md`, `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
+See `README_v1.5.13.md`, `README_v1.5.12.md`, `README_v1.5.11.md`, `README_v1.5.10.md`, `README_v1.5.9.md`, `README_v1.5.8.md`, `README_v1.5.7.md`, `README_v1.5.6.md`, `README_v1.5.5.md`, `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
 
 ## Web 1.4.9 addition
 - The Livenza Assistant now has a high-contrast cross icon that remains visible after messages are added.

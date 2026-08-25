@@ -2,33 +2,58 @@
 {% block title %}Login · Livenza Back Office{% endblock %}
 {% block content %}
 {% set auth_error = login_error or {} %}
+{% set fallback_mode = 'pattern' if login_method=='pattern' else 'password' %}
 <div class="login-card auth-login-card biometric-first-login">
   <img src="{{url_for('static',filename='livenza_logo.png')}}" class="login-logo" alt="Livenza Life">
-  <p class="eyebrow">SECURE WEB ACCESS</p><h1>Welcome to Livenza</h1>
-  <p class="muted">Use this device’s secure sign-in first. Password and gesture pattern remain available as immediate fallbacks.</p>
-  <form method="post" class="stack" id="loginForm" novalidate>
-    <input type="hidden" name="auth_method" id="authMethod" value="{{login_method or 'fingerprint'}}">
+  <p class="eyebrow">SECURE WEB ACCESS</p>
+  <h1>Welcome to Livenza</h1>
+  <p class="muted">Enter your Login ID, then verify with this device. Password and gesture options stay hidden until you request them.</p>
+
+  <form method="post" class="stack progressive-login-form" id="loginForm" novalidate>
+    <input type="hidden" name="auth_method" id="authMethod" value="{{fallback_mode if auth_error else 'fingerprint'}}">
 
     <div class="auth-field {{'has-error' if auth_error.field in ['username','account'] else ''}}" data-auth-field="username">
       <label for="loginUsername">Login ID</label>
-      <div class="auth-input-frame">
+      <div class="auth-input-frame auth-id-frame">
+        <svg class="auth-field-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.5-4.1 2.9-6.2 7-6.2s6.5 2.1 7 6.2"></path></svg>
         <input id="loginUsername" name="username" value="{{login_username or ''}}" autocomplete="username webauthn" aria-describedby="loginUsernameFeedback" aria-invalid="{{'true' if auth_error.field in ['username','account'] else 'false'}}" required autofocus>
       </div>
       <small id="loginUsernameFeedback" class="field-feedback" aria-live="polite">{% if auth_error.field in ['username','account'] %}{{auth_error.message}}{% else %}Use the Login ID assigned by your administrator.{% endif %}</small>
     </div>
 
-    <button type="button" class="primary biometric-primary" id="fingerprintLogin"><span class="fingerprint-mark" aria-hidden="true">◎</span><span><b>Continue with Device Security</b><small>Windows Hello, Touch ID, Face ID or passkey</small></span><span aria-hidden="true">›</span></button>
+    <button type="button" class="primary biometric-primary" id="fingerprintLogin">
+      <span class="auth-primary-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="4"></rect><path d="M9 10.5a3 3 0 0 1 6 0v2.2M8.5 14.5c.5 2.4 1.7 3.6 3.5 3.6s3-1.2 3.5-3.6M12 7.5v6.7"></path></svg></span>
+      <span class="auth-primary-copy"><strong>Verify Device</strong><small>Windows Hello · Touch ID · Face ID · Passkey</small></span>
+      <svg class="auth-primary-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+    </button>
+
     <div id="deviceCredentialLoader" class="credential-skeleton" role="status" aria-live="polite" hidden>
       <span class="credential-skeleton-icon"></span><div><i></i><i></i><small>Checking secure credentials on this device…</small></div>
     </div>
-    <p id="webauthnStatus" class="muted auth-live-status" aria-live="polite">Biometric data stays on your device.</p>
-    <button type="button" id="authFallbackToggle" class="auth-method-link" aria-expanded="{{'true' if auth_error else 'false'}}" aria-controls="authFallbackLayer">⚙️ Try another sign-in method</button>
+    <p id="webauthnStatus" class="muted auth-live-status" aria-live="polite"><span class="status-safe-dot"></span>Biometric data stays on your device.</p>
+
+    <button type="button" id="authFallbackToggle" class="auth-method-link" aria-expanded="{{'true' if auth_error else 'false'}}" aria-controls="authFallbackLayer">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"></path><circle cx="16" cy="7" r="2"></circle><circle cx="8" cy="17" r="2"></circle></svg>
+      <span>Try another sign-in method</span>
+      <svg class="auth-link-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"></path></svg>
+    </button>
 
     <div id="authFallbackLayer" class="auth-fallback-layer {{'is-open' if auth_error else ''}}" {% if not auth_error %}hidden{% endif %}>
-    <div class="auth-fallback-divider"><span>Choose a secure fallback</span></div>
-    <details class="auth-fallback" id="passwordFallback" {% if login_method=='password' and auth_error %}open{% endif %}>
-      <summary><span>⌨</span><span><b>Use password</b><small>Available without a biometric device</small></span><i>⌄</i></summary>
-      <div class="auth-fallback-body">
+      <div class="auth-fallback-divider"><span>Choose one fallback</span></div>
+      <div class="auth-fallback-tabs" role="tablist" aria-label="Alternative sign-in methods">
+        <button type="button" id="passwordMethodTab" role="tab" data-auth-method-tab="password" aria-controls="passwordFallback" aria-selected="{{'true' if fallback_mode=='password' else 'false'}}" class="{{'active' if fallback_mode=='password' else ''}}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4"></circle><path d="M12 12h8M17 12v3M20 12v2"></path></svg>
+          <span><b>Use Password Login</b><small>Standard secure entry</small></span>
+          <em>Biometric-free option</em>
+        </button>
+        <button type="button" id="patternMethodTab" role="tab" data-auth-method-tab="pattern" aria-controls="patternFallback" aria-selected="{{'true' if fallback_mode=='pattern' else 'false'}}" class="{{'active' if fallback_mode=='pattern' else ''}}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="1.5"></circle><circle cx="12" cy="6" r="1.5"></circle><circle cx="18" cy="6" r="1.5"></circle><circle cx="6" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="18" cy="12" r="1.5"></circle><circle cx="6" cy="18" r="1.5"></circle><circle cx="12" cy="18" r="1.5"></circle><circle cx="18" cy="18" r="1.5"></circle></svg>
+          <span><b>Gesture or Keypad</b><small>Touch on mobile · numbers on desktop</small></span>
+        </button>
+      </div>
+
+      <section class="auth-method-panel" id="passwordFallback" role="tabpanel" aria-labelledby="passwordMethodTab" data-auth-method-panel="password" {% if fallback_mode!='password' %}hidden{% endif %}>
+        <div class="auth-method-heading"><div><b>Use Password Login</b><small>Enter the password for this Login ID.</small></div><span class="auth-state-badge">Biometric-free option</span></div>
         <div class="auth-field {{'has-error' if auth_error.field=='password' else ''}}" data-auth-field="password">
           <label for="loginPassword">Password</label>
           <div class="auth-input-frame password-input-frame">
@@ -39,27 +64,27 @@
           </div>
           <small id="loginPasswordFeedback" class="field-feedback" aria-live="polite">{% if auth_error.field=='password' %}{{auth_error.message}}{% else %}Password is case-sensitive.{% endif %}</small>
         </div>
-        <button class="secondary" id="normalLoginButton" data-submit-auth="password">Sign in with password</button>
-      </div>
-    </details>
+        <button class="secondary auth-method-submit" id="normalLoginButton" data-submit-auth="password">Sign in with Password</button>
+      </section>
 
-    <details class="auth-fallback" id="patternFallback" {% if login_method=='pattern' and auth_error %}open{% endif %}>
-      <summary><span>⌁</span><span><b>Use gesture pattern</b><small>Choose four or more points by touch, pointer or keyboard</small></span><i>⌄</i></summary>
-      <div class="auth-fallback-body">
+      <section class="auth-method-panel" id="patternFallback" role="tabpanel" aria-labelledby="patternMethodTab" data-auth-method-panel="pattern" {% if fallback_mode!='pattern' %}hidden{% endif %}>
+        <div class="auth-method-heading"><div><b>Gesture Pattern</b><small class="touch-instruction">Touch or drag across at least four different points.</small><small class="keypad-instruction">Type at least four different numbers from 1 to 9.</small></div><span class="auth-state-badge">Touch + keyboard</span></div>
         <div class="pattern-entry-shell {{'has-error' if auth_error.field=='pattern' else ''}}">
-          <div class="pattern-grid gesture-matrix" data-pattern-widget data-pattern-label="Login gesture pattern" role="group" aria-label="Login gesture pattern">
+          <div class="pattern-grid gesture-matrix" data-pattern-widget data-pattern-label="Login gesture or numeric pattern" role="group" aria-label="Login gesture or numeric pattern">
             <input type="hidden" name="pattern" data-pattern-value>
-            {% for i in range(9) %}<button type="button" data-pattern-node="{{i}}" aria-label="Pattern point {{i+1}}" aria-pressed="false"><span></span></button>{% endfor %}
+            {% for i in range(9) %}<button type="button" data-pattern-node="{{i}}" aria-label="Pattern number {{i+1}}" aria-pressed="false"><span class="pattern-dot"></span><b class="pattern-number">{{i+1}}</b></button>{% endfor %}
           </div>
           <div class="pattern-control-bar" data-pattern-controls>
-            <span class="pattern-selection-status" data-pattern-status aria-live="polite">No points selected</span>
-            <button type="button" class="pattern-clear-button" data-pattern-clear><span aria-hidden="true">🧹</span> Clear Grid</button>
+            <span class="pattern-selection-status" data-pattern-status aria-live="polite">
+              <span class="pattern-progress-dots" data-pattern-progress-dots aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <b data-pattern-progress-label>0 / 4 selected</b>
+            </span>
+            <button type="button" class="pattern-clear-button" data-pattern-clear><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 15 7-7 6 6-7 7H6l-2-2a3 3 0 0 1 0-4Z"></path><path d="m14 11 3-3 3 3-3 3"></path></svg><span>Clear Pattern</span></button>
           </div>
-          <small class="field-feedback pattern-help" data-pattern-help data-default-message="Drag across points, or use arrow keys to move and Enter or Space to select. Choose at least four.">{% if auth_error.field=='pattern' %}{{auth_error.message}}{% else %}Drag across points, or use arrow keys to move and Enter or Space to select. Choose at least four.{% endif %}</small>
+          <small class="field-feedback pattern-help" data-pattern-help data-default-message="Touch or drag on mobile. On desktop, type four different numbers from 1 to 9.">{% if auth_error.field=='pattern' %}{{auth_error.message}}{% else %}Touch or drag on mobile. On desktop, type four different numbers from 1 to 9.{% endif %}</small>
         </div>
-        <button class="secondary" data-submit-auth="pattern">Sign in with gesture</button>
-      </div>
-    </details>
+        <button class="secondary auth-method-submit" data-submit-auth="pattern">Sign in with Gesture</button>
+      </section>
     </div>
 
     <div id="loginFormAlert" class="auth-inline-alert" role="alert" aria-live="assertive" {% if not auth_error.message %}hidden{% endif %}>{% if auth_error.message %}{{auth_error.message}}{% endif %}</div>
