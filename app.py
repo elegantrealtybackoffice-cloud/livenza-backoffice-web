@@ -25,7 +25,7 @@ except Exception:
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.6.1'
+APP_VERSION = 'Web 1.6.2'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -1297,14 +1297,16 @@ def _ai_avatar_data_uri(raw):
             model=os.getenv('OPENAI_AVATAR_MODEL','gpt-image-2'),
             image=source_buf,
             prompt=(
-                'Create a clean, premium live assistant avatar of the same person shown across this reference board. The source may be '
-                'a side profile, three-quarter angle, candid, full-body, off-centre, low-light, slightly soft, partially obstructed or '
-                'not front-facing. Use all visible references together to recover identity conservatively. Preserve facial geometry, '
-                'skin tone, hairstyle, eyewear, age and distinctive visible traits faithfully; never invent a distinctive feature that '
-                'is not supported by the source. Recompose only the framing into a friendly head-and-shoulders professional 3D editorial '
-                'portrait, sophisticated rather than cartoonish, with a soft white and ice-blue studio background and restrained Livenza '
-                'blue accent in the clothing. Soft natural light, refined materials, confident welcoming expression, centered square '
-                'composition. No text, no logo, no border, no extra people, no exaggerated features and no childish robot styling.'
+                'Create a premium animated Livenza male mascot based on the same person shown across this reference board. This must be '
+                'a distinct character mascot, not a polished copy of the photo. The source may be a side profile, three-quarter angle, '
+                'candid, full-body, off-centre, low-light, slightly soft, partially obstructed or not front-facing; use all visible '
+                'references together to recover identity conservatively. Preserve recognizable facial geometry, skin tone, hairstyle, '
+                'eyewear, approximate age and distinctive visible traits faithfully, but reinterpret the person as a clean 3D/semi-realistic '
+                'animated character. Show a friendly three-quarter or full-body standing pose with natural proportions, a confident welcoming '
+                'expression, and premium Livenza styling. Dress the mascot in a refined smart-casual Livenza outfit using white, navy and '
+                'subtle ice-blue accents. Use a clean soft background or clean cutout feeling suitable for placing across a dashboard. '
+                'Sophisticated rather than childish, charming rather than robotic. No text, no logo, no border, no extra people, no copied '
+                'photo framing, no passport, and no realistic photography look.'
             ),
             size='1024x1024',
             quality=os.getenv('OPENAI_AVATAR_QUALITY','high'),
@@ -1318,17 +1320,17 @@ def _ai_avatar_data_uri(raw):
         return _jpeg_data_uri(_portrait_image(generated,768),768,89), ''
     except Exception as exc:
         app.logger.warning('Live avatar generation fell back to local polish: %s',str(exc)[:180])
-        return '', 'AI styling was unavailable, so the private polished portrait was used.'
+        return '', 'AI mascot styling was unavailable, so the private polished portrait was used.'
 
 def create_live_avatar(raw, prefer_ai=True):
     if prefer_ai:
         generated,error=_ai_avatar_data_uri(raw)
-        if generated: return generated,'ai','AI avatar created and applied across the workspace.'
+        if generated: return generated,'ai','AI live mascot created and applied across the workspace.'
     else:
         error=''
     fallback=polished_avatar_data_uri_from_bytes(raw)
     if fallback:
-        return fallback,'polished',('Polished live avatar created. AI styling will activate when the image service is available.' if error else 'Polished live avatar created.')
+        return fallback,'polished',('Polished profile avatar created. AI mascot styling will activate when the image service is available.' if error else 'Polished profile avatar created.')
     return '','','The selected image could not be converted into an avatar.'
 
 def masked_aadhaar(last4):
@@ -1989,7 +1991,7 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture','avatar-camera-device-selector','avatar-direct-blob-submit','reliable-local-avatar-fallback','banking-suite','official-bank-launcher','encrypted-bank-statement-vault','reconciliation-template-library','bank-statement-reconciliation'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture','avatar-camera-device-selector','avatar-direct-blob-submit','reliable-local-avatar-fallback','banking-suite','official-bank-launcher','encrypted-bank-statement-vault','reconciliation-template-library','bank-statement-reconciliation','admin-managed-profile-control','admin-avatar-studio','admin-role-permissions'])
 
 def version_v1513():
     return jsonify(version=APP_VERSION,features=[
@@ -2003,7 +2005,7 @@ def version_v1513():
         'accessible-pattern-hitboxes','keyboard-pattern-navigation','dedicated-pattern-clear','absolute-legal-strip',
         'restored-header-rotation','responsive-rotation-popover','website-rotation-modes','rotation-fullscreen-control',
         'personal-live-avatar','profile-photo-avatar-generation','gpt-image-avatar-styling','polished-avatar-fallback',
-        'workspace-wide-avatar-identity','responsive-avatar-companion','avatar-upload-progress','avatar-reset-control',
+        'workspace-wide-avatar-identity','responsive-avatar-companion','avatar-upload-progress','avatar-reset-control','animated-mascot-avatar',
         'header-rotation-lock','header-horizontal-control','header-vertical-control','persistent-display-lock',
         'progressive-login-disclosure','fallback-auth-tabs','separated-auth-copy','numeric-keypad-pattern',
         'realtime-pattern-progress','standardized-svg-icons','utility-legal-footer','header-display-dropdown',
@@ -2059,56 +2061,17 @@ def logout(): session.clear(); return redirect(url_for('login'))
 def account():
     u=current_user()
     if request.method=='POST':
-        if request.form.get('new_password'):
-            u.password_hash=generate_password_hash(request.form['new_password'])
-        if request.form.get('username'):
-            u.username=request.form['username'].strip()
-        if request.form.get('full_name') is not None:
-            u.full_name=request.form.get('full_name','').strip()
-        if request.files.get('photo') and request.files['photo'].filename:
-            raw,error=_upload_image_bytes(request.files['photo'])
-            if not error:
-                profile=profile_photo_data_uri_from_bytes(raw)
-                avatar,mode,_=create_live_avatar(raw,prefer_ai=request.form.get('use_ai_avatar','1')=='1')
-                if profile: u.photo_data_uri=profile
-                if avatar:
-                    u.avatar_data_uri=avatar; u.avatar_generation_mode=mode; u.avatar_updated_at=datetime.datetime.utcnow()
-        last4=''.join(ch for ch in request.form.get('aadhaar_last4','') if ch.isdigit())[-4:]
-        if last4: u.aadhaar_last4=last4
-        if request.form.get('aadhaar_name') is not None: u.aadhaar_name=request.form.get('aadhaar_name','').strip()
-        db.session.commit(); flash('Account updated.','success'); return redirect(url_for('account'))
+        flash('Only administrators can change user details, passwords, photos or avatars.','danger')
+        return redirect(url_for('account'))
     return render_template('account.html', user=u, avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()))
 
 @app.route('/account/avatar',methods=['POST'])
 @login_required
 def account_avatar():
-    u=current_user()
     wants_json=request.headers.get('X-Requested-With')=='XMLHttpRequest' or 'application/json' in request.headers.get('Accept','')
-    if request.form.get('reset_avatar')=='1':
-        u.avatar_data_uri=''; u.avatar_generation_mode=''; u.avatar_updated_at=datetime.datetime.utcnow(); db.session.commit()
-        message='The original Livenza companion is active again.'
-        if wants_json: return jsonify(ok=True,reset=True,message=message)
-        flash(message,'success'); return redirect(url_for('account'))
-    upload=request.files.get('avatar_photo') or request.files.get('photo')
-    if upload and upload.filename:
-        raw,error=_upload_image_bytes(upload)
-    elif request.form.get('regenerate_avatar')=='1' and u.photo_data_uri:
-        raw=_data_uri_bytes(u.photo_data_uri); error='' if raw else 'Upload the profile photo again to regenerate the avatar.'
-    else:
-        raw,error=b'','Choose a profile photo or capture one with the camera.'
-    if error:
-        if wants_json: return jsonify(ok=False,error=error),400
-        flash(error,'danger'); return redirect(url_for('account'))
-    profile=profile_photo_data_uri_from_bytes(raw)
-    avatar,mode,message=create_live_avatar(raw,prefer_ai=request.form.get('use_ai_avatar','1')=='1')
-    if not avatar:
-        if wants_json: return jsonify(ok=False,error=message),422
-        flash(message,'danger'); return redirect(url_for('account'))
-    if profile: u.photo_data_uri=profile
-    u.avatar_data_uri=avatar; u.avatar_generation_mode=mode; u.avatar_updated_at=datetime.datetime.utcnow(); db.session.commit()
-    if wants_json:
-        return jsonify(ok=True,avatar_data_uri=avatar,profile_data_uri=profile,mode=mode,message=message)
-    flash(message,'success'); return redirect(url_for('account'))
+    error='Only administrators can change profile photos or live mascots.'
+    if wants_json: return jsonify(ok=False,error=error),403
+    flash(error,'danger'); return redirect(url_for('account'))
 
 @app.route('/')
 @login_required
@@ -3515,7 +3478,7 @@ def admin_panel():
         query_templates=QueryTemplate.query.order_by(QueryTemplate.id.desc()).all(), aadhaar_provider_configured=bool(os.getenv('AADHAAR_AUTH_URL','').strip()),
         credentials=credentials, google_oauth_ready=google_oauth_configured(), google_is_connected=google_connected(),
         drive_folder_id=setting('google_drive_folder_id',''), drive_auto_backup=setting('google_drive_auto_backup','0')=='1',
-        kiosk_enabled=setting('kiosk_mode_enabled','0')=='1')
+        kiosk_enabled=setting('kiosk_mode_enabled','0')=='1', avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()))
 
 @app.route('/admin/kiosk/settings',methods=['POST'])
 @admin_required
@@ -3568,10 +3531,11 @@ def admin_user_save():
     if request.files.get('photo') and request.files['photo'].filename:
         raw,error=_upload_image_bytes(request.files['photo'])
         if not error:
-            profile=profile_photo_data_uri_from_bytes(raw); avatar=polished_avatar_data_uri_from_bytes(raw)
+            profile=profile_photo_data_uri_from_bytes(raw)
+            avatar,mode,_=create_live_avatar(raw,prefer_ai=request.form.get('use_ai_avatar','1')=='1')
             if profile: u.photo_data_uri=profile
             if avatar:
-                u.avatar_data_uri=avatar; u.avatar_generation_mode='polished'; u.avatar_updated_at=datetime.datetime.utcnow()
+                u.avatar_data_uri=avatar; u.avatar_generation_mode=mode; u.avatar_updated_at=datetime.datetime.utcnow()
     last4=''.join(ch for ch in request.form.get('aadhaar_last4','') if ch.isdigit())[-4:]
     if last4: u.aadhaar_last4=last4
     if request.form.get('aadhaar_name') is not None: u.aadhaar_name=request.form.get('aadhaar_name','').strip()
@@ -3597,6 +3561,40 @@ def admin_user_delete(uid):
     else:
         db.session.delete(u); db.session.commit(); flash('User deleted.','success')
     return redirect(url_for('admin_panel'))
+
+@app.route('/admin/users/<int:uid>/avatar', methods=['POST'])
+@admin_required
+def admin_user_avatar(uid):
+    u=db.session.get(User,uid) or abort(404)
+    upload=request.files.get('photo') or request.files.get('avatar_photo')
+    action=(request.form.get('avatar_action') or '').strip()
+    if action=='reset':
+        u.avatar_data_uri=''; u.avatar_generation_mode=''; u.avatar_updated_at=datetime.datetime.utcnow(); db.session.commit()
+        flash(f'Default Livenza mascot restored for {u.full_name or u.username}.','success')
+        return redirect(url_for('admin_panel')+f'#user-{u.id}')
+    if action=='remove_photo':
+        u.photo_data_uri=''; u.avatar_data_uri=''; u.avatar_generation_mode=''; u.avatar_updated_at=datetime.datetime.utcnow(); db.session.commit()
+        flash(f'Photo and mascot removed for {u.full_name or u.username}.','success')
+        return redirect(url_for('admin_panel')+f'#user-{u.id}')
+    if upload and upload.filename:
+        raw,error=_upload_image_bytes(upload)
+    elif action=='regenerate' and u.photo_data_uri:
+        raw=_data_uri_bytes(u.photo_data_uri); error='' if raw else 'Upload the source photo again before regenerating the mascot.'
+    else:
+        raw,error=b'', 'Choose a source photo or use Regenerate from Saved Photo.'
+    if error:
+        flash(error,'danger')
+        return redirect(url_for('admin_panel')+f'#user-{u.id}')
+    profile=profile_photo_data_uri_from_bytes(raw)
+    avatar,mode,message=create_live_avatar(raw,prefer_ai=request.form.get('use_ai_avatar','1')=='1')
+    if profile:
+        u.photo_data_uri=profile
+    if avatar:
+        u.avatar_data_uri=avatar; u.avatar_generation_mode=mode; u.avatar_updated_at=datetime.datetime.utcnow(); db.session.commit()
+        flash(f'{u.full_name or u.username}: {message}','success')
+    else:
+        flash(message,'danger')
+    return redirect(url_for('admin_panel')+f'#user-{u.id}')
 
 @app.route('/admin/cities/save', methods=['POST'])
 @admin_required

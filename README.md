@@ -1,6 +1,6 @@
-# Livenza Life Operations Cloud — Web 1.6.1
+# Livenza Life Operations Cloud — Web 1.6.2
 
-## Web 1.6.1 — Avatar reliability, Banking Suite & Reconciliation
+## Web 1.6.2 — Admin-managed mascots, profile lock and permissions
 
 This is the current Livenza Life Operations Cloud release.
 
@@ -31,7 +31,7 @@ Livenza does not proxy or store bank passwords, PINs, OTPs, cookies or authentic
 
 # Livenza Life Operations Cloud — Web 1.5.13
 
-## Web 1.5.13 progressive authentication and header display controls
+## Web 1.6.2 admin-managed mascots, profile lock and permissions
 
 - The initial sign-in card now shows only Login ID and a clearly separated **Verify Device** action, with Windows Hello, Touch ID, Face ID and passkey support shown as secondary text.
 - Password and gesture entry remain hidden until device verification fails or the user opens **Try another sign-in method**. The fallback uses accessible Password and Gesture/Keypad tabs so the two methods never compete on screen.

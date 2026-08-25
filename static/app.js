@@ -371,7 +371,7 @@ initPageFeatures(document);
   };
 })();
 
-// ===== Web 1.6.1 • reliable avatar source handoff + laptop camera =====
+// ===== Web 1.6.2 • reliable avatar source handoff + laptop camera =====
 (()=>{
   const form=document.getElementById('avatarForm'); if(!form)return;
   const input=document.getElementById('avatarPhotoInput'),button=document.getElementById('avatarGenerateButton'),status=document.getElementById('avatarGenerationStatus'),shell=document.getElementById('avatarPreviewShell'),modeLabel=document.getElementById('avatarModeLabel');
@@ -448,13 +448,14 @@ initPageFeatures(document);
     if(root.querySelector?.('.module-visual-ribbon,.experience-gallery,.agreement-brand-banner'))return;
     const pageHead=root.querySelector?.('.page-head');if(!pageHead)return;
     const visual=visualForPath();if(!visual)return;
-    const ribbon=document.createElement(visual.credit?'a':'div');ribbon.className='module-visual-ribbon';
-    if(visual.credit){ribbon.href=visual.credit;ribbon.target='_blank';ribbon.rel='noopener';ribbon.setAttribute('aria-label',`${visual.title} Photography source`)}else ribbon.setAttribute('aria-label',visual.title);
-    const img=document.createElement('img');img.src=livenzaMobilePerformance()?visual.image.replace('q=78','q=62').replace('w=1600','w=900'):visual.image;img.alt=visual.alt;img.loading='lazy';img.decoding='async';img.referrerPolicy='no-referrer';
+    const ribbon=document.createElement('div');ribbon.className='module-visual-ribbon';
+    ribbon.setAttribute('aria-label',visual.title);
+    const imageSource=livenzaMobilePerformance()?visual.image.replace('q=78','q=62').replace('w=1600','w=900'):visual.image;
+    const img=document.createElement('img');img.src=imageSource;img.alt=visual.alt;img.loading='lazy';img.decoding='async';img.referrerPolicy='no-referrer';
     const wash=document.createElement('span');wash.className='module-visual-copy';
     const small=document.createElement('small');small.textContent=visual.eyebrow;
     const strong=document.createElement('strong');strong.textContent=visual.title;
-    const source=document.createElement('i');source.textContent=visual.credit?'VIEW PHOTOGRAPHY ↗':'LIVENZA 360° LIFESTYLE';
+    const source=document.createElement('i');source.textContent='LIVENZA EXPERIENCE';
     wash.append(small,strong,source);ribbon.append(img,wash);pageHead.insertAdjacentElement('afterend',ribbon);
   }
 

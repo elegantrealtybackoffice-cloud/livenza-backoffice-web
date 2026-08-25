@@ -1,49 +1,59 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="page-head account-page-head">
-  <div><p class="eyebrow">MY SECURE PROFILE</p><h1>Account & Live Avatar</h1><p class="muted">Your personal avatar becomes the mascot for welcome moments, live updates, weather and help across Livenza.</p></div>
+  <div>
+    <p class="eyebrow">MY SECURE PROFILE</p>
+    <h1>Account Overview</h1>
+    <p class="muted">Your live mascot, password, login ID and identity details are controlled only by Admin.</p>
+  </div>
 </div>
 
 <section class="avatar-studio liquid-card" aria-labelledby="avatarStudioTitle">
   <div class="avatar-studio-preview">
     <div id="avatarPreviewShell" class="avatar-preview-shell{% if user.avatar_data_uri %} is-ready{% endif %}">
       <span class="avatar-preview-orbit orbit-a"></span><span class="avatar-preview-orbit orbit-b"></span>
-      {% if user.avatar_data_uri or user.photo_data_uri %}<img id="avatarPreview" src="{{user.avatar_data_uri or user.photo_data_uri}}" alt="Current live avatar for {{user.full_name or user.username}}">{% else %}<div id="avatarPreviewFallback" class="avatar-preview-fallback">{{(user.full_name or user.username)[:1]|upper}}</div>{% endif %}
+      {% if user.avatar_data_uri or user.photo_data_uri %}
+        <img id="avatarPreview" src="{{user.avatar_data_uri or user.photo_data_uri}}" alt="Current live mascot for {{user.full_name or user.username}}">
+      {% else %}
+        <div id="avatarPreviewFallback" class="avatar-preview-fallback">{{(user.full_name or user.username)[:1]|upper}}</div>
+      {% endif %}
       <span class="avatar-preview-spark s-one">✦</span><span class="avatar-preview-spark s-two">✦</span>
-      <span class="avatar-live-pill"><i></i> LIVE AVATAR</span>
+      <span class="avatar-live-pill"><i></i> LIVE MASCOT</span>
     </div>
   </div>
   <div class="avatar-studio-copy">
-    <p class="eyebrow">LIVENZA AVATAR STUDIO</p>
-    <h2 id="avatarStudioTitle">Make the mascot look like you</h2>
-    <p>Use almost any photo you already have — front-facing, angled, side-profile, candid, full-body, off-centre or slightly unclear. Livenza builds multiple identity references before creating the refined avatar, then applies it immediately across the workspace.</p>
-    <div class="avatar-trust-row"><span>✓ Identity-preserving</span><span>✓ Clean professional style</span><span>✓ Mobile-safe</span></div><p class="avatar-engine-status"><span class="engine-dot {{'online' if avatar_ai_ready else 'fallback'}}"></span><b>{{'AI image engine connected' if avatar_ai_ready else 'Reliable local avatar engine active'}}</b><small>{{'AI styling will be attempted first; polished fallback remains available.' if avatar_ai_ready else 'Add OPENAI_API_KEY on the deployed server for generative AI styling; avatar creation still works without it.'}}</small></p>
-    <form id="avatarForm" method="post" action="{{url_for('account_avatar')}}" enctype="multipart/form-data" class="avatar-upload-form" data-has-saved-photo="{{'1' if user.photo_data_uri else '0'}}">
-      <input type="hidden" name="use_ai_avatar" value="1">
-      <label class="avatar-file-control" for="avatarPhotoInput"><span>Choose profile photo</span><small>JPG, PNG, WebP, HEIC/HEIF, TIFF or BMP · maximum 12 MB</small><input id="avatarPhotoInput" type="file" name="avatar_photo" accept="image/*,.heic,.heif,.tif,.tiff,.bmp"></label>
-      <div class="avatar-source-actions"><button id="avatarCameraButton" class="secondary" type="button">Open Laptop / Phone Camera</button><button id="avatarCameraPickerButton" class="secondary" type="button">Camera File Picker</button><input id="avatarCameraFallback" type="file" accept="image/*" capture="user" hidden></div>
-      <div id="avatarCameraPanel" class="avatar-camera-panel" hidden><div class="avatar-camera-toolbar"><label>Camera<select id="avatarCameraDevice"><option value="">Default camera</option></select></label><button id="avatarCameraRetry" class="secondary" type="button">Retry Camera</button></div><video id="avatarCameraVideo" autoplay muted playsinline></video><canvas id="avatarCameraCanvas" hidden></canvas><div><button id="avatarCaptureButton" class="primary" type="button">Capture Photo</button><button id="avatarCameraClose" class="secondary" type="button">Close Camera</button></div><small id="avatarCameraHelp">Camera access requires HTTPS (or localhost) and browser permission. The live stream stays on this device; only the captured still is submitted.</small></div>
-      <button id="avatarGenerateButton" type="submit" class="primary">Create My Live Avatar</button>
-      <div id="avatarGenerationStatus" class="avatar-generation-status" role="status" aria-live="polite" hidden><span class="avatar-loader" aria-hidden="true"></span><div><b>Creating your polished avatar…</b><small>Preserving your identity and applying the Livenza visual finish.</small></div></div>
-      <p class="avatar-privacy-note">Your photo is used only for your profile and avatar. When the configured AI image service is available, the photo is securely processed to create the styled portrait.</p>
-    </form>
-    {% if user.photo_data_uri %}
-    <div class="avatar-secondary-actions">
-      <form method="post" action="{{url_for('account_avatar')}}"><input type="hidden" name="regenerate_avatar" value="1"><input type="hidden" name="use_ai_avatar" value="1"><button class="secondary" type="submit">Regenerate from saved photo</button></form>
-      {% if user.avatar_data_uri %}<form method="post" action="{{url_for('account_avatar')}}"><input type="hidden" name="reset_avatar" value="1"><button class="link" type="submit">Use original Livenza mascot</button></form>{% endif %}
+    <p class="eyebrow">ADMIN MANAGED IDENTITY</p>
+    <h2 id="avatarStudioTitle">Your mascot is managed by an administrator</h2>
+    <p>Only administrators can change profile photos, generate or reset the live mascot, update passwords, modify access, or edit identity information.</p>
+    <div class="avatar-trust-row"><span>✓ Read-only for users</span><span>✓ Admin approval required</span><span>✓ Sensitive data protected</span></div>
+    <p class="avatar-engine-status"><span class="engine-dot {{'online' if avatar_ai_ready else 'fallback'}}"></span><b>{{'AI mascot engine available' if avatar_ai_ready else 'Local avatar fallback available'}}</b><small>{{'Admins can upload a source photo in Admin → User Profile, Live Mascot, Permissions & Security.' if avatar_ai_ready else 'Admins can still upload a source photo; a polished fallback will be created when AI styling is unavailable.'}}</small></p>
+    <div class="account-lock-note">
+      <b>Changes are locked</b>
+      <small>Contact your administrator if you need a new mascot, password, login update, or any change to protected information.</small>
     </div>
-    {% endif %}
-    <p id="avatarModeLabel" class="avatar-mode-label">{% if user.avatar_data_uri %}Current finish: <b>{{'AI styled' if user.avatar_generation_mode=='ai' else 'Polished portrait'}}</b>{% else %}Upload a photo to activate your personal mascot.{% endif %}</p>
   </div>
 </section>
 
-<form method="post" class="form-card narrow stack liquid-card account-details-card">
-  <div class="account-card-heading"><div><p class="eyebrow">PROFILE & SECURITY</p><h2>Account details</h2></div>{% if user.avatar_data_uri %}<img src="{{user.avatar_data_uri}}" alt="">{% endif %}</div>
-  <label>Full Name<input name="full_name" value="{{user.full_name or ''}}"></label>
-  <label>Login ID<input name="username" value="{{user.username}}" required></label>
-  <label>New Password<input type="password" name="new_password" placeholder="Leave blank to keep current password"></label>
-  {% if user.webauthn_enabled %}<div class="passkey-account-box"><h3>Fingerprint / Windows Hello</h3><p class="muted">Enrollment is allowed by an administrator. Your fingerprint stays in this device's secure authenticator.</p><button type="button" class="secondary" data-enroll-passkey>Enroll this device</button><p id="webauthnStatus" class="muted" aria-live="polite"></p></div>{% endif %}
-  <div class="aadhaar-box"><h3>Aadhaar / Identity Verification</h3><p class="muted">Only masked Aadhaar details are stored. Full Aadhaar/VID should be used transiently only through an authorized verification flow.</p><label>Name as per Aadhaar<input name="aadhaar_name" value="{{user.aadhaar_name or ''}}"></label><label>Last 4 Aadhaar digits<input name="aadhaar_last4" maxlength="4" inputmode="numeric" value="{{user.aadhaar_last4 or ''}}"></label><p>Status: <b>{{user.aadhaar_verification_status or 'Not verified'}}</b>{% if user.aadhaar_last4 %} · XXXX XXXX {{user.aadhaar_last4}}{% endif %}</p><a class="small-link" href="https://myaadhaar.uidai.gov.in/offline-ekyc" target="_blank" rel="noopener">Open UIDAI Paperless Offline e-KYC ↗</a></div>
-  <button class="primary">Update Account</button>
-</form>
+<section class="readonly-account-grid">
+  <article class="form-card liquid-card">
+    <h2>Profile Details</h2>
+    <div class="stack read-only-list">
+      <label>Full Name<input value="{{user.full_name or ''}}" readonly></label>
+      <label>Login ID<input value="{{user.username}}" readonly></label>
+      <label>Role<input value="{{user.role|title}}" readonly></label>
+      <label>Aadhaar Name<input value="{{user.aadhaar_name or ''}}" readonly></label>
+      <label>Masked Aadhaar<input value="{{masked_aadhaar(user.aadhaar_last4) or ''}}" readonly></label>
+      <label>Mascot Mode<input value="{{'AI Live Mascot' if user.avatar_generation_mode=='ai' else ('Polished Avatar' if user.avatar_generation_mode else 'Default Livenza Mascot')}}" readonly></label>
+    </div>
+  </article>
+  <article class="form-card liquid-card">
+    <h2>Access & Support</h2>
+    <div class="stack read-only-list">
+      <label>Account Status<input value="{{'Active' if user.active else 'Inactive'}}" readonly></label>
+      <label>Fingerprint / Passkey<input value="{{'Allowed by Admin' if user.webauthn_enabled else 'Disabled by Admin'}}" readonly></label>
+      <label>Avatar Updated<input value="{{user.avatar_updated_at.strftime('%d %b %Y %I:%M %p') if user.avatar_updated_at else 'Not yet generated'}}" readonly></label>
+    </div>
+    <p class="muted">Need changes? Ask Admin to open <b>Admin → User Profile, Live Mascot, Permissions & Security</b>.</p>
+  </article>
+</section>
 {% endblock %}
