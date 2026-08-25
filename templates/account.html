@@ -2,7 +2,7 @@
 {% block content %}
 <div class="page-head account-page-head"><div><p class="eyebrow">MY SECURE PROFILE</p><h1>Account Overview</h1><p class="muted">Personalize the branded 3D Livenza host while protected identity, login and access controls remain Admin-managed.</p></div></div>
 
-<section id="mascot-settings" class="form-card liquid-card host-preferences-card">
+<section id="mascot-settings" class="form-card liquid-card responsive-card host-preferences-card">
   <div class="settings-section-head"><div class="settings-picture host3d-settings-mark">3D</div><div><p class="eyebrow">PERSONAL DIGITAL HOST</p><h2>Mascot Settings</h2><p class="muted">These settings apply only to your account. The 3D character identity remains the official branded Livenza host.</p></div></div>
   <form method="post" action="{{url_for('account_mascot_settings')}}" class="stack">
     <div class="marquee-option-grid companion-option-grid">
@@ -18,12 +18,12 @@
       <label>Weather City<input name="weather_city" maxlength="120" value="{{mascot_preferences.weather_city}}" placeholder="Gurugram"></label>
     </div>
     {% if mascot_preferences.requested_intensity != mascot_preferences.intensity %}<p class="note-inline">Your requested mode is <b>{{mascot_preferences.requested_intensity|title}}</b>, but the current Admin performance policy limits the effective mode to <b>{{mascot_preferences.intensity|title}}</b>.</p>{% endif %}
-    <div class="actions"><button class="primary" name="mascot_action" value="save">Save Mascot Settings</button><button class="secondary" name="mascot_action" value="reset">Reset to Livenza Defaults</button></div>
+    <div class="actions safe-actions"><button class="primary" name="mascot_action" value="save">Save Mascot Settings</button><button class="secondary" name="mascot_action" value="reset">Reset to Livenza Defaults</button></div>
   </form>
 </section>
 
 <section class="readonly-account-grid">
-  <article class="form-card liquid-card"><h2>Profile Details</h2><div class="stack read-only-list"><label>Full Name<input value="{{user.full_name or ''}}" readonly></label><label>Login ID<input value="{{user.username}}" readonly></label><label>Role<input value="{{user.role|title}}" readonly></label><label>Aadhaar Name<input value="{{user.aadhaar_name or ''}}" readonly></label><label>Masked Aadhaar<input value="{{masked_aadhaar(user.aadhaar_last4) or ''}}" readonly></label><label>3D Host Identity<input value="Branded Livenza Digital Host" readonly></label></div></article>
-  <article class="form-card liquid-card"><h2>Access & Identity</h2><div class="stack read-only-list"><label>Account Status<input value="{{'Active' if user.active else 'Inactive'}}" readonly></label><label>Fingerprint / Passkey<input value="{{'Allowed by Admin' if user.webauthn_enabled else 'Disabled by Admin'}}" readonly></label><label>Profile Photo Updated<input value="{{user.avatar_updated_at.strftime('%d %b %Y %I:%M %p') if user.avatar_updated_at else 'Not set'}}" readonly></label></div><p class="muted">Profile photos, passwords, login IDs and access permissions remain protected Admin controls. Your photo is not used as the 3D host identity.</p></article>
+  <article class="form-card liquid-card responsive-card"><h2>Profile Details</h2><div class="stack read-only-list"><label>Full Name<input value="{{user.full_name or ''}}" readonly></label><label>Login ID<input value="{{user.username}}" readonly></label><label>Role<input value="{{user.role|title}}" readonly></label><label>Aadhaar Name<input value="{{user.aadhaar_name or ''}}" readonly></label><label>Masked Aadhaar<input value="{{masked_aadhaar(user.aadhaar_last4) or ''}}" readonly></label><label>3D Host Identity<input value="Branded Livenza Digital Host" readonly></label></div></article>
+  <article class="form-card liquid-card responsive-card"><h2>Access & Identity</h2><div class="stack read-only-list"><label>Account Status<input value="{{'Active' if user.active else 'Inactive'}}" readonly></label><label>Fingerprint / Passkey<input value="{{'Allowed by Admin' if user.webauthn_enabled else 'Disabled by Admin'}}" readonly></label><label>Profile Photo Updated<input value="{{user.avatar_updated_at.strftime('%d %b %Y %I:%M %p') if user.avatar_updated_at else 'Not set'}}" readonly></label></div><p class="muted">Profile photos, passwords, login IDs and access permissions remain protected Admin controls. Your photo is not used as the 3D host identity.</p></article>
 </section>
 {% endblock %}

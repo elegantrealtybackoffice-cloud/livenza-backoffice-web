@@ -309,3 +309,18 @@ The app derives the Supabase project reference from `DATABASE_URL`. External/CDN
 ## TV setup
 
 Open Video Wall Studio, register a screen, copy its unique Player URL, and open that URL in the smart-TV browser, signage mini-PC, Fire TV browser, or attached computer. Keep the page open. Media changes and festive takeover commands are picked up automatically.
+## Responsive UI Quality Maintenance
+
+This Web 1.8.0 maintenance build standardizes the shared responsive UI without changing route semantics, permissions, integration credentials, agreement data, electricity data, or Vault behavior.
+
+- Canonical typography, spacing, shell gutters, control sizing, card geometry, safe action clusters, responsive grids, and local table-scroll primitives are shared across the workspace.
+- Integrations Center category navigation is a reachable horizontal rail at narrow widths; provider and workspace content reflows instead of clipping labels off-screen.
+- Text-bearing cards, forms, badges, toolbar rows, admin/master screens, tables, and workflow pages use content-driven height and safe wrapping so labels and values remain readable.
+- The Ask Livenza panel is an independent viewport-bounded translucent surface rather than a child of the moving 3D host. Its header/tabs stay in flow, messages scroll internally, long text wraps, suggestion buttons wrap, and the composer remains visible at the bottom.
+- The large home Livenza AI logo restores its border-light, sheen, orbit, and subtle pulse animation as a bounded motion exception. TV/low-capability mode keeps only a slow border-light pass, and `prefers-reduced-motion` disables the animation fully.
+- Primary glass surfaces use a readability floor; nested cards avoid stacking blur. The responsive cleanup reduced the stylesheet to 11 `backdrop-filter` references, 13 animation declarations (including the restored bounded home-logo motion), 9 overflow-hidden declarations, and 2 nowrap declarations. The CSS brace structure is balanced and the malformed legacy empty `@supports` fragment was removed.
+- Fullscreen/theatre layouts reuse the same responsive document model; drawers, orientation controls, mascot, and chat remain true overlays only.
+
+### Browser verification status
+
+Chromium component-level responsive checks passed at **1440×900, 1280×720, 1024×768, 768×1024, 430×932, and 390×844** for safe tabs, the independent Ask Livenza panel/composer, and the restored home-logo animation. The available sandbox does not include Flask/Flask-SQLAlchemy, and network-isolated package installation is unavailable, so real Flask-page responsive smoke tests are explicitly skipped here with that reason and remain required in the deployment/runtime environment. The sandbox Chromium also exposes no usable WebGL context, so real GPU/Smart-TV 3D rendering remains a deployment-hardware verification item.

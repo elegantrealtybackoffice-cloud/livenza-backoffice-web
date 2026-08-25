@@ -31,7 +31,7 @@
   <form method="post" action="{{url_for('query_sheet_import')}}" enctype="multipart/form-data" class="sheet-import-form"><label>Import Excel / CSV<input type="file" name="query_file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required></label><button class="secondary">Import & Save</button></form>
   <div class="sheet-status"><span class="sheet-live-dot"></span><b id="sheetSaveStatus">30 blank rows ready</b><small>Existing rows auto-save · Save All handles every filled blank row</small></div>
 </div>
-<div class="query-sheet-wrap liquid-card">
+<div class="query-sheet-wrap liquid-card responsive-table-wrap">
   <table class="query-sheet" id="querySheetTable">
     <thead><tr><th>#</th><th>Source</th><th>Customer</th><th>Mobile</th><th>WhatsApp</th><th>Email</th><th>City</th><th>Property</th><th>Budget</th><th>Move-in</th><th>Stay Type</th><th>Status</th><th>Heat</th><th>Score</th><th>Next Follow-up</th><th>Requirement / Query</th><th>Notes</th><th>Save</th></tr></thead>
     <tbody id="querySheetBody">

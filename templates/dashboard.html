@@ -43,7 +43,7 @@
   <div class="section-head"><div><p class="eyebrow">LIVE REMINDERS</p><h2>Bills & Payments Needing Attention</h2></div><a class="secondary btn" href="{{url_for('electricity_studio')}}">Electricity Bill Studio</a></div>
   <div class="reminder-grid">
   {% for item in live_reminders %}{% set r=item.reminder %}{% set p=item.payload %}
-    <article class="reminder-card severity-{{r.severity}}"><div class="reminder-icon">⚡</div><div class="reminder-copy"><small>{{p.provider or 'Electricity Bill'}}</small><h3>{{p.property or r.title}}</h3><p>{{p.identifier}} · {{p.bill_status|replace('_',' ')|title}}</p></div><div class="reminder-money"><b>₹{{p.amount}}</b><span>Due {{p.due_date or '—'}}</span></div><div class="reminder-actions"><a class="primary btn" href="{{url_for('electricity_studio')}}">View / Pay</a>{% if is_admin %}<form method="post" action="{{url_for('electricity_reminder_snooze',rid=r.id)}}"><input type="hidden" name="days" value="1"><button class="secondary">Snooze 1 Day</button></form>{% endif %}</div></article>
+    <article class="reminder-card severity-{{r.severity}}"><div class="reminder-icon">⚡</div><div class="reminder-copy"><small>{{p.provider or 'Electricity Bill'}}</small><h3>{{p.property or r.title}}</h3><p>{{p.identifier}} · {{p.bill_status|replace('_',' ')|title}}</p></div><div class="reminder-money"><b>₹{{p.amount}}</b><span>Due {{p.due_date or '—'}}</span></div><div class="reminder-actions safe-actions"><a class="primary btn" href="{{url_for('electricity_studio')}}">View / Pay</a>{% if is_admin %}<form method="post" action="{{url_for('electricity_reminder_snooze',rid=r.id)}}"><input type="hidden" name="days" value="1"><button class="secondary">Snooze 1 Day</button></form>{% endif %}</div></article>
   {% else %}<div class="reminder-empty"><span>✓</span><div><b>All clear</b><small>No electricity bills need immediate attention.</small></div></div>{% endfor %}
   </div>
 </section>
@@ -81,7 +81,6 @@
   {% set food_photo='https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&fit=crop&q=76&w=900' %}
   {% set hotel_photo=url_for('static',filename='livenza_360_lifestyle_bg.jpg') %}
   {% set mods=[
-    ('','Livenza Letterhead Studio','Ask Livenza AI, official letterheads, PDF issuance and Document Vault.','letterhead_studio','letterhead','✎',office_photo,'Livenza official document studio'),
     ('agreement_tile.png','Agreement Studio','Agreements, PDF and WhatsApp sharing.','agreements','agreements','✦',agreement_photo,'Business agreement workflow'),
     ('room_tile.png','Room Status & Tenants','Inventory, tenants and automated vacancy reports.','rooms','rooms','▦',room_photo,'Modern Livenza accommodation'),
     ('review_tile.png','Google Review Generator','AI drafts, Google review link and QR.','reviews','reviews','★',office_photo,'Professional review workspace'),

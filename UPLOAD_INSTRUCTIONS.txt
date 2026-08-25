@@ -1,10 +1,3 @@
-LIVENZA WEB 1.6.0 — DIRECT ROOT UPLOAD
+Livenza Web 1.8.0 Responsive UI Maintenance
 
-1. Upload the contents of the DIRECT_ROOT_FILES package to the application repository root.
-2. Keep the existing DATABASE_URL / Supabase or PostgreSQL connection and SECRET_KEY settings.
-3. Web 1.6.0 creates the new encrypted banking/reconciliation tables automatically through db.create_all() during startup; existing application data is retained.
-4. For generative Avatar Studio styling, set OPENAI_API_KEY on the deployed server. Avatar creation still has a local polished fallback without it.
-5. Keep INTEGRATION_ENCRYPTION_KEY stable across deployments so saved banking files and connected-provider secrets remain decryptable.
-6. Laptop webcam access requires HTTPS (or localhost) and browser Camera permission.
-7. Deploy with the supplied Dockerfile/render.yaml and confirm /version returns Web 1.6.0.
-8. Banking sites may block iframe embedding by design. Use the built-in verified Secure Bank Site launcher when that happens; never bypass bank CSP/X-Frame-Options.
+Upload every file in this ZIP to the matching path in the existing Web 1.8.0 repository. Preserve folders exactly (for example static/style.css and templates/base.html). Do not flatten the ZIP. This delta does not replace environment variables, databases, integration credentials, Vault secrets, migrations, or backend domain data. After upload, redeploy Web 1.8.0 and verify the home dashboard, Integrations Center, Ask Livenza panel, fullscreen/theatre mode, and mobile layouts.

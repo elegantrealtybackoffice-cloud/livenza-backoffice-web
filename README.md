@@ -1,17 +1,4 @@
-# Livenza Life Operations Cloud — Web 1.9.0
-
-
-## Web 1.9.0 — Livenza Letterhead Studio
-
-### Web 1.9.0 highlights
-- Adds **Livenza Letterhead Studio** with Ask Livenza AI, manual/hybrid drafting, Final Review, controlled PDF issuance and a searchable automatic Document Vault.
-- Adds connected, permission-aware internal-data drafting with sensitive-data minimization and explicit user approval before protected supporting documents are attached.
-- Adds user-authored letterhead template drafts with Admin-only publication, immutable published versions, protected signatures/seals and versioned template history.
-- Adds Email and WhatsApp delivery using providers configured only in the centralized **Integrations Center**, with retryable delivery state/history.
-- Adds automatic reference numbering, immutable finalized PDFs, revision chains, audited no-store downloads and encrypted-at-rest Letterhead assets using `LIVENZA_VAULT_MASTER_KEY`.
-
-### Deployment
-v1.8.0 must already be deployed/merged. Apply `migrations/web_v1_9_0.sql` where automatic table creation is unavailable. Historical PDFs are not automatically reconstructed into the new Document Vault. See `README_v1.9.0.md` for complete deployment notes.
+# Livenza Life Operations Cloud — Web 1.8.0
 
 
 ## Web 1.8.0 — 3D Digital Host, Integrations Center & TV Stability
@@ -322,3 +309,5 @@ The app derives the Supabase project reference from `DATABASE_URL`. External/CDN
 ## TV setup
 
 Open Video Wall Studio, register a screen, copy its unique Player URL, and open that URL in the smart-TV browser, signage mini-PC, Fire TV browser, or attached computer. Keep the page open. Media changes and festive takeover commands are picked up automatically.
+### Web 1.8.0 responsive UI maintenance
+The current Web 1.8.0 maintenance tree includes a site-wide responsive/readability pass, a reachable Integrations category rail, local table overflow, a lighter glass/motion budget, an independent translucent Ask Livenza panel, and restored performance-safe home-logo border animation. See `README_v1.8.0.md` for the exact browser verification scope and sandbox limitations.

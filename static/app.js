@@ -888,7 +888,7 @@ initPageFeatures(document);
   window.addEventListener('scroll',()=>{if(scrollFrame)return;scrollFrame=requestAnimationFrame(()=>{scrollFrame=0;syncCompanionCollapse()})},{passive:true});syncCompanionCollapse();
   button?.addEventListener('click',()=>setPanel(panel?.hidden));
   close?.addEventListener('click',()=>setPanel(false,true));
-  document.addEventListener('pointerdown',event=>{if(panel&&!panel.hidden&&!companion.contains(event.target))setPanel(false)});
+  document.addEventListener('pointerdown',event=>{if(panel&&!panel.hidden&&!panel.contains(event.target)&&!companion.contains(event.target))setPanel(false)});
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&panel&&!panel.hidden){event.preventDefault();setPanel(false,true)}});
 
   function weatherIcon(effect,isDay=true){return ({rain:'☂',storm:'ϟ',snow:'❄',fog:'≋',clouds:'☁',sun:'☀',night:'☾'})[effect]||(isDay?'☀':'☾')}
