@@ -737,8 +737,8 @@ initPageFeatures(document);
     if(!messages)return;const div=document.createElement('div');div.className=`assistant-message ${who}`;div.textContent=text;messages.appendChild(div);messages.scrollTop=messages.scrollHeight;
   }
   async function askAssistant(text){
-    text=(text||'').trim();if(!text)return;window.LivenzaHost3D?.requestState?.('listen',{length:text.length});window.LivenzaCompanion?.open?.('chat');addMessage(text,'user');if(input)input.value='';const thinking=document.createElement('div');thinking.className='assistant-message bot thinking';thinking.textContent='Thinking…';messages?.appendChild(thinking);messages.scrollTop=messages.scrollHeight;
-    try{const r=await fetch('/api/help',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({message:text})});const d=await r.json();thinking.remove();const answer=d.answer||d.error||'I could not answer that right now.';addMessage(answer,'bot');window.LivenzaHost3D?.requestState?.('speak',{length:String(answer).length})}catch(e){thinking.remove();addMessage('I could not reach the help service. Please try again.','bot')}
+    text=(text||'').trim();if(!text)return;document.getElementById('mascotCompanion')?.classList.add('funny-peek');window.setTimeout(()=>document.getElementById('mascotCompanion')?.classList.remove('funny-peek'),900);window.LivenzaCompanion?.open?.('chat');addMessage(text,'user');if(input)input.value='';const thinking=document.createElement('div');thinking.className='assistant-message bot thinking';thinking.textContent='Thinking…';messages?.appendChild(thinking);messages.scrollTop=messages.scrollHeight;
+    try{const r=await fetch('/api/help',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({message:text})});const d=await r.json();thinking.remove();const answer=d.answer||d.error||'I could not answer that right now.';addMessage(answer,'bot');document.getElementById('mascotCompanion')?.classList.add('funny-wave');window.setTimeout(()=>document.getElementById('mascotCompanion')?.classList.remove('funny-wave'),1100)}catch(e){thinking.remove();addMessage('I could not reach the help service. Please try again.','bot')}
   }
   form?.addEventListener('submit',e=>{e.preventDefault();askAssistant(input?.value)});
   document.addEventListener('click',e=>{const b=e.target.closest('[data-help-prompt]');if(b)askAssistant(b.dataset.helpPrompt)});
@@ -839,7 +839,7 @@ initPageFeatures(document);
     removeTimer=window.setTimeout(()=>{welcome.remove();window.dispatchEvent(new CustomEvent('livenza:mascot-welcome-done'))},reduce?420:1250);
   }
 
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{welcome.classList.add('is-visible');window.LivenzaHost3D?.requestState?.('greet')}));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>welcome.classList.add('is-visible')));
   danceTimer=window.setTimeout(()=>{if(!reduce&&!departed)welcome.classList.add('is-dancing')},820);
   leaveTimer=window.setTimeout(depart,reduce?3900:6100);
   skip?.addEventListener('click',depart);
@@ -981,9 +981,14 @@ initPageFeatures(document);
     finally{companion.classList.remove('is-syncing')}
   }
 
-  const hostAmbientStates=['greet','turn-left','turn-right','explain'];
-  function performHostAmbientAction(){if(!panel?.hidden||reduce)return;const state=hostAmbientStates[Math.floor(Math.random()*hostAmbientStates.length)];window.LivenzaHost3D?.requestState?.(state)}
-  window.setTimeout(performHostAmbientAction,mobilePerformance?12000:6500);window.setInterval(performHostAmbientAction,mobilePerformance?42000:18000);
+  const mascotAmbientActions=['funny-wave','funny-hop','funny-peek','funny-wobble','funny-celebrate'];
+  function performMascotAmbientAction(){
+    if(!panel?.hidden||reduce||document.hidden||companion.classList.contains('mascot-motion-static'))return;
+    const choices=mobilePerformance?['funny-wave','funny-wobble']:mascotAmbientActions;
+    const action=choices[Math.floor(Math.random()*choices.length)];
+    companion.classList.add(action);window.setTimeout(()=>companion.classList.remove(action),1500);
+  }
+  if(!reduce){window.setTimeout(performMascotAmbientAction,mobilePerformance?14000:7000);window.setInterval(performMascotAmbientAction,mobilePerformance?45000:22000)}
   loadPulse(currentCity,true);
 })();
 

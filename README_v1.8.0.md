@@ -324,3 +324,22 @@ This Web 1.8.0 maintenance build standardizes the shared responsive UI without c
 ### Browser verification status
 
 Chromium component-level responsive checks passed at **1440×900, 1280×720, 1024×768, 768×1024, 430×932, and 390×844** for safe tabs, the independent Ask Livenza panel/composer, and the restored home-logo animation. The available sandbox does not include Flask/Flask-SQLAlchemy, and network-isolated package installation is unavailable, so real Flask-page responsive smoke tests are explicitly skipped here with that reason and remain required in the deployment/runtime environment. The sandbox Chromium also exposes no usable WebGL context, so real GPU/Smart-TV 3D rendering remains a deployment-hardware verification item.
+
+## Blue Mascot & Grouped Navigation Maintenance — 25 Aug 2026
+
+This maintenance revision keeps the active version at **Web 1.8.0** and supersedes the earlier default-3D-host presentation without changing business workflows, permissions, routes, Vault data, agreement data, electricity data, or integration credentials.
+
+- The original **blue Livenza robot** (`static/livenza_companion_mascot_v2.png`) is restored as the default workspace mascot.
+- The default page no longer loads the WebGL host runtime, reducing render-loop/GPU overhead while retaining live weather, operations, motivational updates, and Ask Livenza.
+- Mascot settings now use native form controls with a visible blue-robot preview. Visibility, operational updates, weather reactions, motivational messages, animation level, size, position, weather city, Save, and Reset remain persisted through the existing `/account/mascot-settings` contract.
+- The hamburger menu is now a categorized application window instead of one long scrolling list. Category switching uses the existing ES5 TV-compatible tab/panel behavior.
+- Home and hamburger navigation use the same shared Jinja application catalog, with categories: Core, Operations, Finance & Utilities, Communication & Content, Connections, and Administration where authorized.
+- A final UI stabilization layer enforces safe wrapping, minimum-width behavior, reliable touch interaction, viewport-bounded overlays, readable translucent mascot surfaces, and reduced blur/motion on constrained devices.
+- Off-screen Home/city/account groups may use `content-visibility:auto` with an intrinsic-size fallback to reduce initial rendering work without hiding meaningful content.
+
+### Verification status for this maintenance revision
+
+- Full automated regression: **112 passed, 11 skipped** in the available sandbox.
+- Chromium component checks that do not require the Flask application runtime passed at all configured component viewports.
+- Authenticated real-page browser smoke for `/`, `/account`, `/integrations`, `/admin`, `/agreements`, `/electricity`, and `/queries` is skipped in this sandbox because Flask-SQLAlchemy is not installed. An installation attempt was made, but the sandbox has no external package-network access.
+- The remaining legacy standalone WebGL component check is skipped because sandbox Chromium exposes no WebGL context. WebGL is no longer loaded by the default mascot experience, so this does not block the blue-robot maintenance build; optional legacy WebGL files remain in the project for backward compatibility.

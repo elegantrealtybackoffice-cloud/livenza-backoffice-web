@@ -1,0 +1,74 @@
+{% macro app_icon(glyph, icon='') -%}
+  {% if icon %}<img src="{{url_for('static',filename=icon)}}" alt="">{% elif glyph=='queries' %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19v-7m5 7V5m5 14v-4m5 4V8"></path></svg>{% elif glyph=='food' %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8m-3-8v5a3 3 0 0 0 6 0V3m-3 8v10m7-18v18m0-18c3 2 4 5 4 8h-4"></path></svg>{% else %}<span>{{glyph}}</span>{% endif %}
+{%- endmacro %}
+
+{% macro app_item(surface, title, desc, endpoint, perm='', glyph='✦', icon='', media='livenza_360_lifestyle_bg.jpg') -%}
+  {% if (not perm) or can_access(perm) %}
+    {% if surface == 'drawer' %}
+      <a class="grouped-app-item {% if request.endpoint==endpoint %}active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav><i>{{app_icon(glyph,icon)}}</i><span><b>{{title}}</b><small>{{desc}}</small></span><em aria-hidden="true">→</em></a>
+    {% else %}
+      <a class="home-app-card liquid-card" href="{{url_for(endpoint)}}" data-app-nav>
+        <span class="home-app-media"><img src="{{url_for('static',filename=media)}}" alt="" loading="lazy" decoding="async"><i>{{app_icon(glyph,icon)}}</i></span>
+        <span class="home-app-copy"><small>AUTHORIZED APP</small><b>{{title}}</b><span>{{desc}}</span><em>Open module →</em></span>
+      </a>
+    {% endif %}
+  {% endif %}
+{%- endmacro %}
+
+{% macro category_panel(surface,key,label) -%}
+  {% set group_id = 'apps-drawer-categories' if surface == 'drawer' else 'home-app-categories' %}
+  <section class="app-category-panel {% if key=='core' %}active{% endif %}" data-tv-panel="{{surface}}-{{key}}" data-tv-group="{{group_id}}" {% if key!='core' %}hidden{% endif %} aria-label="{{label}} applications">
+    <div class="{{'grouped-app-grid' if surface=='drawer' else 'home-app-grid'}}">
+      {% if key == 'core' %}
+        {{ app_item(surface,'Home','Live operations overview','dashboard','', '⌂','', 'livenza_360_lifestyle_bg.jpg') }}
+        {{ app_item(surface,'My Account','Profile, sign-in security and mascot settings','account','', '◉','', 'livenza_logo.png') }}
+      {% elif key == 'operations' %}
+        {{ app_item(surface,'Agreement Studio','Draft, preview and share agreements','agreements','agreements','✦','agreement_tile.png','agreement_tile.png') }}
+        {{ app_item(surface,'Landlord Master','Reusable owner and entity profiles','landlord_masters','agreements','⌂','', 'agreement_tile.png') }}
+        {{ app_item(surface,'Tenant Master','Reusable tenant and corporate profiles','tenant_masters','agreements','◎','', 'room_tile.png') }}
+        {{ app_item(surface,'Rooms','Inventory and vacancy','rooms','rooms','▦','room_tile.png','room_tile.png') }}
+        {{ app_item(surface,'Residents','Occupancy records','tenants','rooms','◉','', 'room_tile.png') }}
+        {{ app_item(surface,'Queries','Live leads and follow-up','queries','queries','queries','', 'livenza_360_lifestyle_bg.jpg') }}
+        {{ app_item(surface,'Reviews','Google review studio','reviews','reviews','★','review_tile.png','review_tile.png') }}
+        {{ app_item(surface,'Video Wall','Screens and commercials','video_wall','video_wall','▶','', 'livenza_360_lifestyle_bg.jpg') }}
+        {{ app_item(surface,'Food','Delivery partner hub','food','food','food','food_tile.png','food_tile.png') }}
+      {% elif key == 'finance' %}
+        {{ app_item(surface,'Billing','Collections and accounts','billing','rentok','◈','rentok_tile.png','rentok_tile.png') }}
+        {{ app_item(surface,'Banking','Statements and reconciliation','banking_suite','banking','₹','', 'livenza_360_lifestyle_bg.jpg') }}
+        {{ app_item(surface,'Electricity','Bills, due dates and payments','electricity_studio','electricity','⚡','', 'livenza_360_lifestyle_bg.jpg') }}
+      {% elif key == 'communication' %}
+        {{ app_item(surface,'WhatsApp','Cloud conversations','whatsapp_workspace','whatsapp','◍','', 'livenza_360_lifestyle_bg.jpg') }}
+        {{ app_item(surface,'Email','Gmail workspace','email_workspace','email','✉','', 'livenza_360_lifestyle_bg.jpg') }}
+        {{ app_item(surface,'Drive','Cloud files','drive_workspace','drive','☁','', 'livenza_360_lifestyle_bg.jpg') }}
+      {% elif key == 'connections' %}
+        {{ app_item(surface,'Integrations Center','Third-party workflows and connections','integrations_center','', '⌁','', 'livenza_360_lifestyle_bg.jpg') }}
+      {% elif key == 'administration' and is_admin %}
+        {{ app_item(surface,'Admin','Users and access','admin_panel','', '⌘','', 'livenza_logo.png') }}
+        {{ app_item(surface,'Livenza Vault','Protected operational credentials','vault_page','', '◇','', 'livenza_logo.png') }}
+        {{ app_item(surface,'Settings','System configuration','settings_page','', '⚙','', 'livenza_logo.png') }}
+      {% endif %}
+    </div>
+  </section>
+{%- endmacro %}
+
+{% macro render_application_groups(surface) -%}
+  {% set group_id = 'apps-drawer-categories' if surface == 'drawer' else 'home-app-categories' %}
+  <div class="application-groups application-groups-{{surface}}">
+    <nav class="app-category-tabs safe-tabs safe-scroll-tabs" role="tablist" aria-label="Application categories">
+      <button type="button" class="safe-tab active" data-tv-tab="{{surface}}-core" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-core" aria-selected="true">Core</button>
+      <button type="button" class="safe-tab" data-tv-tab="{{surface}}-operations" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-operations" aria-selected="false">Operations</button>
+      <button type="button" class="safe-tab" data-tv-tab="{{surface}}-finance" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-finance" aria-selected="false">Finance & Utilities</button>
+      <button type="button" class="safe-tab" data-tv-tab="{{surface}}-communication" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-communication" aria-selected="false">Communication & Content</button>
+      <button type="button" class="safe-tab" data-tv-tab="{{surface}}-connections" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-connections" aria-selected="false">Connections</button>
+      {% if is_admin %}<button type="button" class="safe-tab" data-tv-tab="{{surface}}-administration" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-administration" aria-selected="false">Administration</button>{% endif %}
+    </nav>
+    <div class="app-category-stage">
+      {{ category_panel(surface,'core','Core') }}
+      {{ category_panel(surface,'operations','Operations') }}
+      {{ category_panel(surface,'finance','Finance & Utilities') }}
+      {{ category_panel(surface,'communication','Communication & Content') }}
+      {{ category_panel(surface,'connections','Connections') }}
+      {% if is_admin %}{{ category_panel(surface,'administration','Administration') }}{% endif %}
+    </div>
+  </div>
+{%- endmacro %}

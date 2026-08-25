@@ -311,3 +311,6 @@ The app derives the Supabase project reference from `DATABASE_URL`. External/CDN
 Open Video Wall Studio, register a screen, copy its unique Player URL, and open that URL in the smart-TV browser, signage mini-PC, Fire TV browser, or attached computer. Keep the page open. Media changes and festive takeover commands are picked up automatically.
 ### Web 1.8.0 responsive UI maintenance
 The current Web 1.8.0 maintenance tree includes a site-wide responsive/readability pass, a reachable Integrations category rail, local table overflow, a lighter glass/motion budget, an independent translucent Ask Livenza panel, and restored performance-safe home-logo border animation. See `README_v1.8.0.md` for the exact browser verification scope and sandbox limitations.
+
+### Web 1.8.0 blue mascot & navigation maintenance
+The default companion is again the lightweight blue Livenza robot. Mascot settings use reliable native controls, the hamburger menu is categorized, Home uses the same shared application grouping, and constrained-device motion/blur has been reduced. Default pages no longer load the WebGL host runtime. See `README_v1.8.0.md` for verification details.

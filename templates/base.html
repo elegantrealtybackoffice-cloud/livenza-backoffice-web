@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v={{app_version|replace('Web ','')}}">
 </head>
 <body data-page="{{ request.endpoint or '' }}">
+  {% import '_application_groups.html' as appgroups with context %}
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
   <div id="liveMotionLayer" class="live-motion-layer" aria-hidden="true"></div>
   <div id="pageTransition" class="page-transition" aria-hidden="true"><span></span></div>
@@ -49,34 +50,9 @@
       </div>
     </header>
     <div id="appsMenuBackdrop" class="apps-drawer-backdrop side-drawer-backdrop no-print" hidden></div>
-    <nav id="appsDrawer" class="apps-drawer side-drawer side-drawer-left no-print" aria-label="Applications" aria-hidden="true" hidden>
-      <div class="apps-drawer-head"><div><p class="eyebrow">LIVENZA APPLICATIONS</p><b>Everything in one workspace</b><small>Fast access to operations, finance and administration</small></div><button type="button" id="appsDrawerClose" data-drawer-close aria-label="Close applications menu">×</button></div>
-      <div class="apps-drawer-scroll">
-        <section class="apps-drawer-section"><p>Core</p><div class="apps-drawer-items">
-          <a class="apps-drawer-item {% if request.endpoint=='dashboard' %}active{% endif %}" href="{{url_for('dashboard')}}" data-app-nav><i>⌂</i><span><b>Home</b><small>Live operations overview</small></span></a>
-          <a class="apps-drawer-item" href="{{url_for('account')}}" data-app-nav><i>◉</i><span><b>My Account</b><small>Profile and sign-in security</small></span></a>
-        </div></section>
-        <section class="apps-drawer-section"><p>Operations</p><div class="apps-drawer-items">
-          {% if can_access('agreements') %}<a class="apps-drawer-item" href="{{url_for('agreements')}}" data-app-nav><i>▤</i><span><b>Agreement Studio</b><small>Draft, preview and share agreements</small></span></a><a class="apps-drawer-item" href="{{url_for('landlord_masters')}}" data-app-nav><i>⌂</i><span><b>Landlord Master</b><small>Reusable owner and entity profiles</small></span></a><a class="apps-drawer-item" href="{{url_for('tenant_masters')}}" data-app-nav><i>◎</i><span><b>Tenant Master</b><small>Reusable tenant and corporate profiles</small></span></a>{% endif %}
-          {% if can_access('rooms') %}<a class="apps-drawer-item" href="{{url_for('rooms')}}" data-app-nav><i>▦</i><span><b>Rooms</b><small>Inventory and vacancy</small></span></a><a class="apps-drawer-item" href="{{url_for('tenants')}}" data-app-nav><i>◉</i><span><b>Residents</b><small>Occupancy records</small></span></a>{% endif %}
-          {% if can_access('queries') %}<a class="apps-drawer-item" href="{{url_for('queries')}}" data-app-nav><i><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19v-7m5 7V5m5 14v-4m5 4V8"></path></svg></i><span><b>Queries</b><small>Live leads and follow-up</small></span></a>{% endif %}
-          {% if can_access('reviews') %}<a class="apps-drawer-item" href="{{url_for('reviews')}}" data-app-nav><i>★</i><span><b>Reviews</b><small>Google review studio</small></span></a>{% endif %}
-          {% if can_access('video_wall') %}<a class="apps-drawer-item" href="{{url_for('video_wall')}}" data-app-nav><i>▶</i><span><b>Video Wall</b><small>Screens and commercials</small></span></a>{% endif %}
-          {% if can_access('food') %}<a class="apps-drawer-item" href="{{url_for('food')}}" data-app-nav><i><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8m-3-8v5a3 3 0 0 0 6 0V3m-3 8v10m7-18v18m0-18c3 2 4 5 4 8h-4"></path></svg></i><span><b>Food</b><small>Delivery partner hub</small></span></a>{% endif %}
-        </div></section>
-        <section class="apps-drawer-section"><p>Finance &amp; Utilities</p><div class="apps-drawer-items">
-          {% if can_access('rentok') %}<a class="apps-drawer-item" href="{{url_for('billing')}}" data-app-nav><i>◈</i><span><b>Billing</b><small>Collections and accounts</small></span></a>{% endif %}
-          {% if can_access('banking') %}<a class="apps-drawer-item" href="{{url_for('banking_suite')}}" data-app-nav><i>₹</i><span><b>Banking</b><small>Statements and reconciliation</small></span></a>{% endif %}
-          {% if can_access('electricity') %}<a class="apps-drawer-item" href="{{url_for('electricity_studio')}}" data-app-nav><i>⚡</i><span><b>Electricity</b><small>Bills, due dates and payments</small></span></a>{% endif %}
-        </div></section>
-        <section class="apps-drawer-section"><p>Communication &amp; Content</p><div class="apps-drawer-items">
-          {% if can_access('whatsapp') %}<a class="apps-drawer-item" href="{{url_for('whatsapp_workspace')}}" data-app-nav><i>◍</i><span><b>WhatsApp</b><small>Cloud conversations</small></span></a>{% endif %}
-          {% if can_access('email') %}<a class="apps-drawer-item" href="{{url_for('email_workspace')}}" data-app-nav><i>✉</i><span><b>Email</b><small>Gmail workspace</small></span></a>{% endif %}
-          {% if can_access('drive') %}<a class="apps-drawer-item" href="{{url_for('drive_workspace')}}" data-app-nav><i>☁</i><span><b>Drive</b><small>Cloud files</small></span></a>{% endif %}
-        </div></section>
-        <section class="apps-drawer-section"><p>Connections</p><div class="apps-drawer-items"><a class="apps-drawer-item" href="{{url_for('integrations_center')}}" data-app-nav><i>⌁</i><span><b>Integrations Center</b><small>Third-party workflows & connections</small></span></a></div></section>
-        {% if is_admin %}<section class="apps-drawer-section"><p>Administration</p><div class="apps-drawer-items"><a class="apps-drawer-item" href="{{url_for('admin_panel')}}" data-app-nav><i>⌘</i><span><b>Admin</b><small>Users and access</small></span></a><a class="apps-drawer-item" href="{{url_for('vault_page')}}" data-app-nav><i>◇</i><span><b>Livenza Vault</b><small>Protected operational credentials</small></span></a><a class="apps-drawer-item" href="{{url_for('settings_page')}}" data-app-nav><i>⚙</i><span><b>Settings</b><small>System configuration</small></span></a></div></section>{% endif %}
-      </div>
+    <nav id="appsDrawer" class="apps-drawer side-drawer side-drawer-left no-print grouped-apps-drawer" aria-label="Applications" aria-hidden="true" hidden>
+      <div class="apps-drawer-head"><div><p class="eyebrow">LIVENZA APPLICATIONS</p><b>Everything in one workspace</b><small>Choose a category, then open an application.</small></div><button type="button" id="appsDrawerClose" data-drawer-close aria-label="Close applications menu">×</button></div>
+      <div class="apps-drawer-scroll grouped-apps-scroll">{{ appgroups.render_application_groups('drawer') }}</div>
       <div class="apps-drawer-foot"><span><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} session</small></span><a href="{{url_for('logout')}}"><i>↗</i> Logout</a></div>
     </nav>
     <aside id="accountDrawer" class="apps-drawer side-drawer side-drawer-right account-side-drawer no-print" aria-label="Account" aria-hidden="true" hidden>
@@ -84,7 +60,7 @@
       <div class="apps-drawer-scroll">
         <section class="apps-drawer-section"><p>Personal</p><div class="apps-drawer-items">
           <a class="apps-drawer-item" href="{{url_for('account')}}" data-app-nav><i>◉</i><span><b>My Account</b><small>Profile and sign-in security</small></span></a>
-          <a class="apps-drawer-item" href="{{url_for('account')}}#mascot-settings" data-app-nav><i>✦</i><span><b>Mascot Settings</b><small>3D host behavior and preferences</small></span></a>
+          <a class="apps-drawer-item" href="{{url_for('account')}}#mascot-settings" data-app-nav><i>✦</i><span><b>Mascot Settings</b><small>Blue robot behavior and preferences</small></span></a>
         </div></section>
         {% if is_admin %}<section class="apps-drawer-section"><p>Administration</p><div class="apps-drawer-items">
           <a class="apps-drawer-item" href="{{url_for('admin_panel')}}" data-app-nav><i>⌘</i><span><b>Admin</b><small>Users, permissions and policies</small></span></a>
@@ -110,7 +86,7 @@
     {% if companion_enabled %}
     <section id="mascotCompanionPanel" class="mascot-companion-panel liquid-card" aria-label="Live weather, operations and inspiration" aria-hidden="true" hidden>
         <header class="companion-panel-head">
-          <div><span class="companion-ai-star">✦</span><span><b>Livenza Digital Host</b><small>3D assistant · Live updates · Help</small></span></div>
+          <div><span class="companion-ai-star">✦</span><span><b>Livenza Mascot</b><small>Blue robot · Live updates · Help</small></span></div>
           <button type="button" id="mascotCompanionClose" aria-label="Close Livenza companion">×</button>
         </header>
         <nav class="companion-mode-tabs safe-tabs safe-scroll-tabs" role="tablist" aria-label="Companion mode"><button type="button" class="safe-tab active" role="tab" aria-selected="true" data-tv-tab="companion-live" data-tv-group="companion" data-tv-target="companion-live" data-companion-tab="live"><span>◉</span> Live</button><button type="button" class="safe-tab" role="tab" aria-selected="false" data-tv-tab="companion-chat" data-tv-group="companion" data-tv-target="companion-chat" data-companion-tab="chat"><span>✦</span> Ask Livenza</button></nav>
@@ -134,12 +110,12 @@
           <form id="assistantForm" class="assistant-form companion-chat-form"><label class="sr-only" for="assistantInput">Ask Livenza</label><input id="assistantInput" autocomplete="off" placeholder="Ask the mascot about any feature…"><button class="primary" type="submit">Send</button></form>
         </div>
     </section>
-    <aside id="mascotCompanion" class="mascot-companion no-print" data-default-city="{{companion_default_city}}" data-weather-effects="{{'1' if companion_weather_effects else '0'}}" aria-label="Livenza 3D digital host and assistant">
-      <div id="livenza3dHost" class="livenza3d-host" data-host-preferences='{{ mascot_preferences|tojson|forceescape }}' aria-label="Interactive Livenza 3D digital host">
-        <div id="livenza3dCanvasMount" class="livenza3d-canvas-mount"></div>
-        <p id="livenza3dStatus" class="livenza3d-status" role="status" hidden>Starting 3D host…</p>
-        <button type="button" id="mascotCompanionButton" class="livenza3d-assistant-button" aria-expanded="false" aria-controls="mascotCompanionPanel" title="Open Livenza Companion and help"><span aria-hidden="true">✦</span><span id="mascotWeatherChip">LIVE</span></button>
-      </div>
+    <aside id="mascotCompanion" class="mascot-companion no-print mascot-pos-{{mascot_preferences.position}} mascot-size-{{mascot_preferences.size}} mascot-motion-{{mascot_preferences.intensity}}" data-default-city="{{companion_default_city}}" data-weather-effects="{{'1' if companion_weather_effects else '0'}}" aria-label="Livenza blue robot mascot and assistant">
+      <button type="button" id="mascotCompanionButton" class="mascot-companion-button" aria-expanded="false" aria-controls="mascotCompanionPanel" title="Open Livenza Companion and help">
+        <span class="companion-float-icon companion-float-one" aria-hidden="true">✦</span><span class="companion-float-icon companion-float-two" aria-hidden="true">✧</span>
+        <span class="mascot-side-glow" aria-hidden="true"></span><span class="mascot-side-character"><img src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}" alt=""></span><span class="mascot-side-shadow" aria-hidden="true"></span>
+        <span id="mascotWeatherChip" class="mascot-weather-chip">LIVE</span><span class="mascot-mini-bubble" aria-hidden="true">✦</span>
+      </button>
     </aside>
     <div id="livenzaWeatherScene" class="livenza-weather-scene no-print" aria-hidden="true"></div>
     {% endif %}
@@ -169,8 +145,6 @@
 
   <script src="{{url_for('static',filename='tv_compat.js')}}?v={{app_version|replace('Web ','')}}"></script>
   <script src="{{url_for('static',filename='app.js')}}?v={{app_version|replace('Web ','')}}"></script>
-  <script src="{{url_for('static',filename='livenza_host3d_state.js')}}?v={{app_version|replace('Web ','')}}"></script>
-  <script src="{{url_for('static',filename='livenza_host3d.js')}}?v={{app_version|replace('Web ','')}}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
