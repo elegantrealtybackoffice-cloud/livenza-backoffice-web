@@ -51,18 +51,109 @@ async function handleAadhaarExtract(btn){
   if(!file){setAadhaarStatus('Choose an Aadhaar JPEG, PNG or PDF first.','error');return}
   if(file.size>10*1024*1024){setAadhaarStatus('The Aadhaar file must be 10 MB or smaller.','error');return}
   const original=btn.textContent;btn.disabled=true;btn.textContent='Reading Aadhaar…';setAadhaarStatus('Reading the document securely. The original upload will not be stored.','working');
+  const controller=new AbortController(),timeout=window.setTimeout(()=>controller.abort(),100000);
   try{
-    const fd=new FormData();fd.append('aadhaar_file',file);const r=await fetch('/agreements/aadhaar-extract',{method:'POST',body:fd,credentials:'same-origin'});const d=await r.json().catch(()=>({}));
-    if(!r.ok||!d.ok)throw new Error(d.error||'Could not read Aadhaar document.');
+    const fd=new FormData();fd.append('aadhaar_file',file);const r=await fetch('/agreements/aadhaar-extract',{method:'POST',body:fd,credentials:'same-origin',signal:controller.signal});
+    const contentType=(r.headers.get('content-type')||'').toLowerCase();
+    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.5.8 and retry.`);
+    const d=await r.json();
+    if(!r.ok||!d.ok)throw new Error([d.error,d.reader_status].filter(Boolean).join(' Reader status: '));
     const fields=d.fields||{};let filled=0;['tenant_name','tenant_father','tenant_dob','tenant_address','tenant_id_type','tenant_id_no'].forEach(k=>{if(fillAgreementField(k,fields[k]))filled++});
     setAadhaarStatus(`Auto-filled ${filled} tenant fields. ${d.note||''}${fields.gender?` Gender detected: ${fields.gender}.`:''} Review all values before saving.`,'success');
-  }catch(err){setAadhaarStatus(err.message||'Automatic Aadhaar reading could not detect clear details. Try a brighter, straight photo or enter the fields manually.','error')}
-  finally{btn.disabled=false;btn.textContent=original}
+  }catch(err){setAadhaarStatus(err.name==='AbortError'?'Aadhaar reading timed out after 100 seconds. Try a smaller, clearer image or a two-page PDF.':(err.message||'Automatic Aadhaar reading could not detect clear details. Try a brighter, straight photo or enter the fields manually.'),'error')}
+  finally{window.clearTimeout(timeout);btn.disabled=false;btn.textContent=original}
+}
+
+const videoBytes=value=>{const n=Number(value||0);if(n<1048576)return `${(n/1024).toFixed(0)} KB`;return `${(n/1048576).toFixed(n>=104857600?0:1)} MB`};
+function tusMetadata(values){
+  const encode=value=>btoa(unescape(encodeURIComponent(String(value||''))));
+  return Object.entries(values).map(([key,value])=>`${key} ${encode(value)}`).join(',');
+}
+async function sameOriginJson(url,body,method='POST'){
+  const response=await fetch(url,{method,credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body||{})});
+  const type=(response.headers.get('content-type')||'').toLowerCase();
+  if(!type.includes('application/json'))throw new Error(response.redirected?'Your session expired. Sign in again, then retry the upload.':`Unexpected server response (${response.status}).`);
+  const data=await response.json();if(!response.ok||data.ok===false)throw new Error(data.error||`Request failed (${response.status})`);return data;
+}
+async function recoverTusOffset(uploadUrl,signature){
+  const response=await fetch(uploadUrl,{method:'HEAD',headers:{'Tus-Resumable':'1.0.0','x-signature':signature}});
+  if(!response.ok)throw new Error(`Upload recovery failed (${response.status}).`);
+  return Number(response.headers.get('Upload-Offset')||0);
+}
+async function sendTusFile(file,upload,update){
+  const created=await fetch(upload.endpoint,{method:'POST',headers:{
+    'Tus-Resumable':'1.0.0','Upload-Length':String(file.size),'Upload-Metadata':tusMetadata({
+      bucketName:upload.bucket,objectName:upload.object_name,contentType:upload.content_type,cacheControl:'3600',
+    }),'x-signature':upload.signature,'x-upsert':'false',
+  }});
+  if(!created.ok)throw new Error(`Storage could not open the resumable upload (${created.status}). Check the bucket file-size limit.`);
+  const location=created.headers.get('Location');if(!location)throw new Error('Storage did not return an upload location.');
+  const uploadUrl=new URL(location,upload.endpoint).toString();let offset=Number(created.headers.get('Upload-Offset')||0),failures=0;
+  while(offset<file.size){
+    const end=Math.min(file.size,offset+Number(upload.chunk_size||6291456)),chunk=file.slice(offset,end);
+    try{
+      const response=await fetch(uploadUrl,{method:'PATCH',headers:{'Tus-Resumable':'1.0.0','Upload-Offset':String(offset),'Content-Type':'application/offset+octet-stream','x-signature':upload.signature},body:chunk});
+      if(!response.ok)throw new Error(`Storage upload stopped (${response.status}).`);
+      const next=Number(response.headers.get('Upload-Offset')||end);if(next<=offset)throw new Error('Storage did not advance the upload.');
+      offset=next;failures=0;update(offset,file.size);
+    }catch(error){
+      failures++;if(failures>3)throw error;
+      await new Promise(resolve=>setTimeout(resolve,600*failures));offset=await recoverTusOffset(uploadUrl,upload.signature);update(offset,file.size,true);
+    }
+  }
+}
+function initVideoWallUploader(root=document){
+  const form=root.querySelector?.('#videoWallUploadForm');if(!form||form.dataset.uploadReady)return;form.dataset.uploadReady='1';
+  const input=form.querySelector('#videoWallMediaFile'),button=form.querySelector('#videoWallUploadButton'),panel=form.querySelector('#videoUploadProgress'),bar=form.querySelector('#videoUploadBar'),percent=form.querySelector('#videoUploadPercent'),status=form.querySelector('#videoUploadStatus'),bytes=form.querySelector('#videoUploadBytes');
+  form.addEventListener('submit',async event=>{
+    const file=input?.files?.[0],external=form.querySelector('[name="external_url"]')?.value?.trim();if(!file||external)return;
+    event.preventDefault();if(form.dataset.uploading==='1')return;form.dataset.uploading='1';button.disabled=true;input.disabled=true;panel.hidden=false;panel.classList.remove('error');bar.value=0;percent.textContent='0%';status.textContent='Reserving secure media storage…';bytes.textContent=`0 MB of ${videoBytes(file.size)}`;
+    const update=(sent,total,recovered=false)=>{const value=Math.max(0,Math.min(100,Math.round(sent/total*100)));bar.value=value;percent.textContent=`${value}%`;status.textContent=recovered?'Connection restored • continuing upload…':'Uploading directly to media storage…';bytes.textContent=`${videoBytes(sent)} of ${videoBytes(total)}`};
+    try{
+      const title=form.querySelector('[name="title"]')?.value?.trim()||file.name;
+      const started=await sameOriginJson(form.dataset.resumableStart,{filename:file.name,content_type:file.type,size:file.size,title});
+      await sendTusFile(file,started.upload,update);status.textContent='Verifying media and adding it to Livenza…';percent.textContent='100%';bar.value=100;
+      await sameOriginJson(form.dataset.resumableFinish,{reservation:started.upload.reservation});status.textContent='Upload complete • opening the media library…';bytes.textContent=`${videoBytes(file.size)} verified and ready for TV playback.`;
+      window.setTimeout(()=>location.assign('/video-wall#available-media'),650);
+    }catch(error){status.textContent=error.message||'Upload failed.';panel.classList.add('error');button.disabled=false;input.disabled=false;form.dataset.uploading='0'}
+  });
+}
+
+function initAgreementWorkspace(root=document){
+  const form=root.querySelector?.('#agreementForm');if(!form||form.dataset.workspaceReady)return;form.dataset.workspaceReady='1';
+  const panels=[...form.querySelectorAll('[data-wizard-panel]')],steps=[...form.querySelectorAll('[data-wizard-step]')],autosave=document.getElementById('agreementAutosaveStatus');let current=0,saveTimer=0;
+  const showStep=(index,scroll=true)=>{current=Math.max(0,Math.min(panels.length-1,Number(index)||0));panels.forEach(panel=>{const active=Number(panel.dataset.wizardPanel)===current;panel.hidden=!active;panel.classList.toggle('active',active)});steps.forEach(step=>{const value=Number(step.dataset.wizardStep),active=value===current;step.classList.toggle('active',active);step.classList.toggle('complete',value<current);step.setAttribute('aria-current',active?'step':'false')});if(scroll)document.querySelector('.agreement-workspace-status')?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})};
+  steps.forEach(step=>step.addEventListener('click',()=>showStep(step.dataset.wizardStep)));
+  form.querySelectorAll('[data-wizard-next]').forEach(button=>button.addEventListener('click',()=>showStep(button.dataset.wizardNext)));
+  form.querySelectorAll('[data-wizard-back]').forEach(button=>button.addEventListener('click',()=>showStep(button.dataset.wizardBack)));
+
+  form.querySelectorAll('[data-preset-card]').forEach(card=>card.addEventListener('click',()=>{const select=form.querySelector('#presetSelect');if(!select)return;select.value=card.dataset.presetCard;select.dispatchEvent(new Event('change',{bubbles:true}));form.querySelectorAll('[data-preset-card]').forEach(item=>item.classList.toggle('selected',item===card))}));
+  form.querySelector('#presetSelect')?.addEventListener('change',event=>form.querySelectorAll('[data-preset-card]').forEach(card=>card.classList.toggle('selected',card.dataset.presetCard===event.target.value)));
+
+  const key=form.dataset.draftKey,serialize=()=>{const values={};form.querySelectorAll('input[name],select[name],textarea[name]').forEach(control=>{if(control.type==='file'||control.type==='password'||control.type==='submit')return;if(control.type==='checkbox'||control.type==='radio'){values[control.name]=control.checked}else if(control.multiple)values[control.name]=[...control.selectedOptions].map(option=>option.value);else values[control.name]=control.value});return values};
+  const setSaved=(text,state='saved')=>{if(!autosave)return;autosave.className=`agreement-autosave ${state}`;autosave.querySelector('span').textContent=text};
+  const persist=()=>{try{localStorage.setItem(key,JSON.stringify({saved_at:Date.now(),values:serialize()}));setSaved(`Saved locally · ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`)}catch(error){setSaved('Local auto-save unavailable','error')}};
+  const queueSave=()=>{setSaved('Saving locally…','saving');clearTimeout(saveTimer);saveTimer=setTimeout(persist,550)};
+  form.addEventListener('input',queueSave);form.addEventListener('change',queueSave);
+  if(form.dataset.existing!=='1'){try{const draft=JSON.parse(localStorage.getItem(key)||'null');if(draft?.values){Object.entries(draft.values).forEach(([name,value])=>{const controls=form.querySelectorAll(`[name="${CSS.escape(name)}"]`);controls.forEach(control=>{if(control.type==='checkbox'||control.type==='radio')control.checked=Boolean(value);else if(control.multiple&&Array.isArray(value))[...control.options].forEach(option=>option.selected=value.includes(option.value));else control.value=value})});setSaved('Restored your locally saved draft')}}catch(error){}}
+  form.addEventListener('submit',()=>{clearTimeout(saveTimer);try{localStorage.removeItem(key)}catch(error){};setSaved('Saving agreement…','saving')});
+
+  let profileData={landlord:[],tenant:[]};try{profileData=JSON.parse(document.getElementById('partyProfilesData')?.textContent||'{}')}catch(error){}
+  const profileStatus=document.getElementById('partyProfileStatus'),profileFields={landlord:['landlord_name','landlord_father','landlord_entity','landlord_address','landlord_id_type','landlord_id_no','landlord_pan','landlord_mobile','landlord_email','authorized_signatory'],tenant:['tenant_name','tenant_father','tenant_dob','tenant_address','tenant_id_type','tenant_id_no','tenant_mobile','tenant_whatsapp','tenant_email','emergency_contact1','emergency_contact2']};
+  const say=(message,error=false)=>{if(profileStatus){profileStatus.textContent=message;profileStatus.classList.toggle('danger',error)}};
+  const selectedProfile=type=>{const id=Number(form.querySelector(`[data-party-profile-select="${type}"]`)?.value||0);return (profileData[type]||[]).find(item=>Number(item.id)===id)};
+  form.querySelectorAll('[data-party-profile-select]').forEach(select=>select.addEventListener('change',()=>{const type=select.dataset.partyProfileSelect,profile=selectedProfile(type),name=form.querySelector(`[data-party-profile-name="${type}"]`);if(name&&profile)name.value=profile.name}));
+  form.querySelectorAll('[data-party-profile-apply]').forEach(button=>button.addEventListener('click',()=>{const type=button.dataset.partyProfileApply,profile=selectedProfile(type);if(!profile){say(`Choose a saved ${type} profile first.`,true);return}let count=0;Object.entries(profile.fields||{}).forEach(([name,value])=>{const control=form.querySelector(`[name="${CSS.escape(name)}"]`);if(control){control.value=value;control.dispatchEvent(new Event('input',{bubbles:true}));count++}});say(`Applied ${profile.name} · ${count} fields filled.`)}));
+  form.querySelectorAll('[data-party-profile-save]').forEach(button=>button.addEventListener('click',async()=>{const type=button.dataset.partyProfileSave,nameInput=form.querySelector(`[data-party-profile-name="${type}"]`),name=nameInput?.value?.trim()||'';if(!name){say(`Enter a name for the ${type} profile first.`,true);nameInput?.focus();return}const fields={};(profileFields[type]||[]).forEach(field=>{const value=form.querySelector(`[name="${CSS.escape(field)}"]`)?.value?.trim();if(value)fields[field]=value});button.disabled=true;say(`Encrypting and saving ${type} profile…`);try{const data=await sameOriginJson('/api/agreement-party-profiles',{profile_type:type,name,fields}),list=profileData[type]||(profileData[type]=[]),index=list.findIndex(item=>Number(item.id)===Number(data.profile.id));if(index>=0)list[index]=data.profile;else list.push(data.profile);const select=form.querySelector(`[data-party-profile-select="${type}"]`);let option=[...select.options].find(item=>Number(item.value)===Number(data.profile.id));if(!option){option=document.createElement('option');option.value=data.profile.id;select.appendChild(option)}option.textContent=data.profile.name;select.value=String(data.profile.id);say(data.message||`${type} profile saved.`)}catch(error){say(error.message||'Could not save profile.',true)}finally{button.disabled=false}}));
+  form.querySelectorAll('[data-party-profile-delete]').forEach(button=>button.addEventListener('click',async()=>{const type=button.dataset.partyProfileDelete,profile=selectedProfile(type);if(!profile){say(`Choose a saved ${type} profile first.`,true);return}if(!confirm(`Delete the saved profile “${profile.name}”?`))return;try{const response=await fetch(`/api/agreement-party-profiles/${profile.id}`,{method:'DELETE',credentials:'same-origin',headers:{'Accept':'application/json'}}),data=await response.json();if(!response.ok||data.ok===false)throw new Error(data.error||'Could not delete profile.');profileData[type]=(profileData[type]||[]).filter(item=>Number(item.id)!==Number(profile.id));form.querySelector(`[data-party-profile-select="${type}"] option[value="${profile.id}"]`)?.remove();say(data.message||'Saved profile removed.')}catch(error){say(error.message||'Could not delete profile.',true)}}));
+  showStep(0,false);
 }
 
 function initPageFeatures(root=document){
   root.querySelectorAll?.('#agreementForm [name]').forEach(el=>{el.required=false;el.closest('label')?.classList.remove('required-field')});
   refreshReviewQr(root);
+  initVideoWallUploader(root);
+  initAgreementWorkspace(root);
   window.dispatchEvent(new CustomEvent('livenza:page-ready',{detail:{root}}));
 }
 window.LivenzaInitPage=initPageFeatures;
@@ -87,99 +178,97 @@ function updateFooterClock(){const el=document.getElementById('footerClock');if(
 updateFooterClock();setInterval(updateFooterClock,1000);const footerYear=document.getElementById('footerYear');if(footerYear)footerYear.textContent=new Date().getFullYear();
 initPageFeatures(document);
 
-// ===== Web 1.4.6 • unified View menu + stable fullscreen/orientation =====
+// ===== Web 1.5.8 • native responsive workspace (manual display controls removed) =====
 (function(){
+  const root=document.documentElement;
   const viewport=document.getElementById('appViewport');
   const viewBtn=document.getElementById('viewMenuToggle');
   const fsBtn=document.getElementById('fullscreenToggle');
   const menu=document.getElementById('viewMenu');
-  if(!viewport) return;
+  const orientationStatus=document.getElementById('orientationStatus');
+  if(!viewport)return;
+  if(!viewBtn&&!menu){
+    ['view-portrait','view-landscape','view-rot-90','view-rot-180','view-rot-270'].forEach(name=>viewport.classList.remove(name));
+    viewport.classList.add('view-auto');root.classList.remove('site-rotation-active','livenza-theatre-mode');document.body.classList.remove('livenza-theatre-mode');
+    try{localStorage.removeItem('livenza_view_mode')}catch(e){}
+    const fullscreenElement=()=>document.fullscreenElement||document.webkitFullscreenElement||document.webkitCurrentFullScreenElement||null;
+    window.LivenzaDisplay={isFullscreen:()=>Boolean(fullscreenElement()),closeViewMenu:()=>{},closeRotateMenu:()=>{},resetForNavigation:()=>{}};
+    return;
+  }
 
   const modes=['auto','portrait','landscape','90','180','270'];
   const viewClasses=['view-auto','view-portrait','view-landscape','view-rot-90','view-rot-180','view-rot-270'];
-  let currentMode='auto';
+  let currentMode='auto',pseudoFullscreen=false;
 
-  function fullscreenElement(){return document.fullscreenElement||document.webkitFullscreenElement||null}
-  function isFullscreen(){return !!fullscreenElement()}
+  function nativeFullscreenElement(){return document.fullscreenElement||document.webkitFullscreenElement||document.webkitCurrentFullScreenElement||document.mozFullScreenElement||document.msFullscreenElement||null}
+  function isFullscreen(){return Boolean(nativeFullscreenElement()||pseudoFullscreen||root.classList.contains('livenza-theatre-mode'))}
+  function setPseudoFullscreen(active){pseudoFullscreen=active;root.classList.toggle('livenza-theatre-mode',active);document.body.classList.toggle('livenza-theatre-mode',active)}
+  function syncViewportMetrics(){
+    const visual=window.visualViewport,w=Math.round(visual?.width||window.innerWidth||screen.width||1280),h=Math.round(visual?.height||window.innerHeight||screen.height||720);
+    root.style.setProperty('--livenza-screen-width',`${w}px`);root.style.setProperty('--livenza-screen-height',`${h}px`);
+  }
 
   function updateFullscreenButton(){
-    if(!fsBtn)return;
     const active=isFullscreen();
-    const label=fsBtn.querySelector('.tool-label');
-    if(label)label.textContent=active?'Exit Full Screen':'Full Screen';
-    fsBtn.classList.toggle('active',active);
-    fsBtn.setAttribute('aria-pressed',String(active));
-    document.documentElement.classList.toggle('fullscreen-stable',active);
-    document.body.classList.toggle('fullscreen-stable',active);
+    if(fsBtn){const label=fsBtn.querySelector('.tool-label');if(label)label.textContent=active?'Exit Full Screen':'Full Screen';fsBtn.classList.toggle('active',active);fsBtn.setAttribute('aria-pressed',String(active))}
+    root.classList.toggle('fullscreen-stable',active);document.body.classList.toggle('fullscreen-stable',active);
   }
 
-  function clearViewClasses(){
-    viewClasses.forEach(c=>viewport.classList.remove(c));
-    document.documentElement.classList.remove('site-rotation-active');
+  function clearViewClasses(){viewClasses.forEach(c=>viewport.classList.remove(c));root.classList.remove('site-rotation-active')}
+  async function unlockOrientation(){
+    try{if(screen.orientation?.unlock)screen.orientation.unlock();else (screen.unlockOrientation||screen.mozUnlockOrientation||screen.msUnlockOrientation)?.call(screen)}catch(e){}
   }
-  async function unlockOrientation(){try{screen.orientation?.unlock?.()}catch(e){}}
 
-  function updateOrientationUi(mode){
-    document.querySelectorAll('#viewMenu [data-view-mode]').forEach(b=>{
-      const selected=b.dataset.viewMode===mode;
-      b.classList.toggle('selected',selected);
-      b.setAttribute('aria-current',selected?'true':'false');
-    });
+  function updateOrientationUi(mode,nativeApplied=false){
+    document.querySelectorAll('#viewMenu [data-view-mode]').forEach(button=>{const selected=button.dataset.viewMode===mode;button.classList.toggle('selected',selected);button.setAttribute('aria-current',selected?'true':'false')});
+    if(orientationStatus){const labels={auto:'Automatic display',portrait:'Portrait view',landscape:'Landscape view','90':'90° clockwise','180':'180° rotation','270':'270° clockwise'};orientationStatus.textContent=`${labels[mode]||'Automatic display'} active${nativeApplied?' · screen orientation':' · browser-safe mode'}.`}
   }
 
   async function tryNativeOrientation(mode){
-    if(!screen.orientation?.lock||!isFullscreen())return false;
-    try{
-      if(mode==='portrait'){await screen.orientation.lock('portrait-primary');return true}
-      if(mode==='landscape'){await screen.orientation.lock('landscape-primary');return true}
-    }catch(e){}
+    if(!nativeFullscreenElement()||!['portrait','landscape'].includes(mode))return false;
+    const value=mode==='portrait'?'portrait-primary':'landscape-primary';
+    try{if(screen.orientation?.lock){await screen.orientation.lock(value);return true}}catch(e){}
+    try{const legacy=screen.lockOrientation||screen.mozLockOrientation||screen.msLockOrientation;if(legacy)return Boolean(legacy.call(screen,value))}catch(e){}
     return false;
   }
 
   async function applyViewMode(mode,save=true){
-    if(!modes.includes(mode))mode='auto';
-    currentMode=mode;
-
-    // Fullscreen remains a normal scrollable document. Native orientation is
-    // attempted only for portrait/landscape; custom angles exit fullscreen.
-    if(isFullscreen()){
-      clearViewClasses();
-      viewport.classList.add(mode==='portrait'?'view-portrait':'view-auto');
-      if(mode==='auto')await unlockOrientation();
-      else if(mode==='portrait'||mode==='landscape')await tryNativeOrientation(mode);
-      updateOrientationUi(mode);
-      if(save){try{localStorage.setItem('livenza_view_mode',mode)}catch(e){}}
-      return;
-    }
-
-    await unlockOrientation();
-    clearViewClasses();
-    const cls=mode==='90'?'view-rot-90':mode==='180'?'view-rot-180':mode==='270'?'view-rot-270':`view-${mode}`;
+    if(!modes.includes(mode))mode='auto';currentMode=mode;syncViewportMetrics();clearViewClasses();
+    let nativeApplied=false;
+    if(mode==='auto')await unlockOrientation();
+    else if(mode==='portrait'||mode==='landscape')nativeApplied=await tryNativeOrientation(mode);
+    else await unlockOrientation();
+    const cssMode=nativeApplied?'auto':mode;
+    const cls=cssMode==='90'?'view-rot-90':cssMode==='180'?'view-rot-180':cssMode==='270'?'view-rot-270':`view-${cssMode}`;
     viewport.classList.add(cls);
-    if(['90','180','270'].includes(mode))document.documentElement.classList.add('site-rotation-active');
-    updateOrientationUi(mode);
+    if(['90','180','270'].includes(cssMode))root.classList.add('site-rotation-active');
+    root.dataset.livenzaDisplayMode=mode;updateOrientationUi(mode,nativeApplied);
     if(save){try{localStorage.setItem('livenza_view_mode',mode)}catch(e){}}
   }
 
+  async function exitNativeFullscreen(){
+    const exit=document.exitFullscreen||document.webkitExitFullscreen||document.webkitCancelFullScreen||document.mozCancelFullScreen||document.msExitFullscreen;
+    if(exit){const result=exit.call(document);if(result?.then)await result}
+  }
+  async function requestNativeFullscreen(){
+    const target=document.documentElement;
+    if(target.requestFullscreen){try{await target.requestFullscreen({navigationUI:'hide'})}catch(firstError){await target.requestFullscreen()}return Boolean(nativeFullscreenElement())}
+    const request=target.webkitRequestFullscreen||target.webkitRequestFullScreen||target.mozRequestFullScreen||target.msRequestFullscreen;
+    if(request){const result=request.call(target);if(result?.then)await result;if(!nativeFullscreenElement())await new Promise(resolve=>window.setTimeout(resolve,180));return Boolean(nativeFullscreenElement())}
+    return false;
+  }
+
   async function toggleFullscreen(){
+    closeViewMenu();root.classList.add('fullscreen-requesting');
     try{
-      closeViewMenu();
-      if(isFullscreen()){
-        if(document.exitFullscreen)await document.exitFullscreen();
-        else if(document.webkitExitFullscreen)document.webkitExitFullscreen();
-      }else{
-        // Always enter fullscreen from a clean non-transformed state.
-        clearViewClasses();viewport.classList.add('view-auto');
-        document.documentElement.classList.add('fullscreen-requesting');
-        const target=document.body;
-        if(target.requestFullscreen)await target.requestFullscreen({navigationUI:'hide'});
-        else if(target.webkitRequestFullscreen)target.webkitRequestFullscreen();
-        else alert('Fullscreen is not supported by this browser.');
+      if(nativeFullscreenElement())await exitNativeFullscreen();
+      else if(pseudoFullscreen)setPseudoFullscreen(false);
+      else{
+        let opened=false;try{opened=await requestNativeFullscreen()}catch(error){console.warn('Native fullscreen unavailable; using theatre mode.',error)}
+        if(!opened)setPseudoFullscreen(true);
       }
-    }catch(err){console.warn('Fullscreen request was blocked:',err)}
-    finally{
-      document.documentElement.classList.remove('fullscreen-requesting');
-      updateFullscreenButton();
+    }finally{
+      root.classList.remove('fullscreen-requesting');updateFullscreenButton();await applyViewMode(currentMode,false);
     }
   }
 
@@ -210,38 +299,36 @@ initPageFeatures(document);
   viewBtn?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();toggleViewMenu()});
   menu?.addEventListener('click',async e=>{
     const btn=e.target.closest('[data-view-mode]');if(!btn)return;
-    const mode=btn.dataset.viewMode;closeViewMenu();
-    if(isFullscreen()&&['90','180','270'].includes(mode)){
-      try{
-        if(document.exitFullscreen)await document.exitFullscreen();
-        else if(document.webkitExitFullscreen)document.webkitExitFullscreen();
-      }catch(err){}
-      window.setTimeout(()=>applyViewMode(mode),80);return;
-    }
-    await applyViewMode(mode);
+    closeViewMenu();await applyViewMode(btn.dataset.viewMode);
   });
   document.addEventListener('pointerdown',e=>{if(menu&&!menu.hidden&&!menu.contains(e.target)&&!viewBtn?.contains(e.target))closeViewMenu()});
   window.addEventListener('keydown',e=>{if(e.key==='Escape')closeViewMenu()});
-  window.addEventListener('resize',positionViewMenu,{passive:true});
+  window.addEventListener('resize',()=>{syncViewportMetrics();positionViewMenu()},{passive:true});
+  window.visualViewport?.addEventListener('resize',()=>{syncViewportMetrics();positionViewMenu()},{passive:true});
   window.addEventListener('scroll',positionViewMenu,{passive:true,capture:true});
 
   async function onFullscreenChange(){
+    if(nativeFullscreenElement()&&pseudoFullscreen)setPseudoFullscreen(false);
     updateFullscreenButton();
     await applyViewMode(currentMode,false);
     positionViewMenu();
   }
   document.addEventListener('fullscreenchange',onFullscreenChange);
   document.addEventListener('webkitfullscreenchange',onFullscreenChange);
+  document.addEventListener('mozfullscreenchange',onFullscreenChange);
+  document.addEventListener('MSFullscreenChange',onFullscreenChange);
+  screen.orientation?.addEventListener?.('change',()=>{syncViewportMetrics();if(['portrait','landscape'].includes(currentMode))applyViewMode(currentMode,false)});
+  document.addEventListener('fullscreenerror',()=>{if(!nativeFullscreenElement()){setPseudoFullscreen(true);updateFullscreenButton();applyViewMode(currentMode,false)}});
 
   let initial='auto';try{initial=localStorage.getItem('livenza_view_mode')||'auto'}catch(e){}
   currentMode=modes.includes(initial)?initial:'auto';
-  applyViewMode(currentMode,false);updateFullscreenButton();
+  syncViewportMetrics();applyViewMode(currentMode,false);updateFullscreenButton();
 
   window.LivenzaDisplay={
     isFullscreen,
     closeViewMenu,
     closeRotateMenu:closeViewMenu,
-    resetForNavigation:()=>{clearViewClasses();viewport.classList.add('view-auto')}
+    resetForNavigation:()=>applyViewMode(currentMode,false)
   };
 })();
 
@@ -278,9 +365,9 @@ initPageFeatures(document);
     office:{match:/quer|review|whatsapp|email|drive|admin|setting|account/,eyebrow:'CONNECTED WORKSPACE',title:'One calm command centre for every operation.',alt:'Modern connected office workspace',image:'https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/modern-office-space-with-city-view-and-desks-56U797Gamac'}
   };
 
-  function visualForPath(){const path=location.pathname.toLowerCase();return Object.values(photos).find(item=>item.match.test(path))}
+  function visualForPath(){const path=location.pathname.toLowerCase();if(path.startsWith('/agreements'))return null;return Object.values(photos).find(item=>item.match.test(path))}
   function mountContextVisual(root=document){
-    if(root.querySelector?.('.module-visual-ribbon,.experience-gallery'))return;
+    if(root.querySelector?.('.module-visual-ribbon,.experience-gallery,.agreement-brand-banner'))return;
     const pageHead=root.querySelector?.('.page-head');if(!pageHead)return;
     const visual=visualForPath();if(!visual)return;
     const ribbon=document.createElement('a');ribbon.className='module-visual-ribbon';ribbon.href=visual.credit;ribbon.target='_blank';ribbon.rel='noopener';ribbon.setAttribute('aria-label',`${visual.title} Photography source`);
@@ -326,11 +413,17 @@ initPageFeatures(document);
   };
   function initPatternWidgets(root=document){
     root.querySelectorAll?.('[data-pattern-widget]').forEach(widget=>{
-      if(widget.dataset.ready)return;widget.dataset.ready='1';const selected=[],hidden=widget.querySelector('[data-pattern-value]');
-      widget.querySelectorAll('[data-pattern-node]').forEach(node=>node.addEventListener('click',()=>{
-        const value=node.dataset.patternNode;if(selected.includes(value))return;selected.push(value);node.classList.add('selected');if(hidden)hidden.value=selected.join('-');
-      }));
-      widget.addEventListener('dblclick',e=>{e.preventDefault();selected.splice(0);widget.querySelectorAll('.selected').forEach(n=>n.classList.remove('selected'));if(hidden)hidden.value=''});
+      if(widget.dataset.ready)return;widget.dataset.ready='1';const selected=[],selectedNodes=[],hidden=widget.querySelector('[data-pattern-value]');let drawing=false,moved=false;
+      const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),line=document.createElementNS('http://www.w3.org/2000/svg','polyline');svg.classList.add('pattern-links');svg.setAttribute('aria-hidden','true');line.setAttribute('fill','none');line.setAttribute('vector-effect','non-scaling-stroke');svg.appendChild(line);widget.insertBefore(svg,widget.firstChild);
+      const updateLine=()=>{const bounds=widget.getBoundingClientRect();svg.setAttribute('viewBox',`0 0 ${Math.max(1,bounds.width)} ${Math.max(1,bounds.height)}`);line.setAttribute('points',selectedNodes.map(node=>{const r=node.getBoundingClientRect();return `${r.left-bounds.left+r.width/2},${r.top-bounds.top+r.height/2}`}).join(' '))};
+      const clear=()=>{selected.splice(0);selectedNodes.splice(0);widget.querySelectorAll('.selected').forEach(node=>node.classList.remove('selected'));if(hidden)hidden.value='';updateLine()};
+      const add=node=>{if(!node||!widget.contains(node))return;const value=node.dataset.patternNode;if(value===undefined||selected.includes(value))return;selected.push(value);selectedNodes.push(node);node.classList.add('selected');if(hidden)hidden.value=selected.join('-');updateLine()};
+      const nodeAt=(x,y)=>document.elementFromPoint(x,y)?.closest?.('[data-pattern-node]');
+      widget.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse'&&event.button!==0)return;event.preventDefault();clear();drawing=true;moved=false;add(event.target.closest('[data-pattern-node]'));try{widget.setPointerCapture(event.pointerId)}catch(e){}});
+      widget.addEventListener('pointermove',event=>{if(!drawing)return;event.preventDefault();moved=true;add(nodeAt(event.clientX,event.clientY))});
+      const finish=event=>{if(!drawing)return;drawing=false;try{widget.releasePointerCapture(event.pointerId)}catch(e){};updateLine()};widget.addEventListener('pointerup',finish);widget.addEventListener('pointercancel',finish);
+      widget.querySelectorAll('[data-pattern-node]').forEach(node=>node.addEventListener('click',event=>{if(moved){event.preventDefault();moved=false;return}add(node)}));
+      widget.addEventListener('dblclick',event=>{event.preventDefault();clear()});window.addEventListener('resize',updateLine,{passive:true});updateLine();
     });
   }
   function setStatus(message,error=false){const el=document.getElementById('webauthnStatus');if(el){el.textContent=message;el.classList.toggle('danger',error)}}
@@ -358,8 +451,10 @@ initPageFeatures(document);
     const mode=tab.dataset.authTab;document.querySelectorAll('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===tab));document.querySelectorAll('[data-auth-panel]').forEach(x=>x.hidden=x.dataset.authPanel!==mode);const method=document.getElementById('authMethod');if(method)method.value=mode;const submit=document.getElementById('normalLoginButton');if(submit)submit.hidden=mode==='fingerprint';
   }));
   document.getElementById('fingerprintLogin')?.addEventListener('click',async()=>{try{await fingerprintLogin()}catch(e){setStatus(e.message||'Fingerprint login failed.',true)}});
+  document.querySelectorAll('[data-submit-auth]').forEach(button=>button.addEventListener('click',()=>{const method=document.getElementById('authMethod');if(method)method.value=button.dataset.submitAuth||'password'}));
   document.getElementById('loginForm')?.addEventListener('submit',async e=>{if(document.getElementById('authMethod')?.value==='fingerprint'){e.preventDefault();try{await fingerprintLogin()}catch(err){setStatus(err.message||'Fingerprint login failed.',true)}}});
   document.addEventListener('click',async e=>{const btn=e.target.closest('[data-enroll-passkey]');if(!btn)return;e.preventDefault();try{await enrollPasskey(btn)}catch(err){setStatus(err.message||'Enrollment failed.',true)}});
+  if(!window.PublicKeyCredential){const fallback=document.getElementById('passwordFallback');if(fallback)fallback.open=true;setStatus('This browser does not support device passkeys. Use your password or gesture pattern.',true)}
   initPatternWidgets(document);window.addEventListener('livenza:page-ready',e=>initPatternWidgets(e.detail?.root||document));
 })();
 
@@ -532,21 +627,25 @@ initPageFeatures(document);
   const rowSaveTimers=new WeakMap();
   function sheetStatus(text,state=''){const el=document.getElementById('sheetSaveStatus');if(!el)return;el.textContent=text;el.dataset.state=state}
   function rowPayload(row){const out={};row.querySelectorAll('[data-field]').forEach(el=>{out[el.dataset.field]=el.matches('select,input,textarea')?el.value:el.textContent.trim()});return out}
+  function rowMeaningful(row){const payload=rowPayload(row);return ['customer_name','mobile','whatsapp','email','city','property_name','budget','move_in_date','stay_type','query_text','notes'].some(key=>String(payload[key]||'').trim())}
+  function blankQueryRow(number){const tr=document.createElement('tr');tr.className='sheet-blank-row';tr.dataset.queryId='';tr.dataset.clientRef=`blank-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;tr.innerHTML=`<td class="sheet-row-number">${number}</td><td><select data-field="source"><option>Manual</option><option>Meta</option><option>Facebook</option><option>Google</option><option>Airbnb</option><option>Booking.com</option><option>MakeMyTrip</option><option>Goibibo</option><option>Direct</option><option>Other</option></select></td><td contenteditable="true" data-field="customer_name" data-placeholder="Customer name"></td><td contenteditable="true" data-field="mobile" data-placeholder="Mobile"></td><td contenteditable="true" data-field="whatsapp" data-placeholder="WhatsApp"></td><td contenteditable="true" data-field="email" data-placeholder="Email"></td><td contenteditable="true" data-field="city" data-placeholder="City"></td><td contenteditable="true" data-field="property_name" data-placeholder="Property"></td><td contenteditable="true" data-field="budget" data-placeholder="Budget"></td><td contenteditable="true" data-field="move_in_date" data-placeholder="YYYY-MM-DD"></td><td contenteditable="true" data-field="stay_type" data-placeholder="Stay type"></td><td><select data-field="status"><option>Live</option><option>New</option><option>Follow-up</option><option>Won</option><option>Lost</option><option>Closed</option></select></td><td><select data-field="heat"><option>Warm</option><option>Hot</option><option>Cold</option></select></td><td contenteditable="true" data-field="score" inputmode="numeric" data-placeholder="50"></td><td contenteditable="true" data-field="next_follow_up" data-placeholder="Follow-up"></td><td contenteditable="true" data-field="query_text" data-placeholder="Requirement / query" class="sheet-wide-cell"></td><td contenteditable="true" data-field="notes" data-placeholder="Notes" class="sheet-wide-cell"></td><td class="sheet-action-cell"><button type="button" class="sheet-save-row" title="Save this row">✓</button></td>`;return tr}
+  function addBlankQueryRows(count=10){const body=document.getElementById('querySheetBody');if(!body)return[];const added=[];for(let i=0;i<count;i++){const row=blankQueryRow(body.rows.length+1);body.appendChild(row);added.push(row)}return added}
   async function saveSheetRow(row){
-    if(!row)return;const id=row.dataset.queryId;if(!id)return;row.classList.add('saving');sheetStatus(`Saving #${id}…`,'saving');
-    try{const r=await fetch(`/api/queries/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(rowPayload(row))});const d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'Save failed');row.classList.remove('save-error');row.classList.add('saved');sheetStatus(`Saved #${id}`,'saved');setTimeout(()=>row.classList.remove('saved'),700)}catch(err){row.classList.add('save-error');sheetStatus(`Could not save #${id}`,'error')}finally{row.classList.remove('saving')}
+    if(!row||(!row.dataset.queryId&&!rowMeaningful(row)))return;const id=row.dataset.queryId,payload=rowPayload(row);row.classList.add('saving');sheetStatus(id?`Saving #${id}…`:'Saving filled row…','saving');
+    try{const d=await sameOriginJson(id?`/api/queries/${id}`:'/api/queries',payload,id?'PATCH':'POST');if(!id){row.dataset.queryId=d.id;row.classList.remove('sheet-blank-row')}row.classList.remove('save-error','dirty');row.classList.add('saved');sheetStatus(`Saved query #${d.id}`,'saved');setTimeout(()=>row.classList.remove('saved'),700)}catch(err){row.classList.add('save-error');sheetStatus(err.message||'Could not save row','error')}finally{row.classList.remove('saving')}
   }
-  function queueRowSave(row,delay=280){clearTimeout(rowSaveTimers.get(row));rowSaveTimers.set(row,setTimeout(()=>saveSheetRow(row),delay))}
+  async function saveAllSheetRows(){const rows=[...document.querySelectorAll('#querySheetBody tr')].filter(row=>(row.dataset.queryId&&row.classList.contains('dirty'))||(!row.dataset.queryId&&rowMeaningful(row)));if(!rows.length){sheetStatus('Everything is already saved','saved');return}const button=document.getElementById('saveQuerySheetAll');if(button)button.disabled=true;rows.forEach(row=>row.classList.add('saving'));sheetStatus(`Saving ${rows.length} row${rows.length===1?'':'s'}…`,'saving');try{const payload=rows.map(row=>({...rowPayload(row),id:row.dataset.queryId||'',client_ref:row.dataset.clientRef||''})),data=await sameOriginJson('/api/queries/batch',{rows:payload});(data.saved||[]).forEach(saved=>{const row=rows.find(item=>(item.dataset.clientRef||'')===String(saved.client_ref));if(row){row.dataset.queryId=saved.id;row.classList.remove('sheet-blank-row','dirty','save-error');row.classList.add('saved');setTimeout(()=>row.classList.remove('saved'),800)}});sheetStatus(`Saved ${data.count||0} query row${data.count===1?'':'s'}`,'saved')}catch(error){rows.forEach(row=>row.classList.add('save-error'));sheetStatus(error.message||'Batch save failed','error')}finally{rows.forEach(row=>row.classList.remove('saving'));if(button)button.disabled=false}}
+  function markSheetRow(row){if(!row)return;row.classList.add('dirty');if(!row.dataset.queryId)sheetStatus('Unsaved entries in blank rows','editing')}
+  function queueRowSave(row,delay=320){markSheetRow(row);if(!row?.dataset.queryId)return;clearTimeout(rowSaveTimers.get(row));rowSaveTimers.set(row,setTimeout(()=>saveSheetRow(row),delay))}
+  document.addEventListener('input',e=>{const field=e.target.closest?.('#querySheetTable [data-field]');if(field)markSheetRow(field.closest('tr'))});
   document.addEventListener('focusout',e=>{const cell=e.target.closest('#querySheetTable [data-field][contenteditable="true"]');if(cell)queueRowSave(cell.closest('tr'))});
-  document.addEventListener('change',e=>{const field=e.target.closest('#querySheetTable [data-field]');if(field)queueRowSave(field.closest('tr'),80)});
-  document.addEventListener('keydown',e=>{const cell=e.target.closest?.('#querySheetTable [contenteditable="true"]');if(cell&&e.key==='Enter'&&!e.shiftKey){e.preventDefault();cell.blur()}});
+  document.addEventListener('change',e=>{const field=e.target.closest('#querySheetTable [data-field]');if(field)queueRowSave(field.closest('tr'),100)});
+  document.addEventListener('keydown',e=>{const cell=e.target.closest?.('#querySheetTable [contenteditable="true"]');if(cell&&e.key==='Enter'&&!e.shiftKey){e.preventDefault();const row=cell.closest('tr'),fields=[...row.querySelectorAll('[data-field]')],index=fields.indexOf(cell),next=row.nextElementSibling?.querySelectorAll('[data-field]')?.[index];cell.blur();next?.focus()}});
+  document.addEventListener('paste',e=>{const start=e.target.closest?.('#querySheetTable [data-field]');if(!start)return;const text=e.clipboardData?.getData('text/plain')||'';if(!text.includes('\t')&&!/[\r\n]/.test(text))return;e.preventDefault();const matrix=text.replace(/\r/g,'').split('\n').filter((line,index,all)=>line||index<all.length-1).map(line=>line.split('\t')),startRow=start.closest('tr'),body=startRow.parentElement,allRows=()=>[...body.rows],startRowIndex=allRows().indexOf(startRow),startFieldIndex=[...startRow.querySelectorAll('[data-field]')].indexOf(start);while(allRows().length<startRowIndex+matrix.length)addBlankQueryRows(10);matrix.forEach((values,rowOffset)=>{const row=allRows()[startRowIndex+rowOffset],fields=[...row.querySelectorAll('[data-field]')];values.forEach((value,columnOffset)=>{const field=fields[startFieldIndex+columnOffset];if(!field)return;if(field.matches('select')){const option=[...field.options].find(item=>item.value.toLowerCase()===value.trim().toLowerCase());if(option)field.value=option.value}else field.textContent=value.trim()});markSheetRow(row)});sheetStatus(`Pasted ${matrix.length} row${matrix.length===1?'':'s'} · click Save All Changes`,'editing')});
   document.addEventListener('click',async e=>{
     const save=e.target.closest('.sheet-save-row');if(save){await saveSheetRow(save.closest('tr'));return}
-    if(e.target.closest('#addQuerySheetRow')){
-      const btn=e.target.closest('#addQuerySheetRow');btn.disabled=true;sheetStatus('Creating row…','saving');
-      try{const r=await fetch('/api/queries',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({source:'Manual',status:'Live',heat:'Warm',score:50})});const d=await r.json();if(!r.ok||!d.ok)throw new Error('Create failed');
-        const body=document.getElementById('querySheetBody');if(body){const tr=document.createElement('tr');tr.dataset.queryId=d.id;tr.className='new-sheet-row';tr.innerHTML=`<td class="sheet-row-number">NEW</td><td><select data-field="source"><option>Manual</option><option>Meta</option><option>Facebook</option><option>Google</option><option>Airbnb</option><option>Booking.com</option><option>MakeMyTrip</option><option>Goibibo</option><option>Direct</option><option>Other</option></select></td><td contenteditable="true" data-field="customer_name"></td><td contenteditable="true" data-field="mobile"></td><td contenteditable="true" data-field="whatsapp"></td><td contenteditable="true" data-field="email"></td><td contenteditable="true" data-field="city"></td><td contenteditable="true" data-field="property_name"></td><td contenteditable="true" data-field="budget"></td><td contenteditable="true" data-field="move_in_date"></td><td contenteditable="true" data-field="stay_type"></td><td><select data-field="status"><option>Live</option><option>New</option><option>Follow-up</option><option>Won</option><option>Lost</option><option>Closed</option></select></td><td><select data-field="heat"><option>Warm</option><option>Hot</option><option>Cold</option></select></td><td contenteditable="true" data-field="score">50</td><td contenteditable="true" data-field="next_follow_up"></td><td contenteditable="true" data-field="query_text" class="sheet-wide-cell"></td><td contenteditable="true" data-field="notes" class="sheet-wide-cell"></td><td class="sheet-action-cell"><button type="button" class="sheet-save-row">✓</button></td>`;body.prepend(tr);tr.querySelector('[data-field="customer_name"]')?.focus();sheetStatus(`Row #${d.id} ready`,'saved')}}catch(err){sheetStatus('Could not create row','error')}finally{btn.disabled=false}
-    }
+    if(e.target.closest('#addQuerySheetRows')){const added=addBlankQueryRows(10);added[0]?.querySelector('[data-field="customer_name"]')?.focus();sheetStatus('10 more blank rows added','editing');return}
+    if(e.target.closest('#saveQuerySheetAll')){await saveAllSheetRows();return}
   });
 })();
 
@@ -573,6 +672,7 @@ initPageFeatures(document);
   const ticker=document.getElementById('liveMarqueeTrack');
   function tickerNode(item){
     const span=document.createElement('span');span.className=`marquee-item tone-${item.tone||'blue'}`;
+    span.dataset.label=String(item.label||'live').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
     const label=document.createElement('b');label.textContent=item.label||'Live';span.appendChild(label);span.append(' '+(item.value||'—'));
     if(item.source){const source=document.createElement('small');source.textContent=` · ${item.source}`;span.appendChild(source)}
     if(item.url){const link=document.createElement('a');link.href=item.url;link.target='_blank';link.rel='noopener';link.title='Open source';link.appendChild(span);return link}
@@ -635,8 +735,11 @@ initPageFeatures(document);
   function setPanel(open,restoreFocus=false){
     if(!panel||!button)return;
     panel.hidden=!open;panel.setAttribute('aria-hidden',String(!open));panel.classList.toggle('open',open);button.setAttribute('aria-expanded',String(open));companion.classList.toggle('panel-open',open);
-    if(open)nudge?.classList.remove('show');else if(restoreFocus)button.focus();
+    if(open){nudge?.classList.remove('show');companion.classList.remove('scroll-collapsed')}else{if(restoreFocus)button.focus();syncCompanionCollapse()}
   }
+  let scrollFrame=0;
+  function syncCompanionCollapse(){companion.classList.toggle('scroll-collapsed',window.scrollY>140&&Boolean(panel?.hidden))}
+  window.addEventListener('scroll',()=>{if(scrollFrame)return;scrollFrame=requestAnimationFrame(()=>{scrollFrame=0;syncCompanionCollapse()})},{passive:true});syncCompanionCollapse();
   button?.addEventListener('click',()=>setPanel(panel?.hidden));
   close?.addEventListener('click',()=>setPanel(false,true));
   document.addEventListener('pointerdown',event=>{if(panel&&!panel.hidden&&!companion.contains(event.target))setPanel(false)});
@@ -680,7 +783,7 @@ initPageFeatures(document);
     if(!nudge||!panel?.hidden)return;const lines=nudgeLines();if(!lines.length)return;
     const text=nudge.querySelector('span');if(text)text.textContent=lines[nudgeIndex++%lines.length];nudge.classList.add('show');window.setTimeout(()=>nudge.classList.remove('show'),4200);
   }
-  function restartNudges(){clearInterval(nudgeTimer);window.setTimeout(showNextNudge,1800);nudgeTimer=window.setInterval(showNextNudge,15000)}
+  function restartNudges(){if(!nudge)return;clearInterval(nudgeTimer);window.setTimeout(showNextNudge,1800);nudgeTimer=window.setInterval(showNextNudge,15000)}
 
   function clearWeatherScene(){
     clearTimeout(sceneTimer);if(!weatherScene)return;weatherScene.classList.remove('is-active','is-leaving');weatherScene.replaceChildren();weatherScene.removeAttribute('data-effect');document.body.classList.forEach(name=>{if(name.startsWith('weather-tone-'))document.body.classList.remove(name)});

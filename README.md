@@ -1,4 +1,33 @@
-# Livenza Life Operations Cloud — Web 1.5.6
+# Livenza Life Operations Cloud — Web 1.5.8
+
+## Web 1.5.8 secure workflow and reliability release
+
+- Aadhaar uploads now use bounded server OCR with Tesseract plus RapidOCR fallback, a 100-second browser timeout, JSON-safe errors and exact reader diagnostics. The Docker deployment installs the required OCR binary; the document is not retained.
+- Video Wall media uses signed resumable browser-to-storage uploads in 6 MB pieces. A finished object is verified before its database record is created, progress is visible, and uploaded MP4/M4V/WebM/MOV media appears immediately in Available Media.
+- Agreement Studio is a four-step wizard with visual presets, local auto-save status, inline explanations, branded legal-workspace artwork, a protected-workspace disclosure and WCAG-focused controls.
+- Landlord and tenant party profiles can be saved and applied in one click. Profile payloads are encrypted at rest with `INTEGRATION_ENCRYPTION_KEY` (or the derived deployment key).
+- Query Sheet opens with 30 editable blank rows, supports tabular paste, existing-row auto-save, multi-row Save All, 10-row expansion and direct `.xlsx` / `.csv` import.
+- Login is biometric/passkey first with password and a fluid pointer/touch gesture matrix as fallbacks.
+- The ordinary portal now relies on native responsive CSS instead of a global manual fullscreen/orientation menu. Per-TV installed rotation remains in Video Wall Studio where it belongs.
+- The mascot docks bottom-left, never intercepts underlying gestures, collapses to a small translucent bubble on scroll and becomes bubble-only below 400 px. Main content reserves 80 px of safe bottom space.
+- The header L remains entirely inside the compact translucent header, uses two restrained orbiting light points, and no longer collides with the LIVE marquee. Low-priority signed-in ticker text is hidden on narrow phones.
+
+### Web 1.5.8 deployment
+
+1. Deploy with the supplied `Dockerfile` / `render.yaml`; this installs Tesseract and runs one threaded worker for predictable OCR memory use.
+2. Run `migrations/web_v1_5_8.sql` when the production database role cannot create new tables automatically.
+3. Keep `INTEGRATION_ENCRYPTION_KEY` stable so saved party profiles remain decryptable.
+4. Configure `SUPABASE_SERVICE_ROLE_KEY`, and ensure the public `video-wall-media` bucket/global file limit matches `VIDEO_WALL_MAX_MB`. Supabase Free projects still enforce a 50 MB object maximum.
+5. Confirm `/version` returns `Web 1.5.8`, then test one clear Aadhaar, one MP4 upload, a landlord profile and a three-row Query Sheet batch.
+
+## Web 1.5.7 mascot, logo and display-wall polish
+
+- The persistent mascot is smaller, frameless and docked to the bottom-right so it remains lively without covering page content.
+- The rectangular mascot prompt has been removed. Click the character to open the same weather, operations, forecast and motivational update panel.
+- The header L stays still with no circular ring, tile or halo; two restrained light dots orbit independently for a cleaner AI accent.
+- 90°, 180° and 270° rotation now use measured visual-viewport dimensions and stay active in fullscreen across television, signage and video-wall browsers.
+- Fullscreen includes vendor-prefixed browser support and a browser-safe theatre fallback when a television browser blocks the Fullscreen API.
+- No database migration is required.
 
 ## Web 1.5.6 Aadhaar, header and mobile reliability
 
@@ -70,7 +99,7 @@
 5. Configure passkeys: `WEBAUTHN_RP_ID=YOUR-SITE-HOST` and `WEBAUTHN_ORIGIN=https://YOUR-SITE`.
 6. In Admin, connect Google, assign the WhatsApp/Email/Drive permissions, enable pattern or fingerprint access per user, and optionally enable kiosk lock.
 
-See `README_v1.5.6.md`, `README_v1.5.5.md`, `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
+See `README_v1.5.8.md`, `README_v1.5.7.md`, `README_v1.5.6.md`, `README_v1.5.5.md`, `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
 
 ## Web 1.4.9 addition
 - The Livenza Assistant now has a high-contrast cross icon that remains visible after messages are added.

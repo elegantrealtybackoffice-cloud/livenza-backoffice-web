@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% macro render_field(key) -%}
   {% set f=field_map.get(key) %}{% if f %}{% set label=f[1] %}{% set kind=f[2] %}{% set opts=f[3] %}
-  <label class="{% if kind=='text' %}span2{% endif %}">{{label}}
+  <label class="{% if kind=='text' %}span2{% endif %}"><span class="field-label-row"><span>{{label}}</span>{% if 'clause' in key or key in ['agreement_template','legal_nature','premises','security_deposit','termination_notice'] %}<button type="button" class="term-help" aria-label="Help for {{label}}" data-tooltip="Use the value that matches the signed transaction. Leave it blank when it does not apply; the preview remains available.">i</button>{% endif %}</span>
     {% if key=='city' %}
       <input name="city" list="cityList" value="{{d.get('city','')}}" placeholder="Select or type city">
     {% elif kind=='combo' %}
@@ -16,31 +16,65 @@
   </label>
   {% endif %}
 {%- endmacro %}
-{% block content %}
-<div class="page-head"><div><p class="eyebrow">COMPLETE AGREEMENT BUILDER</p><h1>{{'Edit Agreement' if ag else 'New Agreement'}}</h1><p class="muted">All Agreement Studio fields are optional. Complete only the information relevant to the transaction; presets still change the agreement format, policies and clauses.</p></div></div>
-<form method="post" enctype="multipart/form-data" class="form-card agreement-builder" id="agreementForm" data-preset-url="{{url_for('preset_api',name='__NAME__')}}">
-  <datalist id="cityList">{% for c in city_names %}<option value="{{c}}">{% endfor %}</datalist>
-  <section class="preset-console">
-    <div>{{render_field('agreement_template')}}</div>
-    <div class="preset-profile" id="presetProfile"><p class="eyebrow">ACTIVE FORMAT</p><h3 id="presetTitle">{{preset_profile.get('title_en','')}}</h3><p id="presetSubtitle">{{preset_profile.get('subtitle_en','')}}</p><small id="presetNature">{{preset_profile.get('nature_en','')}}</small></div>
-  </section>
-  <section class="aadhaar-intake liquid-card" id="aadhaarIntake">
-    <div class="aadhaar-intake-head"><div><p class="eyebrow">AADHAAR → TENANT AUTO-FILL</p><h3>Upload Aadhaar JPEG / PNG / PDF</h3><p class="muted">The document is read only to extract tenant details into this agreement form. Review every populated field before saving.</p></div><span class="badge">TRANSIENT PROCESSING</span></div>
-    <div class="aadhaar-upload-row">
-      <label>Aadhaar Document<input type="file" id="aadhaarAgreementFile" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"></label>
-      <button type="button" class="primary" id="extractAadhaarBtn">Extract & Auto-Fill Tenant</button>
-    </div>
-    <div id="aadhaarExtractStatus" class="aadhaar-extract-status">Choose a clear front/back Aadhaar image or a PDF. For a two-sided Aadhaar, a PDF containing both sides gives the best address extraction.</div>
-    <div class="aadhaar-privacy"><b>Privacy & verification:</b> the uploaded Aadhaar file is not saved by Livenza Back Office. Extracted values are returned to this browser and only become part of the agreement if you save it. OCR/AI extraction is an autofill aid and does not authenticate the Aadhaar with UIDAI.</div>
-  </section>
-  <div class="agreement-tools"><button type="button" class="secondary" id="calcEnd">Calculate End Date</button><span class="muted">Changing the preset now changes the agreement type, policies, clauses and legal format profile.</span></div>
-  {% for title, keys in groups %}
-  <details class="agreement-section" {% if loop.index <= 3 %}open{% endif %}><summary><span>{{loop.index|string|upper}}</span>{{title}}</summary><div class="form-grid">
+{% macro agreement_group(title,keys,index,opened=false) -%}
+  <details class="agreement-section" {% if opened %}open{% endif %}><summary><span>{{'%02d'|format(index)}}</span>{{title}}</summary><div class="form-grid">
     {% for key in keys %}{% if key!='agreement_template' %}{{render_field(key)}}{% endif %}{% endfor %}
   </div></details>
-  {% endfor %}
-  <div class="mandatory-note"><b>Optional-field mode:</b> no Agreement Studio field is mandatory. Blank fields will not prevent saving, previewing or generating the agreement. Fill only the details that apply to the transaction.</div>
-  <div class="sticky-actions"><button name="save_lang" value="en" class="primary">Save & Preview English</button><button name="save_lang" value="hi" class="secondary">Save & Preview हिंदी</button></div>
+{%- endmacro %}
+{% block content %}
+<div class="page-head agreement-page-head"><div><p class="eyebrow">LIVENZA AGREEMENT STUDIO</p><h1>{{'Edit Agreement' if ag else 'New Agreement'}}</h1><p class="muted">A focused four-step workspace for party details, property terms, clauses, review and signature.</p></div></div>
+<section class="agreement-brand-banner liquid-card" aria-label="Livenza secure agreement workspace">
+  <div class="agreement-brand-mark"><img src="{{url_for('static',filename='livenza_logo_transparent.png')}}" alt=""><i></i><i></i><i></i></div>
+  <div><p class="eyebrow">FORMAL OPERATIONS WORKSPACE</p><h2>Agreements shaped for Livenza Life</h2><p>325 G, Sector 38, Gurugram, Haryana – 122001 · Livenza Life LLP</p></div>
+  <div class="agreement-trust-badge"><span aria-hidden="true">⌾</span><div><b>Protected workspace</b><small>HTTPS session · Aadhaar uploads processed transiently</small></div></div>
+</section>
+<form method="post" enctype="multipart/form-data" class="form-card agreement-builder agreement-wizard" id="agreementForm" data-preset-url="{{url_for('preset_api',name='__NAME__')}}" data-draft-key="livenza-agreement-{{ag.id if ag else 'new'}}" data-existing="{{1 if ag else 0}}">
+  <datalist id="cityList">{% for c in city_names %}<option value="{{c}}">{% endfor %}</datalist>
+  <div class="agreement-workspace-status"><nav class="agreement-wizard-nav" aria-label="Agreement steps"><button type="button" class="active" data-wizard-step="0"><span>1</span><b>Party Details</b></button><button type="button" data-wizard-step="1"><span>2</span><b>Property Terms</b></button><button type="button" data-wizard-step="2"><span>3</span><b>Clauses</b></button><button type="button" data-wizard-step="3"><span>4</span><b>Preview & Sign</b></button></nav><div id="agreementAutosaveStatus" class="agreement-autosave saved" aria-live="polite"><i></i><span>Ready · local auto-save on</span></div></div>
+
+  <section class="agreement-wizard-panel active" data-wizard-panel="0">
+    <div class="visual-preset-section"><div class="section-head"><div><p class="eyebrow">QUICK FORMAT PRESETS</p><h2>Choose the contract structure</h2></div><button type="button" class="term-help" data-tooltip="A preset changes the legal format and suggested clauses. You can still edit every field.">i</button></div>
+      <div class="agreement-preset-cards">
+        <button type="button" data-preset-card="Strong Residential - 11 Months" class="{% if d.get('agreement_template')=='Strong Residential - 11 Months' %}selected{% endif %}"><span>⌂</span><b>11-Month Residential</b><small>Standard managed residential stay</small></button>
+        <button type="button" data-preset-card="Commercial Premises" class="{% if d.get('agreement_template')=='Commercial Premises' %}selected{% endif %}"><span>▦</span><b>Commercial</b><small>Premises and business-use terms</small></button>
+        <button type="button" data-preset-card="Leave & License" class="{% if d.get('agreement_template')=='Leave & License' %}selected{% endif %}"><span>◇</span><b>Leave & License</b><small>License-based possession structure</small></button>
+      </div>
+      <details class="more-presets"><summary>More agreement formats <span>⌄</span></summary><div>{{render_field('agreement_template')}}</div></details>
+      <div class="preset-profile" id="presetProfile"><p class="eyebrow">ACTIVE FORMAT</p><h3 id="presetTitle">{{preset_profile.get('title_en','')}}</h3><p id="presetSubtitle">{{preset_profile.get('subtitle_en','')}}</p><small id="presetNature">{{preset_profile.get('nature_en','')}}</small></div>
+    </div>
+
+    <section class="party-profile-vault liquid-card"><div class="section-head"><div><p class="eyebrow">REUSABLE PARTY PROFILES</p><h2>Fill recurring details in one click</h2><p class="muted">Profiles are encrypted before storage. Saving a tenant profile is optional and may include sensitive identity details.</p></div><span class="security-chip">ENCRYPTED</span></div><div class="party-profile-grid">
+      {% for type,label in [('landlord','Landlord / management'),('tenant','Tenant / guest')] %}<article data-party-profile-card="{{type}}"><div><span class="party-profile-icon">{{'⌂' if type=='landlord' else '◉'}}</span><div><b>{{label}}</b><small>{{party_profiles[type]|length}} saved profile{{'' if party_profiles[type]|length==1 else 's'}}</small></div></div><label>Saved profile<select data-party-profile-select="{{type}}"><option value="">Choose saved {{type}}</option>{% for profile in party_profiles[type] %}<option value="{{profile.id}}">{{profile.name}}</option>{% endfor %}</select></label><label>Profile name<input data-party-profile-name="{{type}}" placeholder="e.g. Livenza Management / Returning guest"></label><div class="actions"><button type="button" class="secondary" data-party-profile-apply="{{type}}">Apply</button><button type="button" class="secondary" data-party-profile-save="{{type}}">Save current</button><button type="button" class="link danger" data-party-profile-delete="{{type}}" aria-label="Delete selected {{type}} profile">Delete</button></div></article>{% endfor %}
+    </div><p id="partyProfileStatus" class="muted" aria-live="polite"></p></section>
+    <script type="application/json" id="partyProfilesData">{{party_profiles|tojson}}</script>
+
+    <section class="aadhaar-intake liquid-card" id="aadhaarIntake">
+      <div class="aadhaar-intake-head"><div><p class="eyebrow">AADHAAR → TENANT AUTO-FILL</p><h3>Upload Aadhaar JPEG / PNG / PDF</h3><p class="muted">The document is read only to extract tenant details into this agreement form. Review every populated field before saving.</p></div><span class="badge">TRANSIENT PROCESSING</span></div>
+      <div class="aadhaar-upload-row"><label>Aadhaar Document<input type="file" id="aadhaarAgreementFile" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"></label><button type="button" class="primary" id="extractAadhaarBtn">Extract & Auto-Fill Tenant</button></div>
+      <div id="aadhaarExtractStatus" class="aadhaar-extract-status">For best results, use a sharp, straight image or a PDF containing both sides. The reader now reports its exact deployment status if OCR is unavailable.</div>
+      <div class="aadhaar-privacy"><b>Privacy & verification:</b> the uploaded document is not retained. OCR autofill does not authenticate Aadhaar with UIDAI; verify the extracted values before saving.</div>
+    </section>
+    {% for title,keys in groups %}{% if loop.index<=4 %}{{agreement_group(title,keys,loop.index,loop.index<=3)}}{% endif %}{% endfor %}
+    <div class="wizard-panel-actions"><span></span><button type="button" class="primary" data-wizard-next="1">Continue to Property Terms →</button></div>
+  </section>
+
+  <section class="agreement-wizard-panel" data-wizard-panel="1" hidden>
+    <div class="agreement-tools"><button type="button" class="secondary" id="calcEnd">Calculate End Date</button><span class="muted">Dates, consideration, deposit and property information remain editable at any time.</span></div>
+    {% for title,keys in groups %}{% if loop.index==5 %}{{agreement_group(title,keys,loop.index,true)}}{% endif %}{% endfor %}
+    <div class="wizard-panel-actions"><button type="button" class="secondary" data-wizard-back="0">← Party Details</button><button type="button" class="primary" data-wizard-next="2">Continue to Clauses →</button></div>
+  </section>
+
+  <section class="agreement-wizard-panel" data-wizard-panel="2" hidden>
+    <div class="mandatory-note"><b>Inline guidance:</b> use the information icons beside complex terms for immediate context. Every field remains optional.</div>
+    {% for title,keys in groups %}{% if loop.index>=6 %}{{agreement_group(title,keys,loop.index,loop.index==6)}}{% endif %}{% endfor %}
+    <div class="wizard-panel-actions"><button type="button" class="secondary" data-wizard-back="1">← Property Terms</button><button type="button" class="primary" data-wizard-next="3">Review & Sign →</button></div>
+  </section>
+
+  <section class="agreement-wizard-panel" data-wizard-panel="3" hidden>
+    <div class="agreement-final-review liquid-card"><div class="agreement-review-symbol">✓</div><div><p class="eyebrow">FINAL REVIEW</p><h2>Preview before the agreement is signed</h2><p>The generated preview is the authoritative review step. Check party names, identity details, dates, payment terms, premises, clauses and signature blocks before execution.</p><div class="agreement-review-points"><span>⌾ Protected HTTPS workspace</span><span>↻ Locally auto-saved while editing</span><span>▤ English or हिंदी preview</span></div></div></div>
+    <div class="mandatory-note"><b>Optional-field mode:</b> blank fields never prevent preview generation. Complete only the details relevant to this transaction.</div>
+    <div class="wizard-panel-actions"><button type="button" class="secondary" data-wizard-back="2">← Review Clauses</button><span></span></div>
+    <div class="sticky-actions"><button name="save_lang" value="en" class="primary">Save & Preview English</button><button name="save_lang" value="hi" class="secondary">Save & Preview हिंदी</button></div>
+  </section>
 </form>
 {% endblock %}
-

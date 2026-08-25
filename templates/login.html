@@ -1,32 +1,29 @@
 {% extends 'base.html' %}
 {% block title %}Login · Livenza Back Office{% endblock %}
 {% block content %}
-<div class="login-card auth-login-card">
+<div class="login-card auth-login-card biometric-first-login">
   <img src="{{url_for('static',filename='livenza_logo.png')}}" class="login-logo" alt="Livenza Life">
-  <p class="eyebrow">SECURE WEB ACCESS</p><h1>Livenza Back Office</h1>
-  <p class="muted">Password, secure pattern or device fingerprint</p>
-  <div class="auth-tabs" role="tablist">
-    <button type="button" data-auth-tab="password" class="active">Password</button>
-    <button type="button" data-auth-tab="pattern">Pattern</button>
-    <button type="button" data-auth-tab="fingerprint">Fingerprint</button>
-  </div>
+  <p class="eyebrow">SECURE WEB ACCESS</p><h1>Welcome to Livenza</h1>
+  <p class="muted">Use this device’s secure sign-in first. Password and gesture pattern remain available as immediate fallbacks.</p>
   <form method="post" class="stack" id="loginForm">
     <input type="hidden" name="auth_method" id="authMethod" value="password">
-    <label>Login ID<input id="loginUsername" name="username" autocomplete="username" required autofocus></label>
-    <div data-auth-panel="password"><label>Password<input type="password" name="password" autocomplete="current-password"></label></div>
-    <div data-auth-panel="pattern" hidden>
-      <label>Security pattern</label>
-      <div class="pattern-grid" data-pattern-widget><input type="hidden" name="pattern" data-pattern-value>{% for i in range(9) %}<button type="button" data-pattern-node="{{i}}" aria-label="Pattern point {{i+1}}"><span></span></button>{% endfor %}</div>
-      <small class="muted">Select at least four different dots, then authenticate.</small>
-    </div>
-    <div data-auth-panel="fingerprint" hidden class="fingerprint-panel">
-      <div class="fingerprint-mark">◎</div><b>Windows Hello / fingerprint / passkey</b>
-      <p class="muted">Enter the login ID above, then use the biometric prompt from this device.</p>
-      <button type="button" class="secondary" id="fingerprintLogin">Use fingerprint or passkey</button>
-    </div>
-    <button class="primary" id="normalLoginButton">AUTHENTICATE</button>
-    <p id="webauthnStatus" class="muted" aria-live="polite"></p>
+    <label>Login ID<input id="loginUsername" name="username" autocomplete="username webauthn" required autofocus></label>
+    <button type="button" class="primary biometric-primary" id="fingerprintLogin"><span class="fingerprint-mark" aria-hidden="true">◎</span><span><b>Continue with Windows Hello</b><small>Fingerprint, face, security key or passkey</small></span><span aria-hidden="true">›</span></button>
+    <p id="webauthnStatus" class="muted auth-live-status" aria-live="polite">Biometric data stays on your device.</p>
+    <div class="auth-fallback-divider"><span>Secure fallbacks</span></div>
+    <details class="auth-fallback" id="passwordFallback">
+      <summary><span>⌨</span><span><b>Use password</b><small>Available without a biometric device</small></span><i>⌄</i></summary>
+      <div class="auth-fallback-body"><label>Password<input type="password" name="password" autocomplete="current-password"></label><button class="secondary" id="normalLoginButton" data-submit-auth="password">Sign in with password</button></div>
+    </details>
+    <details class="auth-fallback" id="patternFallback">
+      <summary><span>⌁</span><span><b>Use gesture pattern</b><small>Draw continuously across four or more points</small></span><i>⌄</i></summary>
+      <div class="auth-fallback-body">
+        <div class="pattern-grid gesture-matrix" data-pattern-widget><input type="hidden" name="pattern" data-pattern-value>{% for i in range(9) %}<button type="button" data-pattern-node="{{i}}" aria-label="Pattern point {{i+1}}"><span></span></button>{% endfor %}</div>
+        <small class="muted">Touch or drag through at least four different points. Double-tap the matrix to clear it.</small>
+        <button class="secondary" data-submit-auth="pattern">Sign in with gesture</button>
+      </div>
+    </details>
   </form>
-  <div class="statusline"><span></span>Encrypted session · Device biometrics stay on the device</div>
+  <div class="statusline"><span></span>Encrypted session · Device-native authentication</div>
 </div>
 {% endblock %}

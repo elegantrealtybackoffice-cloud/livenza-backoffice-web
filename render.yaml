@@ -1,10 +1,9 @@
 services:
   - type: web
     name: livenza-back-office
-    runtime: python
+    runtime: docker
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --workers 2 --threads 4 --timeout 120
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     autoDeployTrigger: commit
     envVars:
@@ -23,6 +22,12 @@ services:
       - key: OPENAI_AADHAAR_MODEL
         value: gpt-5.6-luna
       - key: FORCE_HTTPS
+        value: "1"
+      - key: MAX_UPLOAD_MB
+        value: "64"
+      - key: VIDEO_WALL_MAX_MB
+        value: "2048"
+      - key: OMP_NUM_THREADS
         value: "1"
       - key: INTEGRATION_ENCRYPTION_KEY
         generateValue: true

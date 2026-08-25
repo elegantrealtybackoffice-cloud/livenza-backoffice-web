@@ -9,6 +9,7 @@ reportlab>=4.4,<5
 openai>=1.100,<2
 qrcode[pil]>=8.2,<9
 pypdf>=5.0,<7
+openpyxl>=3.1,<4
 PyMuPDF>=1.26,<2
 rapidocr>=3.9.2,<4
 onnxruntime>=1.23,<2

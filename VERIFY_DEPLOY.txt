@@ -1,10 +1,12 @@
-LIVENZA WEB 1.5.6 — AUTOMATIC AADHAAR OCR + CONTAINED COMPACT HEADER + MOBILE STABILITY
+LIVENZA WEB 1.5.8 — DEPLOYMENT VERIFICATION
 
-1. Confirm `/version` returns `Web 1.5.6`.
-2. Confirm `server-local-ocr`, `contained-header-logo`, `compact-scroll-header` and `mobile-performance-mode` appear in the feature list.
-3. Open a new agreement and upload a clear Aadhaar JPG/PNG or PDF. Confirm detected fields populate without a device-configuration warning.
-4. Confirm the L logo remains fully inside the header and never covers the LIVE strip.
-5. Scroll: the header should contract to the applications button and a small L avatar.
-6. On a phone, confirm pages load without background shimmer or hanging and that the applications menu remains responsive.
+1. Confirm `/version` returns `Web 1.5.8` and includes resumable-video-wall-upload, agreement-wizard and editable-query-sheet.
+2. Confirm `/health` returns HTTP 200 and the response header `X-Livenza-Build` is `Web 1.5.8`.
+3. Upload a clear Aadhaar JPG/PDF in Agreement Studio. Verify extracted fields or an exact OCR dependency/image-quality diagnostic is shown.
+4. Upload an MP4 in Video Wall Studio. Verify resumable progress reaches 100% and the media appears under Available Media.
+5. Save/apply one landlord and tenant profile. Run `migrations/web_v1_5_8.sql` first if the table cannot be created automatically.
+6. Fill three blank Query Sheet rows, click Save All Changes, reload, and confirm all three remain. Also import a small `.xlsx` or `.csv`.
+7. On mobile, verify the mascot is a small bottom-left bubble below 400 px, body text is not obstructed, and the header does not cover the marquee.
+8. Register a TV player, set its installed rotation, and verify the dedicated player rotates while the normal portal remains responsive and unrotated.
 
-No database migration is required for Web 1.5.6. The updated requirements must be installed during deployment.
+Deploy through the supplied Docker configuration so Tesseract OCR is installed. Keep `INTEGRATION_ENCRYPTION_KEY` stable.

@@ -1,40 +1,44 @@
-{% extends 'base.html' %}{% block title %}Query Spreadsheet • Livenza Life Operations Cloud{% endblock %}{% block content %}
+{% extends 'base.html' %}{% block title %}Query Spreadsheet • Livenza Life Operations Cloud{% endblock %}
+{% macro sheet_row(q=None,number='') -%}
+<tr data-query-id="{{q.id if q else ''}}" data-client-ref="{{'saved-' ~ q.id if q else 'blank-' ~ number}}" class="{{'sheet-blank-row' if not q else ''}}">
+  <td class="sheet-row-number">{{number}}</td>
+  <td><select data-field="source">{% for v in ['Manual','Meta','Facebook','Google','Airbnb','Booking.com','MakeMyTrip','Goibibo','Direct','Other'] %}<option {% if (q and q.source==v) or (not q and v=='Manual') %}selected{% endif %}>{{v}}</option>{% endfor %}</select></td>
+  <td contenteditable="true" data-field="customer_name" data-placeholder="Customer name">{{q.customer_name if q else ''}}</td>
+  <td contenteditable="true" data-field="mobile" data-placeholder="Mobile">{{q.mobile if q else ''}}</td>
+  <td contenteditable="true" data-field="whatsapp" data-placeholder="WhatsApp">{{q.whatsapp if q else ''}}</td>
+  <td contenteditable="true" data-field="email" data-placeholder="Email">{{q.email if q else ''}}</td>
+  <td contenteditable="true" data-field="city" data-placeholder="City">{{q.city if q else ''}}</td>
+  <td contenteditable="true" data-field="property_name" data-placeholder="Property">{{q.property_name if q else ''}}</td>
+  <td contenteditable="true" data-field="budget" data-placeholder="Budget">{{q.budget if q else ''}}</td>
+  <td contenteditable="true" data-field="move_in_date" data-placeholder="YYYY-MM-DD">{{q.move_in_date if q else ''}}</td>
+  <td contenteditable="true" data-field="stay_type" data-placeholder="Stay type">{{q.stay_type if q else ''}}</td>
+  <td><select data-field="status">{% for v in ['Live','New','Follow-up','Won','Lost','Closed'] %}<option {% if (q and q.status==v) or (not q and v=='Live') %}selected{% endif %}>{{v}}</option>{% endfor %}</select></td>
+  <td><select data-field="heat">{% for v in ['Warm','Hot','Cold'] %}<option {% if (q and q.heat==v) or (not q and v=='Warm') %}selected{% endif %}>{{v}}</option>{% endfor %}</select></td>
+  <td contenteditable="true" data-field="score" inputmode="numeric" data-placeholder="50">{{q.score if q else ''}}</td>
+  <td contenteditable="true" data-field="next_follow_up" data-placeholder="Follow-up">{{q.next_follow_up if q else ''}}</td>
+  <td contenteditable="true" data-field="query_text" data-placeholder="Requirement / query" class="sheet-wide-cell">{{q.query_text if q else ''}}</td>
+  <td contenteditable="true" data-field="notes" data-placeholder="Notes" class="sheet-wide-cell">{{q.notes if q else ''}}</td>
+  <td class="sheet-action-cell"><button type="button" class="sheet-save-row" title="Save this row">✓</button></td>
+</tr>
+{%- endmacro %}
+{% block content %}
 <div class="page-head query-sheet-head">
-  <div><p class="eyebrow">LIVE QUERIES • SPREADSHEET MODE</p><h1>Query Sheet</h1><p class="muted">Edit enquiries directly in a grid. Existing rows auto-save after a cell changes; create new rows without leaving the sheet.</p></div>
-  <div class="actions"><a class="secondary btn" data-app-nav href="{{url_for('queries')}}">← Card View</a><button type="button" class="primary" id="addQuerySheetRow">+ New Row</button></div>
+  <div><p class="eyebrow">LIVE QUERIES • EDITABLE WORKBOOK</p><h1>Query Sheet</h1><p class="muted">Type directly into any blank row, paste data across cells, import Excel or CSV, and save the entire working set in one action.</p></div>
+  <div class="actions"><a class="secondary btn" data-app-nav href="{{url_for('queries')}}">← Card View</a><button type="button" class="secondary" id="addQuerySheetRows">+ 10 Blank Rows</button><button type="button" class="primary" id="saveQuerySheetAll">Save All Changes</button></div>
 </div>
 <div class="sheet-toolbar liquid-card">
   <form method="get" class="sheet-search"><input name="q" value="{{request.args.get('q','')}}" placeholder="Search sheet…"><button class="secondary">Search</button>{% if request.args.get('q') %}<a class="link btn" data-app-nav href="{{url_for('query_sheet')}}">Clear</a>{% endif %}</form>
-  <div class="sheet-status"><span class="sheet-live-dot"></span><b id="sheetSaveStatus">Auto-save ready</b><small>Up to 750 most recently updated queries</small></div>
+  <form method="post" action="{{url_for('query_sheet_import')}}" enctype="multipart/form-data" class="sheet-import-form"><label>Import Excel / CSV<input type="file" name="query_file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required></label><button class="secondary">Import & Save</button></form>
+  <div class="sheet-status"><span class="sheet-live-dot"></span><b id="sheetSaveStatus">30 blank rows ready</b><small>Existing rows auto-save · Save All handles every filled blank row</small></div>
 </div>
 <div class="query-sheet-wrap liquid-card">
   <table class="query-sheet" id="querySheetTable">
     <thead><tr><th>#</th><th>Source</th><th>Customer</th><th>Mobile</th><th>WhatsApp</th><th>Email</th><th>City</th><th>Property</th><th>Budget</th><th>Move-in</th><th>Stay Type</th><th>Status</th><th>Heat</th><th>Score</th><th>Next Follow-up</th><th>Requirement / Query</th><th>Notes</th><th>Save</th></tr></thead>
     <tbody id="querySheetBody">
-    {% for q in items %}
-      <tr data-query-id="{{q.id}}">
-        <td class="sheet-row-number">{{loop.index}}</td>
-        <td><select data-field="source">{% for v in ['Manual','Meta','Facebook','Google','Airbnb','Booking.com','MakeMyTrip','Goibibo','Direct','Other'] %}<option {% if q.source==v %}selected{% endif %}>{{v}}</option>{% endfor %}</select></td>
-        <td contenteditable="true" data-field="customer_name">{{q.customer_name}}</td>
-        <td contenteditable="true" data-field="mobile">{{q.mobile}}</td>
-        <td contenteditable="true" data-field="whatsapp">{{q.whatsapp}}</td>
-        <td contenteditable="true" data-field="email">{{q.email}}</td>
-        <td contenteditable="true" data-field="city">{{q.city}}</td>
-        <td contenteditable="true" data-field="property_name">{{q.property_name}}</td>
-        <td contenteditable="true" data-field="budget">{{q.budget}}</td>
-        <td contenteditable="true" data-field="move_in_date">{{q.move_in_date}}</td>
-        <td contenteditable="true" data-field="stay_type">{{q.stay_type}}</td>
-        <td><select data-field="status">{% for v in ['New','Live','Follow-up','Won','Lost','Closed'] %}<option {% if q.status==v %}selected{% endif %}>{{v}}</option>{% endfor %}</select></td>
-        <td><select data-field="heat">{% for v in ['Hot','Warm','Cold'] %}<option {% if q.heat==v %}selected{% endif %}>{{v}}</option>{% endfor %}</select></td>
-        <td contenteditable="true" data-field="score" inputmode="numeric">{{q.score}}</td>
-        <td contenteditable="true" data-field="next_follow_up">{{q.next_follow_up}}</td>
-        <td contenteditable="true" data-field="query_text" class="sheet-wide-cell">{{q.query_text}}</td>
-        <td contenteditable="true" data-field="notes" class="sheet-wide-cell">{{q.notes}}</td>
-        <td class="sheet-action-cell"><button type="button" class="sheet-save-row" title="Save row">✓</button></td>
-      </tr>
-    {% endfor %}
+    {% for q in items %}{{sheet_row(q,loop.index)}}{% endfor %}
+    {% for n in range(blank_rows) %}{{sheet_row(None,(items|length)+n+1)}}{% endfor %}
     </tbody>
   </table>
 </div>
-<div class="note sheet-tip"><b>Excel-style controls:</b> click any text cell and type directly. Tab moves between fields. Select fields use clean dropdowns. Changes auto-save on blur/change; the ✓ button forces an immediate row save.</div>
+<div class="note sheet-tip"><b>Excel-style controls:</b> click and type, use Tab to move across columns, or paste tab-separated values copied from Excel into the active cell. Blank rows are only created in the database after they contain real query data. Import recognises common headers such as Customer Name, Mobile, City, Property, Status, Requirement and Notes.</div>
 {% endblock %}

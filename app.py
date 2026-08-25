@@ -1,10 +1,11 @@
-import os, io, csv, json, hashlib, hmac, datetime, urllib.parse, html, base64, re, secrets, uuid, shutil, subprocess, threading
+import os, io, csv, json, hashlib, hmac, datetime, urllib.parse, html, base64, re, secrets, uuid, shutil, subprocess, threading, time
 from email.message import EmailMessage
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.exceptions import RequestEntityTooLarge
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from sqlalchemy import func, or_, inspect
 from dateutil.relativedelta import relativedelta
@@ -16,7 +17,7 @@ from zoneinfo import ZoneInfo
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.5.6'
+APP_VERSION = 'Web 1.5.8'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -36,13 +37,24 @@ if raw_db.startswith('postgresql'):
         'pool_use_lifo': True,
     }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_UPLOAD_MB','55')) * 1024 * 1024
+# Browser-to-storage resumable Video Wall uploads bypass this application-body
+# limit. Keep ordinary form uploads bounded so one request cannot exhaust the
+# web worker while leaving enough headroom for a 50 MB storage object.
+app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_UPLOAD_MB','64')) * 1024 * 1024
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 if os.getenv('FORCE_HTTPS', '1') == '1':
     app.config['SESSION_COOKIE_SECURE'] = True
 
 db = SQLAlchemy(app)
+
+@app.errorhandler(RequestEntityTooLarge)
+def request_too_large(error):
+    if request.path.startswith('/agreements/aadhaar-extract'):
+        return jsonify(ok=False,error='The Aadhaar file is larger than 10 MB. Use a clear JPG/PNG or a smaller PDF.'),413
+    if request.path.startswith('/video-wall/'):
+        return jsonify(ok=False,error='This direct form upload is too large. Keep this page open and use the resumable Video Wall uploader.'),413
+    return jsonify(ok=False,error='The uploaded file is larger than this request allows.'),413
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -83,6 +95,26 @@ class Agreement(db.Model):
     def data(self):
         try: return json.loads(self.data_json or '{}')
         except Exception: return {}
+
+class AgreementPartyProfile(db.Model):
+    """Encrypted reusable party details for the Agreement Studio."""
+    id = db.Column(db.Integer, primary_key=True)
+    profile_type = db.Column(db.String(20), nullable=False)
+    name = db.Column(db.String(180), nullable=False)
+    data_ciphertext = db.Column(db.Text, nullable=False, default='')
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('profile_type','name', name='uq_agreement_party_profile_name'),)
+
+    @property
+    def data(self):
+        try:
+            raw=_integration_cipher().decrypt((self.data_ciphertext or '').encode('ascii')).decode('utf-8')
+            value=json.loads(raw)
+            return value if isinstance(value,dict) else {}
+        except Exception:
+            return {}
 
 class Room(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -608,7 +640,7 @@ def _companion_weather(city):
         'timezone':'Asia/Kolkata','forecast_days':4,
     }
     try:
-        response=requests.get('https://api.open-meteo.com/v1/forecast',params=params,headers={'User-Agent':'LivenzaLife-OperationsCloud/1.5.6'},timeout=10)
+        response=requests.get('https://api.open-meteo.com/v1/forecast',params=params,headers={'User-Agent':'LivenzaLife-OperationsCloud/1.5.8'},timeout=10)
         response.raise_for_status();payload=response.json();current=payload.get('current') or {};daily=payload.get('daily') or {}
         code=int(current.get('weather_code') or 0);is_day=bool(int(current.get('is_day',1) or 0))
         dates=daily.get('time') or [];codes=daily.get('weather_code') or [];highs=daily.get('temperature_2m_max') or [];lows=daily.get('temperature_2m_min') or [];rain_chance=daily.get('precipitation_probability_max') or []
@@ -742,6 +774,11 @@ AGREEMENT_GROUPS = [
     ('Licences, Verification & Regulatory References', [x[0] for x in FIELDS[110:120]]),
     ('Witnesses & Execution', [x[0] for x in FIELDS[120:122]]),
 ]
+
+AGREEMENT_PARTY_PROFILE_FIELDS = {
+    'landlord':[x[0] for x in FIELDS[22:32]],
+    'tenant':[x[0] for x in FIELDS[32:43]],
+}
 
 
 def user_permissions(user=None):
@@ -879,15 +916,16 @@ def _parse_aadhaar_text_fallback(raw_text):
     if m: result['date_of_birth']=m.group(1)
     m=re.search(r'\b(Male|Female|Transgender)\b',txt,re.I)
     if m: result['gender']=m.group(1).title()
-    m=re.search(r'(?:S/O|D/O|W/O|C/O)\s*[:\-]?\s*([^\n,]+)',txt,re.I)
+    m=re.search(r'(?:S\s*/\s*[O0]|D\s*/\s*[O0]|W\s*/\s*[O0]|C\s*/\s*[O0])\s*[:\-]?\s*([^\n,]+)',txt,re.I)
     if m: result['father_or_spouse']=m.group(1).strip()
-    m=re.search(r'(?:Address|पता)\s*[:\-]\s*(.+?)(?=(?:\n\s*\d{4}\s*\d{4}\s*\d{4}|\Z))',txt,re.I|re.S)
+    m=re.search(r'(?:Address|पता)\s*[:\-]?\s*(.+?)(?=(?:\n\s*\d{4}\s*\d{4}\s*\d{4}|\Z))',txt,re.I|re.S)
     if m: result['address']=' '.join(m.group(1).split())[:1000]
     # Name heuristic: a short human-name line immediately preceding DOB/gender.
     lines=[x.strip() for x in txt.splitlines() if x.strip()]
-    dob_idx=next((i for i,x in enumerate(lines) if re.search(r'\b(?:DOB|Date\s*of\s*Birth|Year\s*of\s*Birth|YOB)\b',x,re.I)),None)
-    if dob_idx is not None:
-        for cand in reversed(lines[max(0,dob_idx-4):dob_idx]):
+    name_anchor=next((i for i,x in enumerate(lines) if re.search(r'\b(?:DOB|Date\s*of\s*Birth|Year\s*of\s*Birth|YOB)\b',x,re.I)),None)
+    if name_anchor is None:name_anchor=next((i for i,x in enumerate(lines) if re.search(r'\b(?:Male|Female|Transgender)\b',x,re.I)),None)
+    if name_anchor is not None:
+        for cand in reversed(lines[max(0,name_anchor-5):name_anchor]):
             if 2 <= len(cand) <= 80 and not re.search(r'Government|भारत|UIDAI|Aadhaar|Enrollment|VID|Male|Female|Address',cand,re.I) and not re.search(r'\d{4}',cand):
                 result['name']=cand; break
     return _normalize_aadhaar_extract(result)
@@ -898,7 +936,11 @@ _AADHAAR_OCR_LOCK=threading.Lock()
 
 
 def _aadhaar_image_pages(file_bytes, filename, mimetype):
-    """Return bounded RGB images without writing the identity document to disk."""
+    """Return small bounded RGB pages without writing identity data to disk.
+
+    Keeping at most two pages around 2.3 megapixels prevents the OCR model and
+    a multi-page PDF raster from competing for memory on small cloud workers.
+    """
     is_pdf=mimetype=='application/pdf' or (filename or '').lower().endswith('.pdf')
     if is_pdf:
         try:
@@ -908,10 +950,10 @@ def _aadhaar_image_pages(file_bytes, filename, mimetype):
                 import fitz
             pages=[]
             with fitz.open(stream=file_bytes,filetype='pdf') as document:
-                for page_number in range(min(4,document.page_count)):
+                for page_number in range(min(2,document.page_count)):
                     page=document.load_page(page_number)
                     area=max(1,float(page.rect.width*page.rect.height))
-                    scale=min(2.15,max(.35,(5_200_000/area) ** .5))
+                    scale=min(1.8,max(.35,(2_300_000/area) ** .5))
                     pixmap=page.get_pixmap(matrix=fitz.Matrix(scale,scale),alpha=False)
                     pages.append(PILImage.open(io.BytesIO(pixmap.tobytes('png'))).convert('RGB'))
             return pages
@@ -919,13 +961,23 @@ def _aadhaar_image_pages(file_bytes, filename, mimetype):
             return []
     try:
         source=PILImage.open(io.BytesIO(file_bytes))
-        if source.width*source.height>36_000_000:
+        if source.width*source.height>24_000_000:
             return []
         image=ImageOps.exif_transpose(source).convert('RGB')
-        image.thumbnail((2400,2400),PILImage.Resampling.LANCZOS)
+        image.thumbnail((1900,1900),PILImage.Resampling.LANCZOS)
         return [image]
     except Exception:
         return []
+
+
+def _aadhaar_reading_image(image):
+    """Increase local contrast without retaining or exporting the document."""
+    gray=ImageOps.grayscale(image)
+    gray=ImageOps.autocontrast(gray,cutoff=1)
+    if max(gray.size)<1300:
+        scale=min(2.0,1300/max(1,max(gray.size)))
+        gray=gray.resize((max(1,int(gray.width*scale)),max(1,int(gray.height*scale))),PILImage.Resampling.LANCZOS)
+    return gray.convert('RGB')
 
 
 def _aadhaar_tesseract_text(image):
@@ -933,10 +985,10 @@ def _aadhaar_tesseract_text(image):
     if not binary:
         return ''
     try:
-        payload=io.BytesIO(); image.save(payload,format='PNG',optimize=True)
+        payload=io.BytesIO(); _aadhaar_reading_image(image).save(payload,format='PNG',optimize=True)
         run=subprocess.run(
-            [binary,'stdin','stdout','-l','eng','--psm','6'],input=payload.getvalue(),
-            stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=24,check=False,
+            [binary,'stdin','stdout','-l','eng','--psm','6','-c','preserve_interword_spaces=1'],input=payload.getvalue(),
+            stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=18,check=False,
         )
         return run.stdout.decode('utf-8','ignore') if run.returncode==0 else ''
     except Exception:
@@ -944,10 +996,18 @@ def _aadhaar_tesseract_text(image):
 
 
 def _aadhaar_local_ocr_text(file_bytes, filename, mimetype):
-    """Run server-local OCR first so Aadhaar autofill does not depend on a browser/device setup."""
+    """Run bounded server-local OCR without a browser/device dependency."""
     pages=_aadhaar_image_pages(file_bytes,filename,mimetype)
     if not pages:
         return '', 'The document could not be rendered for automatic reading.'
+    # The small native binary is the lowest-memory path and is installed by the
+    # supplied Docker build. It also acts as a stable fallback if ONNX cannot
+    # initialize on a constrained host.
+    tesseract_text='\n'.join(filter(None,(_aadhaar_tesseract_text(image) for image in pages)))
+    tesseract_markers=sum(bool(re.search(pattern,tesseract_text,re.I)) for pattern in (
+        r'\d{4}[\s\-]*\d{4}[\s\-]*\d{4}',r'\b(?:DOB|YOB|Date\s*of\s*Birth)\b',r'\b(?:Male|Female)\b',r'\bAddress\b'))
+    if tesseract_text.strip() and tesseract_markers>=2:
+        return tesseract_text, ''
     rapid_error=''
     try:
         global _AADHAAR_OCR_ENGINE
@@ -958,20 +1018,19 @@ def _aadhaar_local_ocr_text(file_bytes, filename, mimetype):
                 from rapidocr import RapidOCR
                 _AADHAAR_OCR_ENGINE=RapidOCR()
             for image in pages:
-                result=_AADHAAR_OCR_ENGINE(np.asarray(image),use_det=True,use_cls=True,use_rec=True)
+                result=_AADHAAR_OCR_ENGINE(np.asarray(_aadhaar_reading_image(image)),use_det=True,use_cls=True,use_rec=True)
                 texts=list(getattr(result,'txts',()) or ())
                 scores=list(getattr(result,'scores',()) or ())
                 lines.extend(text for index,text in enumerate(texts) if text and (index>=len(scores) or float(scores[index])>=.42))
         if lines:
-            return '\n'.join(lines), ''
+            combined='\n'.join(lines)
+            if tesseract_text.strip(): combined+='\n'+tesseract_text
+            return combined, ''
     except Exception as exc:
         rapid_error=str(exc)[:120]
-    # Tesseract remains a secondary local option on installations that already
-    # provide the binary. Raw OCR text and document bytes are never logged.
-    text='\n'.join(filter(None,(_aadhaar_tesseract_text(image) for image in pages)))
-    if text.strip():
-        return text, ''
-    return '', ('Server-local OCR is unavailable.' if rapid_error else 'No readable text was detected.')
+    if tesseract_text.strip():
+        return tesseract_text, ''
+    return '', ('The server OCR engine could not initialize.' if rapid_error else 'No readable text was detected.')
 
 
 def _aadhaar_ai_extract(file_bytes, filename, mimetype):
@@ -1095,31 +1154,157 @@ def _supabase_project_ref():
 def supabase_storage_configured():
     return bool(_supabase_project_ref() and os.getenv('SUPABASE_SERVICE_ROLE_KEY','').strip())
 
+VIDEO_WALL_BUCKET='video-wall-media'
+VIDEO_WALL_MIME_BY_EXTENSION={
+    '.mp4':'video/mp4','.m4v':'video/mp4','.webm':'video/webm','.mov':'video/quicktime',
+    '.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp',
+}
+
+
+def video_wall_upload_limit_mb():
+    try: return max(10,min(512000,int(os.getenv('VIDEO_WALL_MAX_MB','2048'))))
+    except Exception: return 2048
+
+
+def _video_wall_storage_headers(json_content=False):
+    key=os.getenv('SUPABASE_SERVICE_ROLE_KEY','').strip()
+    headers={'Authorization':f'Bearer {key}','apikey':key}
+    if json_content: headers['Content-Type']='application/json'
+    return headers
+
+
+def _ensure_video_wall_bucket():
+    """Create the public playback bucket when it is missing."""
+    project_ref=_supabase_project_ref()
+    if not (project_ref and os.getenv('SUPABASE_SERVICE_ROLE_KEY','').strip()):
+        return False,'Supabase media storage is not configured.'
+    base=f'https://{project_ref}.supabase.co/storage/v1'
+    headers=_video_wall_storage_headers(json_content=True)
+    try:
+        check=requests.get(f'{base}/bucket/{VIDEO_WALL_BUCKET}',headers=headers,timeout=20)
+        if check.ok:
+            info=check.json() if check.headers.get('content-type','').startswith('application/json') else {}
+            if info.get('public') is False:
+                return False,f'The {VIDEO_WALL_BUCKET} bucket exists but is private. Mark it Public in Supabase Storage so TV players can stream its media.'
+            return True,''
+        if check.status_code!=404:
+            return False,f'Storage bucket check failed ({check.status_code}): {check.text[:240]}'
+        created=requests.post(f'{base}/bucket',headers=headers,json={
+            'id':VIDEO_WALL_BUCKET,'name':VIDEO_WALL_BUCKET,'public':True,
+            'allowed_mime_types':sorted(set(VIDEO_WALL_MIME_BY_EXTENSION.values())),
+        },timeout=25)
+        if not created.ok and created.status_code!=409:
+            return False,f'Storage bucket could not be created ({created.status_code}): {created.text[:240]}'
+        return True,''
+    except Exception as exc:
+        return False,f'Storage bucket is unreachable: {str(exc)[:180]}'
+
+
+def _video_wall_media_spec(filename,mime_type,size):
+    clean_name=os.path.basename(str(filename or '')).strip()
+    ext=os.path.splitext(clean_name.lower())[1]
+    expected=VIDEO_WALL_MIME_BY_EXTENSION.get(ext)
+    mime=(mime_type or '').lower().split(';')[0].strip()
+    if not expected:
+        return None,'Supported files: MP4, M4V, WebM, MOV, JPG, PNG and WebP.'
+    if mime in ('','application/octet-stream','video/x-m4v'): mime=expected
+    if mime not in set(VIDEO_WALL_MIME_BY_EXTENSION.values()):
+        return None,'The selected file type does not match a supported video or image format.'
+    try: size=int(size or 0)
+    except Exception: size=0
+    if size<=0: return None,'The selected media file is empty.'
+    limit=video_wall_upload_limit_mb()*1024*1024
+    if size>limit:
+        return None,f'File exceeds the configured {video_wall_upload_limit_mb()} MB Video Wall limit.'
+    return {'filename':clean_name or f'media{ext}','extension':ext,'mime':mime,'size':size,'type':('image' if mime.startswith('image/') else 'video')},''
+
+
+def _video_wall_upload_serializer():
+    return URLSafeTimedSerializer(app.config['SECRET_KEY'],salt='livenza-video-wall-resumable-v1')
+
+
+def create_video_wall_resumable_upload(filename,mime_type,size,title=''):
+    spec,error=_video_wall_media_spec(filename,mime_type,size)
+    if error: return None,error
+    ready,error=_ensure_video_wall_bucket()
+    if not ready: return None,error
+    project_ref=_supabase_project_ref(); key=os.getenv('SUPABASE_SERVICE_ROLE_KEY','').strip()
+    path=f"video-wall/{datetime.datetime.utcnow():%Y/%m}/{uuid.uuid4().hex}{spec['extension']}"
+    sign_url=f"https://{project_ref}.supabase.co/storage/v1/object/upload/sign/{VIDEO_WALL_BUCKET}/{urllib.parse.quote(path,safe='/')}"
+    try:
+        signed=requests.post(sign_url,headers=_video_wall_storage_headers(json_content=True),json={},timeout=25)
+        if not signed.ok:
+            return None,f'Resumable upload could not start ({signed.status_code}): {signed.text[:260]}'
+        signed_data=signed.json(); token=str(signed_data.get('token') or '')
+        if not token:
+            returned=str(signed_data.get('url') or signed_data.get('signedURL') or signed_data.get('signedUrl') or '')
+            token=urllib.parse.parse_qs(urllib.parse.urlparse(returned).query).get('token',[''])[0]
+        if not token: return None,'Storage did not return a signed upload token.'
+        public=f"https://{project_ref}.supabase.co/storage/v1/object/public/{VIDEO_WALL_BUCKET}/{urllib.parse.quote(path,safe='/')}"
+        reservation=_video_wall_upload_serializer().dumps({
+            'path':path,'title':(title or spec['filename'])[:220],'mime':spec['mime'],'size':spec['size'],
+            'type':spec['type'],'uid':current_user().id,
+        })
+        return {
+            'endpoint':f'https://{project_ref}.storage.supabase.co/storage/v1/upload/resumable',
+            'signature':token,'bucket':VIDEO_WALL_BUCKET,'object_name':path,'content_type':spec['mime'],
+            'chunk_size':6*1024*1024,'reservation':reservation,'public_url':public,
+        },''
+    except Exception as exc:
+        return None,f'Resumable upload could not start: {str(exc)[:180]}'
+
+
+def finalize_video_wall_resumable_upload(reservation):
+    try: data=_video_wall_upload_serializer().loads(str(reservation or ''),max_age=2*60*60)
+    except Exception: return None,'The upload reservation expired. Select the file and try again.'
+    if int(data.get('uid') or 0)!=int(current_user().id): return None,'This upload reservation belongs to another session.'
+    path=str(data.get('path') or '')
+    if not path.startswith('video-wall/'): return None,'Invalid media path.'
+    project_ref=_supabase_project_ref()
+    public=f"https://{project_ref}.supabase.co/storage/v1/object/public/{VIDEO_WALL_BUCKET}/{urllib.parse.quote(path,safe='/')}"
+    object_url=f"https://{project_ref}.supabase.co/storage/v1/object/{VIDEO_WALL_BUCKET}/{urllib.parse.quote(path,safe='/')}"
+    verified=None
+    for attempt in range(3):
+        try:
+            verified=requests.head(object_url,headers=_video_wall_storage_headers(),timeout=25,allow_redirects=True)
+            if verified.ok: break
+        except Exception: verified=None
+        if attempt<2: time.sleep(.25)
+    if not verified or not verified.ok:
+        code=verified.status_code if verified is not None else 'network'
+        return None,f'Storage has not confirmed the completed media yet ({code}). Retry Finish Upload.'
+    existing=VideoAsset.query.filter_by(storage_path=path).first()
+    if existing: return existing,''
+    actual_size=int(verified.headers.get('Content-Length') or data.get('size') or 0)
+    asset=VideoAsset(title=str(data.get('title') or 'Video Wall media')[:220],media_type=data.get('type') or 'video',storage_path=path,public_url=public,mime_type=data.get('mime') or '',file_size=actual_size,uploaded_by_user_id=current_user().id)
+    db.session.add(asset);db.session.commit();return asset,''
+
 def upload_video_wall_media(file_storage):
     if not file_storage or not getattr(file_storage,'filename',''):
         return None, 'No media file selected.'
     project_ref=_supabase_project_ref(); key=os.getenv('SUPABASE_SERVICE_ROLE_KEY','').strip()
     if not (project_ref and key):
         return None, 'Supabase media upload is not configured. Add SUPABASE_SERVICE_ROLE_KEY in Render, or use an external media URL.'
-    allowed={'video/mp4','video/webm','video/quicktime','image/jpeg','image/png','image/webp'}
-    mime=(file_storage.mimetype or '').lower()
-    if mime not in allowed:
-        return None, 'Supported files: MP4, WebM, MOV, JPG, PNG and WebP.'
     file_storage.stream.seek(0,2); size=file_storage.stream.tell(); file_storage.stream.seek(0)
-    max_bytes=int(os.getenv('VIDEO_WALL_MAX_MB','50'))*1024*1024
-    if size>max_bytes:
-        return None, f'File exceeds the configured {int(max_bytes/1024/1024)} MB limit. Compress the media or use an external/CDN URL.'
-    ext=os.path.splitext(file_storage.filename)[1].lower() or ('.mp4' if mime.startswith('video/') else '.jpg')
+    spec,error=_video_wall_media_spec(file_storage.filename,file_storage.mimetype,size)
+    if error: return None,error
+    # This compatibility path is for browsers without JavaScript. Large files
+    # use the direct resumable browser uploader and never enter web-worker RAM.
+    if size>50*1024*1024:
+        return None,'Use the resumable uploader shown on this page for files larger than 50 MB.'
+    ready,error=_ensure_video_wall_bucket()
+    if not ready: return None,error
+    mime=spec['mime'];ext=spec['extension']
     path=f"video-wall/{datetime.datetime.utcnow():%Y/%m}/{uuid.uuid4().hex}{ext}"
     base=f'https://{project_ref}.supabase.co'
-    object_url=f"{base}/storage/v1/object/video-wall-media/{urllib.parse.quote(path,safe='/')}"
+    object_url=f"{base}/storage/v1/object/{VIDEO_WALL_BUCKET}/{urllib.parse.quote(path,safe='/')}"
     headers={'Authorization':f'Bearer {key}','apikey':key,'Content-Type':mime,'x-upsert':'false'}
     try:
         data=file_storage.stream.read()
         r=requests.post(object_url,headers=headers,data=data,timeout=180)
         if not r.ok:
             return None, f'Supabase Storage upload failed ({r.status_code}): {r.text[:300]}'
-        public=f"{base}/storage/v1/object/public/video-wall-media/{urllib.parse.quote(path,safe='/')}"
+        public=f"{base}/storage/v1/object/public/{VIDEO_WALL_BUCKET}/{urllib.parse.quote(path,safe='/')}"
         drive_warning=''
         if setting('google_drive_auto_backup','0')=='1' and google_connected():
             _,drive_warning=google_drive_upload_bytes(data,file_storage.filename or os.path.basename(path),mime,source='video-wall',uploaded_by=current_user())
@@ -1342,7 +1527,20 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode'])
+
+def version_v158():
+    return jsonify(version=APP_VERSION,features=[
+        'reliable-aadhaar-ocr','json-safe-aadhaar-errors','resumable-video-wall-upload','verified-media-finalization',
+        'agreement-wizard','agreement-local-autosave','visual-agreement-presets','encrypted-landlord-profiles','encrypted-tenant-profiles',
+        'biometric-first-login','gesture-pattern-login','responsive-native-workspace','dedicated-player-rotation',
+        'editable-query-sheet','query-batch-save','excel-csv-query-import','collapsed-scroll-mascot','nonblocking-mascot-layer',
+        'wcag-aa-form-contrast','livenza-branded-agreement-banner','responsive-marquee-status',
+    ])
+
+# Keep the original endpoint identity while exposing the current release's
+# verified feature contract instead of accumulating obsolete UI flags.
+app.view_functions['version']=version_v158
 
 @app.route('/login', methods=['GET','POST'])
 def login():
@@ -1456,26 +1654,28 @@ def agreement_editor_context(ag=None, data=None):
     city_names=[c.name for c in City.query.filter_by(active=True).order_by(City.name).all()]
     preset=d.get('agreement_template') or 'Strong Residential - 11 Months'
     profile=FORMAT_PROFILES.get(preset, FORMAT_PROFILES.get('Strong Residential - 11 Months',{}))
+    party_profiles={'landlord':[],'tenant':[]}
+    for saved in AgreementPartyProfile.query.order_by(AgreementPartyProfile.profile_type,AgreementPartyProfile.name).all():
+        if saved.profile_type in party_profiles:
+            party_profiles[saved.profile_type].append({'id':saved.id,'name':saved.name,'fields':saved.data})
     return dict(ag=ag,d=d,presets=PRESETS,field_map=fields,groups=AGREEMENT_GROUPS,
-                required_fields=agreement_required_fields(preset,d),city_names=city_names,preset_profile=profile)
+                required_fields=agreement_required_fields(preset,d),city_names=city_names,preset_profile=profile,
+                party_profiles=party_profiles)
 
-@app.route('/agreements/aadhaar-extract', methods=['POST'])
-@permission_required('agreements')
-def agreement_aadhaar_extract():
-    upload=request.files.get('aadhaar_file')
+def _agreement_aadhaar_extract_payload(upload):
     if not upload or not upload.filename:
-        return jsonify(ok=False,error='Choose an Aadhaar JPEG, PNG or PDF first.'),400
+        return {'ok':False,'error':'Choose an Aadhaar JPEG, PNG or PDF first.'},400
     filename=os.path.basename(upload.filename)
     ext=os.path.splitext(filename.lower())[1]
     if ext not in ('.jpg','.jpeg','.png','.pdf'):
-        return jsonify(ok=False,error='Supported formats: JPG, JPEG, PNG and PDF.'),400
+        return {'ok':False,'error':'Supported formats: JPG, JPEG, PNG and PDF.'},400
     raw=upload.read()
     if not raw:
-        return jsonify(ok=False,error='The uploaded file is empty.'),400
+        return {'ok':False,'error':'The uploaded file is empty.'},400
     if len(raw)>10*1024*1024:
-        return jsonify(ok=False,error='Aadhaar upload must be 10 MB or smaller.'),413
+        return {'ok':False,'error':'Aadhaar upload must be 10 MB or smaller.'},413
     mimetype=(upload.mimetype or '').lower()
-    data={}; notes=[]
+    data={}; notes=[]; local_error=''
     # Text-based PDFs can be parsed first without sending the file to any service.
     if ext=='.pdf':
         try:
@@ -1489,7 +1689,7 @@ def agreement_aadhaar_extract():
             pass
     essential=sum(bool(data.get(k)) for k in ('tenant_name','tenant_dob','tenant_address','tenant_id_no'))
     if essential<3:
-        ocr_text,_ocr_error=_aadhaar_local_ocr_text(raw,filename,mimetype or ('application/pdf' if ext=='.pdf' else 'image/jpeg'))
+        ocr_text,local_error=_aadhaar_local_ocr_text(raw,filename,mimetype or ('application/pdf' if ext=='.pdf' else 'image/jpeg'))
         if ocr_text:
             ocr_data=_parse_aadhaar_text_fallback(ocr_text)
             for key,value in ocr_data.items():
@@ -1498,16 +1698,68 @@ def agreement_aadhaar_extract():
         essential=sum(bool(data.get(k)) for k in ('tenant_name','tenant_dob','tenant_address','tenant_id_no'))
     if essential<3:
         try:
-            ai_data,err=_aadhaar_ai_extract(raw,filename,mimetype or ('application/pdf' if ext=='.pdf' else 'image/jpeg'))
+            ai_data,ai_error=_aadhaar_ai_extract(raw,filename,mimetype or ('application/pdf' if ext=='.pdf' else 'image/jpeg'))
             if ai_data:
                 for k,v in ai_data.items():
                     if v: data[k]=v
                 notes.append('Secure AI enhancement completed the remaining fields.')
         except Exception:
-            pass
+            ai_error='AI enhancement could not complete.'
     if not any(data.get(k) for k in ('tenant_name','tenant_dob','tenant_address','tenant_id_no')):
-        return jsonify(ok=False,error='No reliable Aadhaar fields were detected. Use a clear, straight photo in good light or a PDF containing both sides, then try again.'),422
-    return jsonify(ok=True,fields=data,note=' '.join(notes),warning='Autofill only — review the extracted details. This does not verify Aadhaar authenticity with UIDAI.')
+        if local_error and not os.getenv('OPENAI_API_KEY','').strip():
+            message='The secure OCR reader is not ready on this deployment. Redeploy Web 1.5.8 with its updated system and Python dependencies, then try again.'
+        else:
+            message='No reliable Aadhaar fields were detected. Use a clear, straight photo in good light or a PDF containing both sides, then try again.'
+        return {'ok':False,'error':message,'reader_status':local_error or 'No readable identity fields detected.'},422
+    return {'ok':True,'fields':data,'note':' '.join(notes),'warning':'Autofill only — review the extracted details. This does not verify Aadhaar authenticity with UIDAI.'},200
+
+
+@app.route('/agreements/aadhaar-extract', methods=['POST'])
+@permission_required('agreements')
+def agreement_aadhaar_extract():
+    """Always return JSON so the form never collapses into a generic browser error."""
+    try:
+        payload,status=_agreement_aadhaar_extract_payload(request.files.get('aadhaar_file'))
+        return jsonify(**payload),status
+    except RequestEntityTooLarge:
+        raise
+    except Exception:
+        return jsonify(ok=False,error='The secure Aadhaar reader encountered a temporary server error. The document was not saved. Try a smaller, clearer JPG/PNG or redeploy the updated OCR dependencies.'),500
+
+@app.route('/api/agreement-party-profiles',methods=['POST'])
+@permission_required('agreements')
+def agreement_party_profile_save():
+    body=request.get_json(silent=True) or {}
+    profile_type=str(body.get('profile_type') or '').strip().lower()
+    if profile_type not in AGREEMENT_PARTY_PROFILE_FIELDS:
+        return jsonify(ok=False,error='Choose a landlord or tenant profile.'),400
+    name=str(body.get('name') or '').strip()[:180]
+    if not name: return jsonify(ok=False,error='Give this profile a recognisable name.'),400
+    supplied=body.get('fields') if isinstance(body.get('fields'),dict) else {}
+    clean={}
+    for key in AGREEMENT_PARTY_PROFILE_FIELDS[profile_type]:
+        value=str(supplied.get(key) or '').strip()
+        if value: clean[key]=value[:4000]
+    if not clean: return jsonify(ok=False,error=f'Fill at least one {profile_type} detail before saving the profile.'),400
+    saved=AgreementPartyProfile.query.filter(
+        AgreementPartyProfile.profile_type==profile_type,
+        func.lower(AgreementPartyProfile.name)==name.lower(),
+    ).first()
+    if not saved:
+        saved=AgreementPartyProfile(profile_type=profile_type,name=name,created_by_user_id=current_user().id)
+        db.session.add(saved)
+    saved.name=name
+    saved.data_ciphertext=_integration_cipher().encrypt(json.dumps(clean,ensure_ascii=False).encode('utf-8')).decode('ascii')
+    db.session.commit()
+    return jsonify(ok=True,profile={'id':saved.id,'name':saved.name,'profile_type':profile_type,'fields':clean},message=f'{profile_type.title()} profile saved securely.')
+
+@app.route('/api/agreement-party-profiles/<int:profile_id>',methods=['DELETE'])
+@permission_required('agreements')
+def agreement_party_profile_delete(profile_id):
+    saved=db.session.get(AgreementPartyProfile,profile_id)
+    if not saved: return jsonify(ok=False,error='Saved profile not found.'),404
+    db.session.delete(saved);db.session.commit()
+    return jsonify(ok=True,message='Saved party profile removed.')
 
 @app.route('/agreements')
 @permission_required('agreements')
@@ -1805,7 +2057,7 @@ def food_integration_sync(iid):
     row=db.session.get(FoodIntegration,iid) or abort(404)
     if not row.active or not row.api_enabled or not (row.api_base_url or '').strip():
         flash('Enable API Sync and add the official/API endpoint supplied by the platform first.','warning');return redirect(url_for('food_integrations'))
-    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.6'}
+    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.8'}
     bearer=os.getenv((row.api_token_env or '').strip(),'').strip() if row.api_token_env else ''
     api_key=os.getenv((row.api_key_env or '').strip(),'').strip() if row.api_key_env else ''
     if bearer: headers['Authorization']=f'Bearer {bearer}'
@@ -1883,7 +2135,7 @@ def query_sheet():
             QueryLead.query_text.ilike(f'%{term}%')
         ))
     items=qry.order_by(QueryLead.updated_at.desc()).limit(750).all()
-    return render_template('query_sheet.html',items=items,cities=City.query.filter_by(active=True).order_by(City.name).all())
+    return render_template('query_sheet.html',items=items,blank_rows=30,cities=City.query.filter_by(active=True).order_by(City.name).all())
 
 
 def _query_sheet_apply(q, payload):
@@ -1915,6 +2167,90 @@ def query_sheet_patch(qid):
     _query_sheet_apply(q,payload)
     query_log(q,'Spreadsheet update','Updated from spreadsheet view',current_user());db.session.commit()
     return jsonify(ok=True,id=q.id,updated_at=q.updated_at.isoformat() if q.updated_at else '')
+
+@app.route('/api/queries/batch',methods=['POST'])
+@permission_required('queries')
+def query_sheet_batch_save():
+    body=request.get_json(silent=True) or {}; rows=body.get('rows') if isinstance(body.get('rows'),list) else []
+    if not rows: return jsonify(ok=False,error='No query rows were supplied.'),400
+    if len(rows)>500: return jsonify(ok=False,error='Save up to 500 rows in one batch.'),400
+    saved=[]
+    for index,payload in enumerate(rows):
+        if not isinstance(payload,dict): continue
+        row_id=str(payload.get('id') or '').strip(); q=db.session.get(QueryLead,int(row_id)) if row_id.isdigit() else None
+        if row_id and not q: continue
+        if not q:
+            meaningful=any(str(payload.get(k) or '').strip() for k in ('customer_name','mobile','whatsapp','email','city','property_name','budget','move_in_date','stay_type','query_text','notes'))
+            if not meaningful: continue
+            q=QueryLead(source='Manual',status='Live',heat='Warm',score=50);db.session.add(q);db.session.flush()
+            action='Created from editable query sheet'
+        else: action='Batch-updated from editable query sheet'
+        _query_sheet_apply(q,payload)
+        if not q.whatsapp:q.whatsapp=q.mobile
+        query_log(q,'Spreadsheet batch save',action,current_user())
+        saved.append({'client_ref':str(payload.get('client_ref') or index),'id':q.id,'updated_at':q.updated_at.isoformat() if q.updated_at else ''})
+    db.session.commit()
+    return jsonify(ok=True,saved=saved,count=len(saved))
+
+
+QUERY_IMPORT_ALIASES={
+    'source':'source','channel':'source','customer':'customer_name','customer name':'customer_name','name':'customer_name',
+    'mobile':'mobile','phone':'mobile','phone number':'mobile','whatsapp':'whatsapp','whatsapp number':'whatsapp',
+    'email':'email','email address':'email','city':'city','property':'property_name','property name':'property_name',
+    'budget':'budget','move in':'move_in_date','move in date':'move_in_date','move-in':'move_in_date','move-in date':'move_in_date',
+    'stay type':'stay_type','status':'status','heat':'heat','lead heat':'heat','score':'score',
+    'next follow up':'next_follow_up','next follow-up':'next_follow_up','follow up':'next_follow_up',
+    'requirement':'query_text','query':'query_text','requirement query':'query_text','notes':'notes',
+}
+
+def _query_import_header(value):
+    return re.sub(r'\s+',' ',re.sub(r'[^a-z0-9]+',' ',str(value or '').strip().lower())).strip()
+
+def _query_import_cell(value):
+    if value is None:return ''
+    if isinstance(value,(datetime.datetime,datetime.date)):return value.isoformat()
+    if isinstance(value,float) and value.is_integer():return str(int(value))
+    return str(value).strip()
+
+@app.route('/queries/sheet/import',methods=['POST'])
+@permission_required('queries')
+def query_sheet_import():
+    upload=request.files.get('query_file')
+    if not upload or not upload.filename:
+        flash('Choose an Excel .xlsx or CSV file first.','danger');return redirect(url_for('query_sheet'))
+    name=os.path.basename(upload.filename);ext=os.path.splitext(name.lower())[1]
+    if ext not in ('.xlsx','.csv'):
+        flash('Query import supports .xlsx and .csv files. Save older .xls files as .xlsx first.','danger');return redirect(url_for('query_sheet'))
+    try: upload.stream.seek(0,2);upload_size=upload.stream.tell();upload.stream.seek(0)
+    except Exception: upload_size=0
+    if upload_size>15*1024*1024:
+        flash('Query spreadsheet imports must be 15 MB or smaller.','danger');return redirect(url_for('query_sheet'))
+    rows=[]
+    try:
+        if ext=='.csv':
+            reader=csv.reader(io.TextIOWrapper(upload.stream,encoding='utf-8-sig',errors='replace'))
+            rows=[list(row)[:100] for _,row in zip(range(1002),reader)]
+        else:
+            from openpyxl import load_workbook
+            book=load_workbook(upload.stream,read_only=True,data_only=True)
+            sheet=book.active
+            rows=[list(row) for row in sheet.iter_rows(min_row=1,max_row=1001,max_col=100,values_only=True)]
+            book.close()
+    except Exception as exc:
+        flash(f'The spreadsheet could not be read: {str(exc)[:180]}','danger');return redirect(url_for('query_sheet'))
+    if not rows:
+        flash('The spreadsheet is empty.','warning');return redirect(url_for('query_sheet'))
+    mapped=[QUERY_IMPORT_ALIASES.get(_query_import_header(value),'') for value in rows[0]]
+    if not any(mapped):
+        flash('No recognised query columns were found. Use headers such as Customer Name, Mobile, City, Property, Status and Query.','danger');return redirect(url_for('query_sheet'))
+    created=0
+    for raw in rows[1:1001]:
+        payload={field:_query_import_cell(raw[index]) for index,field in enumerate(mapped) if field and index<len(raw)}
+        if not any(payload.values()):continue
+        q=QueryLead(source='Manual',status='Live',heat='Warm',score=50);_query_sheet_apply(q,payload)
+        if not q.whatsapp:q.whatsapp=q.mobile
+        db.session.add(q);db.session.flush();query_log(q,'Imported',f'Imported from {name[:180]}',current_user());created+=1
+    db.session.commit();flash(f'Imported and saved {created} query row(s) from {name}.','success');return redirect(url_for('query_sheet'))
 
 @app.route('/queries/<int:qid>/update',methods=['POST'])
 @permission_required('queries')
@@ -2038,7 +2374,28 @@ def video_wall():
         try: playlist_ids=[int(x) for x in json.loads(sc.playlist_json or '[]')]
         except Exception: playlist_ids=[]
         rows.append({'screen':sc,'online':screen_is_online(sc),'asset':db.session.get(VideoAsset,sc.current_asset_id) if sc.current_asset_id else None,'playlist_ids':playlist_ids,'player_url':url_for('wall_player',token=sc.player_token,_external=True)})
-    return render_template('video_wall.html',screens=rows,assets=assets,festive=festive,cities=City.query.filter_by(active=True).order_by(City.name).all(),storage_ready=supabase_storage_configured())
+    return render_template('video_wall.html',screens=rows,assets=assets,festive=festive,cities=City.query.filter_by(active=True).order_by(City.name).all(),storage_ready=supabase_storage_configured(),video_upload_limit_mb=video_wall_upload_limit_mb())
+
+@app.route('/video-wall/assets/resumable/start',methods=['POST'])
+@permission_required('video_wall')
+def video_wall_resumable_start():
+    body=request.get_json(silent=True) or {}
+    info,error=create_video_wall_resumable_upload(
+        body.get('filename'),body.get('content_type'),body.get('size'),body.get('title'),
+    )
+    if error: return jsonify(ok=False,error=error),400
+    return jsonify(ok=True,upload=info)
+
+@app.route('/video-wall/assets/resumable/finish',methods=['POST'])
+@permission_required('video_wall')
+def video_wall_resumable_finish():
+    body=request.get_json(silent=True) or {}
+    asset,error=finalize_video_wall_resumable_upload(body.get('reservation'))
+    if error: return jsonify(ok=False,error=error),409
+    return jsonify(ok=True,asset={
+        'id':asset.id,'title':asset.title,'media_type':asset.media_type,
+        'public_url':asset.public_url,'file_size':asset.file_size,
+    })
 
 @app.route('/video-wall/assets/upload',methods=['POST'])
 @permission_required('video_wall')

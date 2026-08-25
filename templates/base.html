@@ -20,7 +20,7 @@
   <script>
     (()=>{const small=matchMedia('(max-width:820px)').matches,lowMemory=Number(navigator.deviceMemory||8)<=4,lowCpu=Number(navigator.hardwareConcurrency||8)<=4,saveData=Boolean(navigator.connection?.saveData);if(small||lowMemory||lowCpu||saveData)document.documentElement.classList.add('mobile-performance')})();
   </script>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.6">
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.8">
 </head>
 <body data-page="{{ request.endpoint or '' }}">
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
@@ -55,7 +55,6 @@
         <a class="header-icon-link" href="{{url_for('dashboard')}}#applications" title="Favourite applications" aria-label="Favourite applications">♥</a>
         {% if can_access('rooms') %}<a class="header-icon-link" href="{{url_for('rooms')}}" data-app-nav title="Locations and rooms" aria-label="Locations and rooms">⌖</a>{% endif %}
         {% if is_admin %}<a class="header-icon-link" href="{{url_for('settings_page')}}" data-app-nav title="Settings" aria-label="Settings">⚙</a>{% endif %}
-        <button type="button" id="viewMenuToggle" class="header-icon-link view-menu-toggle" aria-haspopup="menu" aria-expanded="false" aria-controls="viewMenu" title="Display options" aria-label="Display options">◫</button>
         <details class="nav-dropdown profile-dropdown">
           <summary class="profile-toggle" aria-label="Account menu">{% if current_user.photo_data_uri %}<img src="{{current_user.photo_data_uri}}" alt="Profile">{% else %}<span class="profile-initial">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}<span class="profile-name"><small>{{current_user.role|title}}</small>{{current_user.full_name or current_user.username}}</span><span class="nav-caret">⌄</span></summary>
           <div class="nav-dropdown-menu account-dropdown-menu liquid-card" role="menu"><div class="nav-dropdown-title"><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}}</small></div><a role="menuitem" href="{{url_for('account')}}"><span class="menu-symbol">◉</span><span><b>My Account</b><small>Profile & identity</small></span></a>{% if is_admin %}<a role="menuitem" href="{{url_for('admin_panel')}}"><span class="menu-symbol">⌘</span><span><b>Admin</b><small>Users & access</small></span></a><a role="menuitem" href="{{url_for('settings_page')}}"><span class="menu-symbol">⚙</span><span><b>Settings</b><small>System configuration</small></span></a>{% endif %}{% if kiosk_mode_enabled %}<form method="post" action="{{url_for('kiosk_relock')}}" class="dropdown-lock-form"><button role="menuitem" type="submit"><span class="menu-symbol">▣</span><span><b>Lock Screen</b><small>Require PIN or password</small></span></button></form>{% endif %}<div class="nav-dropdown-divider"></div><a role="menuitem" class="logout-menu-item" href="{{url_for('logout')}}"><span class="menu-symbol">↗</span><span><b>Logout</b><small>End this session</small></span></a></div>
@@ -98,7 +97,6 @@
     </section>
     {% if companion_enabled %}
     <aside id="mascotCompanion" class="mascot-companion no-print" data-default-city="{{companion_default_city}}" data-weather-effects="{{'1' if companion_weather_effects else '0'}}" aria-label="Livenza Live Companion">
-      <div id="mascotCompanionNudge" class="mascot-companion-nudge liquid-card" role="status" aria-live="polite"><small>YOUR LIVE COMPANION</small><span>Getting today’s update ready…</span></div>
       <section id="mascotCompanionPanel" class="mascot-companion-panel liquid-card" aria-label="Live weather, operations and inspiration" aria-hidden="true" hidden>
         <header class="companion-panel-head">
           <div><span class="companion-ai-star">✦</span><span><b>Livenza Live</b><small>Weather · Operations · Inspiration</small></span></div>
@@ -122,7 +120,7 @@
       <button type="button" id="mascotCompanionButton" class="mascot-companion-button" aria-expanded="false" aria-controls="mascotCompanionPanel" title="Open Livenza Live Companion">
         <span class="companion-float-icon companion-float-one">✦</span><span class="companion-float-icon companion-float-two">✦</span><span class="companion-float-icon companion-float-three">•</span><span class="companion-float-icon companion-float-four">✧</span>
         <span class="mascot-side-glow"></span><span class="mascot-side-character"><img src="{{url_for('static',filename='livenza_welcome_mascot.png')}}" alt=""></span><span class="mascot-side-shadow"></span>
-        <span id="mascotWeatherChip" class="mascot-weather-chip">LIVE</span>
+        <span id="mascotWeatherChip" class="mascot-weather-chip">LIVE</span><span class="mascot-mini-bubble" aria-hidden="true">✦</span>
       </button>
     </aside>
     <div id="livenzaWeatherScene" class="livenza-weather-scene no-print" aria-hidden="true"></div>
@@ -141,23 +139,7 @@
     </footer>
   </div>
 
-  <!-- One clean View menu keeps Full Screen and Rotate away from application tabs. -->
-  <div id="viewMenu" class="view-menu-global liquid-card" role="menu" hidden>
-    <div class="view-menu-head"><b>Display</b><small>Fullscreen & orientation</small></div>
-    <button type="button" id="fullscreenToggle" class="view-menu-action" role="menuitem">
-      <span class="view-menu-icon">⛶</span><div><b class="tool-label">Full Screen</b><small>Use the whole display</small></div><span class="view-shortcut">1 click</span>
-    </button>
-    <div class="view-menu-divider"></div>
-    <div class="view-menu-section-label">Orientation</div>
-    <button type="button" role="menuitem" data-view-mode="auto"><span class="view-menu-icon">◉</span><div><b>Auto</b><small>Normal browser view</small></div></button>
-    <button type="button" role="menuitem" data-view-mode="portrait"><span class="view-menu-icon">▯</span><div><b>Portrait</b><small>Phone-style narrow view</small></div></button>
-    <button type="button" role="menuitem" data-view-mode="landscape"><span class="view-menu-icon">▭</span><div><b>Landscape</b><small>Wide-screen view</small></div></button>
-    <button type="button" role="menuitem" data-view-mode="90"><span class="view-menu-icon">↻</span><div><b>Rotate 90°</b><small>Vertical screen, right</small></div></button>
-    <button type="button" role="menuitem" data-view-mode="180"><span class="view-menu-icon">↕</span><div><b>Rotate 180°</b><small>Upside-down installation</small></div></button>
-    <button type="button" role="menuitem" data-view-mode="270"><span class="view-menu-icon">↺</span><div><b>Rotate 270°</b><small>Vertical screen, left</small></div></button>
-  </div>
-
-  <script src="{{url_for('static',filename='app.js')}}?v=1.5.6"></script>
+  <script src="{{url_for('static',filename='app.js')}}?v=1.5.8"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

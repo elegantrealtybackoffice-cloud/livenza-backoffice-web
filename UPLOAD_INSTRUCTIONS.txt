@@ -1,12 +1,12 @@
-LIVENZA WEB 1.5.6 — DIRECT ROOT UPLOAD + AADHAAR OCR, COMPACT HEADER AND MOBILE STABILITY
+LIVENZA WEB 1.5.8 — DIRECT ROOT UPLOAD
 
 1. Extract this ZIP.
 2. Upload its contents directly to the root of the existing repository, preserving the templates/, static/, migrations/ and windows-kiosk/ folders.
-3. Run migrations/web_v1_5_0.sql in Supabase SQL Editor.
+3. Run migrations/web_v1_5_0.sql and migrations/web_v1_5_8.sql in Supabase SQL Editor when those schema changes are not already present.
 4. Add the Google, WhatsApp, integration-encryption and WebAuthn environment values listed in README.md.
-5. Deploy the updated requirements. Confirm /version returns Web 1.5.6.
+5. Deploy with the supplied Dockerfile/render.yaml. Confirm /version returns Web 1.5.8.
 6. In Admin, connect Google, enable module permissions and configure kiosk/pattern/fingerprint access.
 
 The Windows scripts are downloads/setup helpers. Full operating-system restriction requires Microsoft Assigned Access, as described in windows-kiosk/README_WINDOWS_KIOSK.md.
 
-Web 1.5.6 adds no database migration. `rapidocr`, `onnxruntime` and `PyMuPDF` are installed from requirements.txt so Aadhaar image/PDF autofill works without device-side AI configuration.
+Web 1.5.8 adds `migrations/web_v1_5_8.sql` for encrypted reusable landlord/tenant profiles. It also installs Tesseract OCR, adds resumable Video Wall uploads, an editable Query Sheet with Excel/CSV import, a four-step Agreement Studio, biometric-first login and a non-blocking collapsing mascot. Keep `INTEGRATION_ENCRYPTION_KEY` stable between deployments.
