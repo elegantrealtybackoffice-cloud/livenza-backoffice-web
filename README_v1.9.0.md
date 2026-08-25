@@ -120,3 +120,9 @@ Browser acceptance remains mobile through 5K/iMac class widths, and the persiste
 The final Web 1.9.0 presentation layer now loads `static/theme_v190_refractive.css` after the Medium Aqua baseline and every feature stylesheet. Navigation, segmented controls, toolbars and compact actions use a stronger floating functional material with subtle specular edge light and reduced visible borders; selected segments use a bright milky lens with dark text; content cards stay calmer; drawers, menus and the persistent mascot assistant use thicker popover glass for readability.
 
 The polish pass keeps the existing compact typography/text-fit contract, persistent animated blue mascot, live operational/weather refresh, Ask Livenza, marquee motion, reduced-motion accessibility and mobile-to-5K layout constraints. Text-bearing buttons and tabs grow with wrapped copy instead of clipping their content. Lower-capability profiles retain the material hierarchy while disabling the more expensive blur/specular optics.
+
+## Golden Glass UI Maintenance
+
+The Web 1.9.0 shell now uses the original **Livenza Golden Glass** final material layer: a graphite/charcoal environment with champagne reflections, neutral smoked functional glass, milky selected lenses, calmer content material, thicker readable popovers, and restrained Livenza cool-blue accents. Active icons transition from silver to champagne/cool luminosity with a short settle animation; reduced-motion users receive the final state without animation. The blue mascot, live operational/weather updates, Ask Livenza, marquee, Letterhead Studio, Integrations and all business workflows are unchanged.
+
+Text-bearing controls remain content-driven and must not use optical clipping. Browser regression coverage includes mobile, desktop, iMac-class and 5K viewports.

@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#5f9fbd">
-  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#211f1d">
+  <meta name="color-scheme" content="dark light">
   <meta name="application-name" content="Livenza Back Office">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -26,6 +26,7 @@
   {% block page_styles %}{% endblock %}
   <link rel="stylesheet" href="{{url_for('static',filename='theme_v190.css')}}?v={{app_version|replace('Web ','')}}">
   <link rel="stylesheet" href="{{url_for('static',filename='theme_v190_refractive.css')}}?v={{app_version|replace('Web ','')}}">
+  <link rel="stylesheet" href="{{url_for('static',filename='theme_v190_golden.css')}}?v={{app_version|replace('Web ','')}}">
 </head>
 <body class="app-liquid-shell" data-page="{{ request.endpoint or '' }}">
   {% import '_application_groups.html' as appgroups with context %}

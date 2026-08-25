@@ -1,3 +1,12 @@
-Livenza Web 1.8.0 Responsive UI Maintenance
+Livenza Web 1.9.0 Golden Glass update
 
-Upload every file in this ZIP to the matching path in the existing Web 1.8.0 repository. Preserve folders exactly (for example static/style.css and templates/base.html). Do not flatten the ZIP. This delta does not replace environment variables, databases, integration credentials, Vault secrets, migrations, or backend domain data. After upload, redeploy Web 1.8.0 and verify the home dashboard, Integrations Center, Ask Livenza panel, fullscreen/theatre mode, and mobile layouts.
+Apply this package only to the latest Web 1.9.0 Refractive Liquid Glass v2 build.
+Upload/replace the files while preserving their directory paths exactly.
+No database migration is required.
+After upload, clear server/static cache and hard-refresh the browser so theme_v190_golden.css is loaded.
+
+Changed production/release files:
+- static/theme_v190_golden.css
+- templates/base.html
+- README.md
+- README_v1.9.0.md

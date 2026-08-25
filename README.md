@@ -349,3 +349,9 @@ The current Web 1.9.0 presentation uses a medium aqua adaptive glass hierarchy: 
 
 ### Web 1.9.0 Refractive Liquid Glass v2 maintenance
 The final UI layer now separates calm content material from floating functional glass, uses border-light grouped controls and a milky selected-lens state, and preserves full text wrapping, persistent live mascot behavior and mobile-to-5K responsiveness.
+
+## Golden Glass UI Maintenance
+
+The Web 1.9.0 shell now uses the original **Livenza Golden Glass** final material layer: a graphite/charcoal environment with champagne reflections, neutral smoked functional glass, milky selected lenses, calmer content material, thicker readable popovers, and restrained Livenza cool-blue accents. Active icons transition from silver to champagne/cool luminosity with a short settle animation; reduced-motion users receive the final state without animation. The blue mascot, live operational/weather updates, Ask Livenza, marquee, Letterhead Studio, Integrations and all business workflows are unchanged.
+
+Text-bearing controls remain content-driven and must not use optical clipping. Browser regression coverage includes mobile, desktop, iMac-class and 5K viewports.
