@@ -20,7 +20,7 @@
   <script>
     (()=>{const small=matchMedia('(max-width:820px)').matches,lowMemory=Number(navigator.deviceMemory||8)<=4,lowCpu=Number(navigator.hardwareConcurrency||8)<=4,saveData=Boolean(navigator.connection?.saveData);if(small||lowMemory||lowCpu||saveData)document.documentElement.classList.add('mobile-performance')})();
   </script>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.11">
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.12">
 </head>
 <body data-page="{{ request.endpoint or '' }}">
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
@@ -61,24 +61,11 @@
         {% if can_access('rooms') %}<a class="header-icon-link" href="{{url_for('rooms')}}" data-app-nav title="Locations and rooms" aria-label="Locations and rooms">⌖</a>{% endif %}
         {% if is_admin %}<a class="header-icon-link" href="{{url_for('settings_page')}}" data-app-nav title="Settings" aria-label="Settings">⚙</a>{% endif %}
         <details class="nav-dropdown profile-dropdown">
-          <summary class="profile-toggle" aria-label="Account menu">{% if current_user.photo_data_uri %}<img src="{{current_user.photo_data_uri}}" alt="Profile">{% else %}<span class="profile-initial">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}<span class="profile-name"><small>{{current_user.role|title}}</small>{{current_user.full_name or current_user.username}}</span><span class="nav-caret">⌄</span></summary>
+          <summary class="profile-toggle" aria-label="Account menu">{% if current_user.avatar_data_uri or current_user.photo_data_uri %}<img src="{{current_user.avatar_data_uri or current_user.photo_data_uri}}" alt="{{current_user.full_name or current_user.username}} profile avatar">{% else %}<span class="profile-initial">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}<span class="profile-name"><small>{{current_user.role|title}}</small>{{current_user.full_name or current_user.username}}</span><span class="nav-caret">⌄</span></summary>
           <div class="nav-dropdown-menu account-dropdown-menu liquid-card" role="menu"><div class="nav-dropdown-title"><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}}</small></div><a role="menuitem" href="{{url_for('account')}}"><span class="menu-symbol">◉</span><span><b>My Account</b><small>Profile & identity</small></span></a>{% if is_admin %}<a role="menuitem" href="{{url_for('admin_panel')}}"><span class="menu-symbol">⌘</span><span><b>Admin</b><small>Users & access</small></span></a><a role="menuitem" href="{{url_for('settings_page')}}"><span class="menu-symbol">⚙</span><span><b>Settings</b><small>System configuration</small></span></a>{% endif %}{% if kiosk_mode_enabled %}<form method="post" action="{{url_for('kiosk_relock')}}" class="dropdown-lock-form"><button role="menuitem" type="submit"><span class="menu-symbol">▣</span><span><b>Lock Screen</b><small>Require PIN or password</small></span></button></form>{% endif %}<div class="nav-dropdown-divider"></div><a role="menuitem" class="logout-menu-item" href="{{url_for('logout')}}"><span class="menu-symbol">↗</span><span><b>Logout</b><small>End this session</small></span></a></div>
         </details>
       </div>
     </header>
-
-    <section id="viewMenu" class="rotate-menu-global no-print" role="dialog" aria-label="Rotate website and display options" hidden>
-      <div class="rotate-menu-head"><b>Rotate Website</b><small>Choose how the entire Livenza workspace appears on this screen.</small></div>
-      <button type="button" data-view-mode="auto"><span aria-hidden="true">A</span><div><b>Automatic</b><small>Use the browser’s natural orientation</small></div></button>
-      <button type="button" data-view-mode="portrait"><span aria-hidden="true">▯</span><div><b>Portrait</b><small>Compact upright workspace</small></div></button>
-      <button type="button" data-view-mode="landscape"><span aria-hidden="true">▭</span><div><b>Landscape</b><small>Wide screen layout</small></div></button>
-      <button type="button" data-view-mode="90"><span aria-hidden="true">↻</span><div><b>Rotate 90°</b><small>Clockwise for vertical displays</small></div></button>
-      <button type="button" data-view-mode="180"><span aria-hidden="true">↷</span><div><b>Rotate 180°</b><small>Upside-down screen mounting</small></div></button>
-      <button type="button" data-view-mode="270"><span aria-hidden="true">↺</span><div><b>Rotate 270°</b><small>Counter-clockwise vertical view</small></div></button>
-      <div class="rotate-menu-divider"></div>
-      <button type="button" id="fullscreenToggle" class="fullscreen-menu-action" aria-pressed="false"><span aria-hidden="true">⛶</span><div><b class="tool-label">Full Screen</b><small>Use browser fullscreen or safe theatre mode</small></div></button>
-      <p id="orientationStatus" class="view-orientation-status" role="status" aria-live="polite">Automatic display active.</p>
-    </section>
 
     {% if marquee_enabled %}<div class="operations-marquee live-operations-marquee" id="liveOperationsMarquee" aria-label="Live Livenza operational status"><div class="marquee-live-label"><i></i> LIVE</div><div class="operations-marquee-track" id="liveMarqueeTrack"><span><b>Livenza</b> Loading live operations…</span><i>◆</i></div>{% if is_admin %}<a href="{{url_for('settings_page')}}#marquee-settings" class="marquee-settings-link" title="Configure marquee" aria-label="Configure marquee">⚙</a>{% endif %}</div>{% endif %}
     {% endif %}
@@ -92,10 +79,10 @@
 
     {% if current_user %}
     {% if companion_enabled %}
-    <aside id="mascotCompanion" class="mascot-companion no-print" data-default-city="{{companion_default_city}}" data-weather-effects="{{'1' if companion_weather_effects else '0'}}" aria-label="Livenza Live Companion">
+    <aside id="mascotCompanion" class="mascot-companion no-print{% if current_user.avatar_data_uri %} has-personal-avatar{% endif %}" data-default-city="{{companion_default_city}}" data-weather-effects="{{'1' if companion_weather_effects else '0'}}" data-avatar-mode="{{current_user.avatar_generation_mode or 'livenza'}}" aria-label="{{current_user.full_name or current_user.username}} live companion">
       <section id="mascotCompanionPanel" class="mascot-companion-panel liquid-card" aria-label="Live weather, operations and inspiration" aria-hidden="true" hidden>
         <header class="companion-panel-head">
-          <div><span class="companion-ai-star">✦</span><span><b>Livenza Companion</b><small>Live updates · Help assistant</small></span></div>
+          <div>{% if current_user.avatar_data_uri %}<img class="companion-panel-avatar" src="{{current_user.avatar_data_uri}}" alt="">{% else %}<span class="companion-ai-star">✦</span>{% endif %}<span><b>{{current_user.full_name or current_user.username}}’s Companion</b><small>Live updates · Help assistant</small></span></div>
           <button type="button" id="mascotCompanionClose" aria-label="Close Livenza companion">×</button>
         </header>
         <nav class="companion-mode-tabs" role="tablist" aria-label="Companion mode"><button type="button" class="active" role="tab" aria-selected="true" data-companion-tab="live"><span>◉</span> Live</button><button type="button" role="tab" aria-selected="false" data-companion-tab="chat"><span>✦</span> Ask Livenza</button></nav>
@@ -121,7 +108,7 @@
       </section>
       <button type="button" id="mascotCompanionButton" class="mascot-companion-button" aria-expanded="false" aria-controls="mascotCompanionPanel" title="Open Livenza Companion and help">
         <span class="companion-float-icon companion-float-one">✦</span><span class="companion-float-icon companion-float-two">✦</span><span class="companion-float-icon companion-float-three">•</span><span class="companion-float-icon companion-float-four">✧</span>
-        <span class="mascot-side-glow"></span><span class="mascot-side-character"><img src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}" alt=""></span><span class="mascot-side-shadow"></span>
+        <span class="mascot-side-glow"></span>{% if current_user.avatar_data_uri %}<span class="mascot-side-character mascot-personal-character"><span class="personal-avatar-halo"></span><img src="{{current_user.avatar_data_uri}}" alt="{{current_user.full_name or current_user.username}} live avatar"><span class="personal-avatar-status" aria-hidden="true">✦</span></span>{% else %}<span class="mascot-side-character"><img src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}" alt=""></span>{% endif %}<span class="mascot-side-shadow"></span>
         <span id="mascotWeatherChip" class="mascot-weather-chip">LIVE</span><span class="mascot-mini-bubble" aria-hidden="true">✦</span>
       </button>
     </aside>
@@ -141,7 +128,22 @@
     </footer>
   </div>
 
-  <script src="{{url_for('static',filename='app.js')}}?v=1.5.11"></script>
+  {% if current_user %}
+  <section id="viewMenu" class="rotate-menu-global no-print" role="dialog" aria-label="Rotate website and display options" hidden>
+    <div class="rotate-menu-head"><b>Rotate Website</b><small>Choose how the entire Livenza workspace appears on this screen.</small></div>
+    <button type="button" data-view-mode="auto"><span aria-hidden="true">A</span><div><b>Automatic</b><small>Use the browser’s natural orientation</small></div></button>
+    <button type="button" data-view-mode="portrait"><span aria-hidden="true">▯</span><div><b>Portrait</b><small>Compact upright workspace</small></div></button>
+    <button type="button" data-view-mode="landscape"><span aria-hidden="true">▭</span><div><b>Landscape</b><small>Wide screen layout</small></div></button>
+    <button type="button" data-view-mode="90"><span aria-hidden="true">↻</span><div><b>Rotate 90°</b><small>Clockwise for vertical displays</small></div></button>
+    <button type="button" data-view-mode="180"><span aria-hidden="true">↷</span><div><b>Rotate 180°</b><small>Upside-down screen mounting</small></div></button>
+    <button type="button" data-view-mode="270"><span aria-hidden="true">↺</span><div><b>Rotate 270°</b><small>Counter-clockwise vertical view</small></div></button>
+    <div class="rotate-menu-divider"></div>
+    <button type="button" id="fullscreenToggle" class="fullscreen-menu-action" aria-pressed="false"><span aria-hidden="true">⛶</span><div><b class="tool-label">Full Screen</b><small>Use browser fullscreen or safe theatre mode</small></div></button>
+    <p id="orientationStatus" class="view-orientation-status" role="status" aria-live="polite">Automatic display active.</p>
+  </section>
+  {% endif %}
+
+  <script src="{{url_for('static',filename='app.js')}}?v=1.5.12"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -55,7 +55,7 @@ async function handleAadhaarExtract(btn){
   try{
     const fd=new FormData();fd.append('aadhaar_file',file);const r=await fetch('/agreements/aadhaar-extract',{method:'POST',body:fd,credentials:'same-origin',signal:controller.signal});
     const contentType=(r.headers.get('content-type')||'').toLowerCase();
-    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.5.11 and retry.`);
+    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.5.12 and retry.`);
     const d=await r.json();
     if(!r.ok||!d.ok)throw new Error([d.error,d.reader_status].filter(Boolean).join(' Reader status: '));
     const fields=d.fields||{};let filled=0;['tenant_name','tenant_father','tenant_dob','tenant_address','tenant_id_type','tenant_id_no'].forEach(k=>{if(fillAgreementField(k,fields[k]))filled++});
@@ -186,6 +186,7 @@ initPageFeatures(document);
   const fsBtn=document.getElementById('fullscreenToggle');
   const menu=document.getElementById('viewMenu');
   const orientationStatus=document.getElementById('orientationStatus');
+  const homeDisplayButtons=[...document.querySelectorAll('[data-home-display]')];
   if(!viewport)return;
   if(!viewBtn&&!menu){
     ['view-portrait','view-landscape','view-rot-90','view-rot-180','view-rot-270'].forEach(name=>viewport.classList.remove(name));
@@ -198,15 +199,18 @@ initPageFeatures(document);
 
   const modes=['auto','portrait','landscape','90','180','270'];
   const viewClasses=['view-auto','view-portrait','view-landscape','view-rot-90','view-rot-180','view-rot-270'];
-  let currentMode='auto',pseudoFullscreen=false;
+  let currentMode='auto',rotationLocked=false,pseudoFullscreen=false,nativeAttempt='',nativeAppliedMode='',metricsFrame=0,menuFrame=0;
 
   function nativeFullscreenElement(){return document.fullscreenElement||document.webkitFullscreenElement||document.webkitCurrentFullScreenElement||document.mozFullScreenElement||document.msFullscreenElement||null}
   function isFullscreen(){return Boolean(nativeFullscreenElement()||pseudoFullscreen||root.classList.contains('livenza-theatre-mode'))}
   function setPseudoFullscreen(active){pseudoFullscreen=active;root.classList.toggle('livenza-theatre-mode',active);document.body.classList.toggle('livenza-theatre-mode',active)}
   function syncViewportMetrics(){
     const visual=window.visualViewport,w=Math.round(visual?.width||window.innerWidth||screen.width||1280),h=Math.round(visual?.height||window.innerHeight||screen.height||720);
-    root.style.setProperty('--livenza-screen-width',`${w}px`);root.style.setProperty('--livenza-screen-height',`${h}px`);
+    const width=`${w}px`,height=`${h}px`;
+    if(root.style.getPropertyValue('--livenza-screen-width')!==width)root.style.setProperty('--livenza-screen-width',width);
+    if(root.style.getPropertyValue('--livenza-screen-height')!==height)root.style.setProperty('--livenza-screen-height',height);
   }
+  function scheduleViewportMetrics(){if(metricsFrame)return;metricsFrame=requestAnimationFrame(()=>{metricsFrame=0;syncViewportMetrics()})}
 
   function updateFullscreenButton(){
     const active=isFullscreen();
@@ -221,7 +225,8 @@ initPageFeatures(document);
 
   function updateOrientationUi(mode,nativeApplied=false){
     document.querySelectorAll('#viewMenu [data-view-mode]').forEach(button=>{const selected=button.dataset.viewMode===mode;button.classList.toggle('selected',selected);button.setAttribute('aria-current',selected?'true':'false')});
-    if(orientationStatus){const labels={auto:'Automatic display',portrait:'Portrait view',landscape:'Landscape view','90':'90° clockwise','180':'180° rotation','270':'270° clockwise'};orientationStatus.textContent=`${labels[mode]||'Automatic display'} active${nativeApplied?' · screen orientation':' · browser-safe mode'}.`}
+    homeDisplayButtons.forEach(button=>{const action=button.dataset.homeDisplay,active=action==='lock'?rotationLocked:action===mode;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));if(action==='lock'){button.title=rotationLocked?'Unlock website rotation':'Lock website rotation';const label=button.querySelector('small');if(label)label.textContent=rotationLocked?'Locked':'Lock'}});
+    if(orientationStatus){const labels={auto:'Automatic display',portrait:'Portrait view',landscape:'Landscape view','90':'90° clockwise','180':'180° rotation','270':'270° clockwise'};orientationStatus.textContent=`${labels[mode]||'Automatic display'} active${nativeApplied?' · screen orientation':' · browser-safe mode'}${rotationLocked?' · rotation locked':''}.`}
   }
 
   async function tryNativeOrientation(mode){
@@ -232,18 +237,35 @@ initPageFeatures(document);
     return false;
   }
 
-  async function applyViewMode(mode,save=true){
-    if(!modes.includes(mode))mode='auto';currentMode=mode;syncViewportMetrics();clearViewClasses();
-    let nativeApplied=false;
-    if(mode==='auto')await unlockOrientation();
-    else if(mode==='portrait'||mode==='landscape')nativeApplied=await tryNativeOrientation(mode);
-    else await unlockOrientation();
-    const cssMode=nativeApplied?'auto':mode;
-    const cls=cssMode==='90'?'view-rot-90':cssMode==='180'?'view-rot-180':cssMode==='270'?'view-rot-270':`view-${cssMode}`;
-    viewport.classList.add(cls);
-    if(['90','180','270'].includes(cssMode))root.classList.add('site-rotation-active');
+  function cssClassFor(mode){return mode==='90'?'view-rot-90':mode==='180'?'view-rot-180':mode==='270'?'view-rot-270':`view-${mode}`}
+  function applyCssMode(mode,nativeApplied=false){
+    clearViewClasses();viewport.classList.add(cssClassFor(nativeApplied?'auto':mode));
+    if(!nativeApplied&&['90','180','270'].includes(mode))root.classList.add('site-rotation-active');
     root.dataset.livenzaDisplayMode=mode;updateOrientationUi(mode,nativeApplied);
+  }
+  async function applyViewMode(mode,save=true){
+    if(!modes.includes(mode))mode='auto';currentMode=mode;syncViewportMetrics();
+    // Apply the browser-safe class immediately. Native orientation is an
+    // optional enhancement and must never block the click or visual update.
+    applyCssMode(mode,false);
     if(save){try{localStorage.setItem('livenza_view_mode',mode)}catch(e){}}
+    if(mode==='auto'||['90','180','270'].includes(mode)){
+      nativeAppliedMode='';nativeAttempt='';void unlockOrientation();return;
+    }
+    if(nativeAppliedMode===mode&&nativeFullscreenElement()){applyCssMode(mode,true);return}
+    if(!nativeFullscreenElement()||nativeAttempt===mode)return;
+    nativeAttempt=mode;
+    const applied=await tryNativeOrientation(mode);nativeAttempt='';
+    if(currentMode!==mode)return;
+    if(applied){nativeAppliedMode=mode;applyCssMode(mode,true)}else nativeAppliedMode='';
+  }
+
+  function setRotationLock(active){
+    rotationLocked=Boolean(active);
+    try{localStorage.setItem('livenza_rotation_locked',rotationLocked?'1':'0')}catch(e){}
+    if(rotationLocked&&currentMode==='auto')void applyViewMode(window.innerWidth>=window.innerHeight?'landscape':'portrait',true);
+    else if(!rotationLocked)void applyViewMode('auto',true);
+    else updateOrientationUi(currentMode,nativeAppliedMode===currentMode);
   }
 
   async function exitNativeFullscreen(){
@@ -268,7 +290,7 @@ initPageFeatures(document);
         if(!opened)setPseudoFullscreen(true);
       }
     }finally{
-      root.classList.remove('fullscreen-requesting');updateFullscreenButton();await applyViewMode(currentMode,false);
+      root.classList.remove('fullscreen-requesting');updateFullscreenButton();void applyViewMode(currentMode,false);
     }
   }
 
@@ -282,6 +304,7 @@ initPageFeatures(document);
     if(top+mh>window.innerHeight-pad)top=Math.max(pad,r.top-mh-gap);
     menu.style.left=`${Math.round(left)}px`;menu.style.top=`${Math.round(top)}px`;
   }
+  function scheduleViewMenuPosition(){if(!menu||menu.hidden||menuFrame)return;menuFrame=requestAnimationFrame(()=>{menuFrame=0;positionViewMenu()})}
   function openViewMenu(){
     if(!menu||!viewBtn)return;
     menu.hidden=false;
@@ -297,9 +320,14 @@ initPageFeatures(document);
 
   fsBtn?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();toggleFullscreen()});
   viewBtn?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();toggleViewMenu()});
-  menu?.addEventListener('click',async e=>{
+  homeDisplayButtons.forEach(button=>button.addEventListener('click',()=>{
+    const action=button.dataset.homeDisplay;
+    if(action==='lock')setRotationLock(!rotationLocked);
+    else if(action==='landscape'||action==='portrait')void applyViewMode(action,true);
+  }));
+  menu?.addEventListener('click',e=>{
     const btn=e.target.closest('[data-view-mode]');if(!btn)return;
-    closeViewMenu();await applyViewMode(btn.dataset.viewMode);
+    e.preventDefault();if(btn.dataset.busy==='1')return;btn.dataset.busy='1';closeViewMenu();void applyViewMode(btn.dataset.viewMode);window.setTimeout(()=>delete btn.dataset.busy,280);
   });
   menu?.addEventListener('keydown',e=>{
     const buttons=[...menu.querySelectorAll('button:not([disabled])')],current=buttons.indexOf(document.activeElement);if(!buttons.length)return;
@@ -308,33 +336,85 @@ initPageFeatures(document);
   });
   document.addEventListener('pointerdown',e=>{if(menu&&!menu.hidden&&!menu.contains(e.target)&&!viewBtn?.contains(e.target))closeViewMenu()});
   window.addEventListener('keydown',e=>{if(e.key==='Escape'&&menu&&!menu.hidden){closeViewMenu();viewBtn?.focus({preventScroll:true})}});
-  window.addEventListener('resize',()=>{syncViewportMetrics();positionViewMenu()},{passive:true});
-  window.visualViewport?.addEventListener('resize',()=>{syncViewportMetrics();positionViewMenu()},{passive:true});
-  window.addEventListener('scroll',positionViewMenu,{passive:true,capture:true});
+  window.addEventListener('resize',()=>{scheduleViewportMetrics();scheduleViewMenuPosition()},{passive:true});
+  window.visualViewport?.addEventListener('resize',()=>{scheduleViewportMetrics();scheduleViewMenuPosition()},{passive:true});
+  window.addEventListener('scroll',scheduleViewMenuPosition,{passive:true,capture:true});
 
   async function onFullscreenChange(){
     if(nativeFullscreenElement()&&pseudoFullscreen)setPseudoFullscreen(false);
+    if(!nativeFullscreenElement())nativeAppliedMode='';
     updateFullscreenButton();
-    await applyViewMode(currentMode,false);
-    positionViewMenu();
+    void applyViewMode(currentMode,false);
+    scheduleViewMenuPosition();
   }
   document.addEventListener('fullscreenchange',onFullscreenChange);
   document.addEventListener('webkitfullscreenchange',onFullscreenChange);
   document.addEventListener('mozfullscreenchange',onFullscreenChange);
   document.addEventListener('MSFullscreenChange',onFullscreenChange);
-  screen.orientation?.addEventListener?.('change',()=>{syncViewportMetrics();if(['portrait','landscape'].includes(currentMode))applyViewMode(currentMode,false)});
-  document.addEventListener('fullscreenerror',()=>{if(!nativeFullscreenElement()){setPseudoFullscreen(true);updateFullscreenButton();applyViewMode(currentMode,false)}});
+  screen.orientation?.addEventListener?.('change',scheduleViewportMetrics);
+  document.addEventListener('fullscreenerror',()=>{if(!nativeFullscreenElement()){setPseudoFullscreen(true);updateFullscreenButton();void applyViewMode(currentMode,false)}});
 
-  let initial='auto';try{initial=localStorage.getItem('livenza_view_mode')||'auto'}catch(e){}
+  let initial='auto';try{initial=localStorage.getItem('livenza_view_mode')||'auto';rotationLocked=localStorage.getItem('livenza_rotation_locked')==='1'}catch(e){}
   currentMode=modes.includes(initial)?initial:'auto';
   syncViewportMetrics();applyViewMode(currentMode,false);updateFullscreenButton();
 
   window.LivenzaDisplay={
     isFullscreen,
+    getMode:()=>currentMode,
+    isRotationLocked:()=>rotationLocked,
+    setMode:mode=>applyViewMode(mode,true),
+    setRotationLock,
     closeViewMenu,
     closeRotateMenu:closeViewMenu,
     resetForNavigation:()=>applyViewMode(currentMode,false)
   };
+})();
+
+// ===== Web 1.5.12 • personal live-avatar studio =====
+(()=>{
+  const form=document.getElementById('avatarForm');
+  if(!form)return;
+  const input=document.getElementById('avatarPhotoInput');
+  const button=document.getElementById('avatarGenerateButton');
+  const status=document.getElementById('avatarGenerationStatus');
+  const shell=document.getElementById('avatarPreviewShell');
+  const modeLabel=document.getElementById('avatarModeLabel');
+  let busy=false,previewUrl='';
+
+  function setPreview(source){
+    let image=document.getElementById('avatarPreview');
+    if(!image){image=document.createElement('img');image.id='avatarPreview';image.alt='Live avatar preview';document.getElementById('avatarPreviewFallback')?.replaceWith(image)}
+    image.src=source;shell?.classList.add('is-ready');
+  }
+  function showState(kind,title,detail=''){
+    if(!status)return;status.hidden=false;status.dataset.state=kind;
+    const strong=status.querySelector('b'),small=status.querySelector('small');if(strong)strong.textContent=title;if(small)small.textContent=detail;
+  }
+  function setBusy(value){busy=value;if(button){button.disabled=value;button.textContent=value?'Creating Avatar…':'Create My Live Avatar'}input.disabled=value;shell?.classList.toggle('is-generating',value)}
+
+  input?.addEventListener('change',()=>{
+    const file=input.files?.[0];if(!file)return;
+    if(file.size>12*1024*1024){showState('error','Photo is too large','Choose an image smaller than 12 MB.');input.value='';return}
+    if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl=URL.createObjectURL(file);setPreview(previewUrl);
+    showState('ready','Photo ready','Creating your personal avatar automatically…');
+    window.setTimeout(()=>{if(!busy&&input.files?.[0]===file)form.requestSubmit()},260);
+  });
+
+  form.addEventListener('submit',async event=>{
+    if(!window.fetch||busy)return;
+    event.preventDefault();
+    if(!input.files?.length){showState('error','Choose a profile photo','A clear front-facing JPG, PNG or WebP works best.');return}
+    setBusy(true);showState('loading','Creating your polished avatar…','Preserving your identity and applying the Livenza visual finish.');
+    try{
+      const response=await fetch(form.action,{method:'POST',body:new FormData(form),credentials:'same-origin',headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'}});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||!data.ok)throw new Error(data.error||'The avatar could not be created.');
+      setPreview(data.avatar_data_uri);showState('success','Your live avatar is ready',data.message||'Applied across the Livenza workspace.');
+      if(modeLabel)modeLabel.innerHTML=`Current finish: <b>${data.mode==='ai'?'AI styled':'Polished portrait'}</b>`;
+      const headerImage=document.querySelector('.profile-toggle img');if(headerImage)headerImage.src=data.avatar_data_uri;
+      window.setTimeout(()=>window.location.reload(),1150);
+    }catch(error){showState('error','Could not create the avatar',error.message||'Please try another clear photo.');setBusy(false)}
+  });
 })();
 
 // ===== Web 1.5.2 • transparent scroll header + contextual visual storytelling =====

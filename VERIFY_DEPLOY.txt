@@ -1,16 +1,16 @@
-LIVENZA WEB 1.5.11 — DEPLOYMENT VERIFICATION
+LIVENZA WEB 1.5.12 — DEPLOYMENT VERIFICATION
 
-1. Confirm `/version` returns `Web 1.5.11` and includes restored-header-rotation, responsive-rotation-popover and rotation-fullscreen-control.
-2. Confirm `/health` returns HTTP 200 and the response header `X-Livenza-Build` is `Web 1.5.11`.
-3. Sign in and confirm the Rotate control appears in the top header.
-4. Test Automatic, Portrait, Landscape, 90°, 180° and 270°; reload and confirm the selected mode persists.
-5. Test Full Screen and the theatre fallback in a TV browser that blocks native fullscreen.
-6. Confirm Escape, outside click and Arrow/Home/End keyboard navigation work in the rotation popover.
-3. Upload a clear Aadhaar JPG/PDF in Agreement Studio. Verify extracted fields or an exact OCR dependency/image-quality diagnostic is shown.
-4. Upload an MP4 in Video Wall Studio. Verify resumable progress reaches 100% and the media appears under Available Media.
-5. Save/apply one landlord and tenant profile. Run `migrations/web_v1_5_8.sql` first if the table cannot be created automatically.
-6. Fill three blank Query Sheet rows, click Save All Changes, reload, and confirm all three remain. Also import a small `.xlsx` or `.csv`.
-7. On mobile, verify the mascot is a small bottom-left bubble below 400 px, body text is not obstructed, and the header does not cover the marquee.
-8. Register a TV player, set its installed rotation, and verify the dedicated player rotates while the normal portal remains responsive and unrotated.
+1. Confirm /version returns Web 1.5.12 and includes personal-live-avatar, profile-photo-avatar-generation, restored-header-rotation and website-rotation-modes.
+2. Confirm /health returns HTTP 200 and X-Livenza-Build is Web 1.5.12.
+3. Run migrations/web_v1_5_12.sql on managed PostgreSQL/Supabase.
+4. Open Account, select a clear profile photo and confirm progress appears automatically.
+5. Confirm the finished avatar appears in the header, login welcome and bottom-left live companion.
+6. Confirm Regenerate and Use original Livenza mascot both work.
+7. Confirm the companion still opens weather, operations, quotes and Ask Livenza.
+8. On Home, test the Lock, Horizontal and Vertical icons and confirm their active state persists after reload.
+9. Test Automatic, Portrait, Landscape, 90°, 180° and 270° several times. The UI must respond immediately without hanging.
+10. While rotated, reopen Rotate and return to Automatic. Confirm the popover remains clickable and correctly positioned.
+11. Test Full Screen and a television browser that uses theatre fallback.
+12. Recheck Aadhaar extraction, Video Wall MP4 upload, agreement party profiles and Query Sheet save/import.
 
-Deploy through the supplied Docker configuration so Tesseract OCR is installed. Keep `INTEGRATION_ENCRYPTION_KEY` stable.
+Deploy through the supplied Docker configuration so Tesseract OCR remains available. Keep INTEGRATION_ENCRYPTION_KEY stable.

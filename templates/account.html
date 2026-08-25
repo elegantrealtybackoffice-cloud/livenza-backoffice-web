@@ -1,1 +1,47 @@
-{% extends 'base.html' %}{% block content %}<div class="page-head"><div><p class="eyebrow">MY SECURE PROFILE</p><h1>Account</h1></div></div><form method="post" enctype="multipart/form-data" class="form-card narrow stack liquid-card"><div class="profile-photo-wrap">{% if user.photo_data_uri %}<img src="{{user.photo_data_uri}}" class="profile-photo">{% else %}<div class="profile-photo fallback">{{(user.full_name or user.username)[:1]|upper}}</div>{% endif %}</div><label>Profile Photo<input type="file" name="photo" accept="image/*"></label><label>Full Name<input name="full_name" value="{{user.full_name or ''}}"></label><label>Login ID<input name="username" value="{{user.username}}" required></label><label>New Password<input type="password" name="new_password" placeholder="Leave blank to keep current password"></label>{% if user.webauthn_enabled %}<div class="passkey-account-box"><h3>Fingerprint / Windows Hello</h3><p class="muted">Enrollment is allowed by an administrator. Your fingerprint stays in this device's secure authenticator.</p><button type="button" class="secondary" data-enroll-passkey>Enroll this device</button><p id="webauthnStatus" class="muted" aria-live="polite"></p></div>{% endif %}<div class="aadhaar-box"><h3>Aadhaar / Identity Verification</h3><p class="muted">Only masked Aadhaar details are stored. Full Aadhaar/VID should be used transiently only through an authorized verification flow.</p><label>Name as per Aadhaar<input name="aadhaar_name" value="{{user.aadhaar_name or ''}}"></label><label>Last 4 Aadhaar digits<input name="aadhaar_last4" maxlength="4" inputmode="numeric" value="{{user.aadhaar_last4 or ''}}"></label><p>Status: <b>{{user.aadhaar_verification_status or 'Not verified'}}</b>{% if user.aadhaar_last4 %} • XXXX XXXX {{user.aadhaar_last4}}{% endif %}</p><a class="small-link" href="https://myaadhaar.uidai.gov.in/offline-ekyc" target="_blank" rel="noopener">Open UIDAI Paperless Offline e-KYC ↗</a></div><button class="primary">Update Account</button></form>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-head account-page-head">
+  <div><p class="eyebrow">MY SECURE PROFILE</p><h1>Account & Live Avatar</h1><p class="muted">Your personal avatar becomes the mascot for welcome moments, live updates, weather and help across Livenza.</p></div>
+</div>
+
+<section class="avatar-studio liquid-card" aria-labelledby="avatarStudioTitle">
+  <div class="avatar-studio-preview">
+    <div id="avatarPreviewShell" class="avatar-preview-shell{% if user.avatar_data_uri %} is-ready{% endif %}">
+      <span class="avatar-preview-orbit orbit-a"></span><span class="avatar-preview-orbit orbit-b"></span>
+      {% if user.avatar_data_uri or user.photo_data_uri %}<img id="avatarPreview" src="{{user.avatar_data_uri or user.photo_data_uri}}" alt="Current live avatar for {{user.full_name or user.username}}">{% else %}<div id="avatarPreviewFallback" class="avatar-preview-fallback">{{(user.full_name or user.username)[:1]|upper}}</div>{% endif %}
+      <span class="avatar-preview-spark s-one">✦</span><span class="avatar-preview-spark s-two">✦</span>
+      <span class="avatar-live-pill"><i></i> LIVE AVATAR</span>
+    </div>
+  </div>
+  <div class="avatar-studio-copy">
+    <p class="eyebrow">LIVENZA AVATAR STUDIO</p>
+    <h2 id="avatarStudioTitle">Make the mascot look like you</h2>
+    <p>Upload one clear front-facing photo. Livenza creates a refined professional avatar, applies it immediately, and keeps the original robot as a one-click fallback.</p>
+    <div class="avatar-trust-row"><span>✓ Identity-preserving</span><span>✓ Clean professional style</span><span>✓ Mobile-safe</span></div>
+    <form id="avatarForm" method="post" action="{{url_for('account_avatar')}}" enctype="multipart/form-data" class="avatar-upload-form">
+      <input type="hidden" name="use_ai_avatar" value="1">
+      <label class="avatar-file-control" for="avatarPhotoInput"><span>Choose profile photo</span><small>JPG, PNG or WebP · maximum 12 MB</small><input id="avatarPhotoInput" type="file" name="avatar_photo" accept="image/jpeg,image/png,image/webp" required></label>
+      <button id="avatarGenerateButton" type="submit" class="primary">Create My Live Avatar</button>
+      <div id="avatarGenerationStatus" class="avatar-generation-status" role="status" aria-live="polite" hidden><span class="avatar-loader" aria-hidden="true"></span><div><b>Creating your polished avatar…</b><small>Preserving your identity and applying the Livenza visual finish.</small></div></div>
+      <p class="avatar-privacy-note">Your photo is used only for your profile and avatar. When the configured AI image service is available, the photo is securely processed to create the styled portrait.</p>
+    </form>
+    {% if user.photo_data_uri %}
+    <div class="avatar-secondary-actions">
+      <form method="post" action="{{url_for('account_avatar')}}"><input type="hidden" name="regenerate_avatar" value="1"><input type="hidden" name="use_ai_avatar" value="1"><button class="secondary" type="submit">Regenerate from saved photo</button></form>
+      {% if user.avatar_data_uri %}<form method="post" action="{{url_for('account_avatar')}}"><input type="hidden" name="reset_avatar" value="1"><button class="link" type="submit">Use original Livenza mascot</button></form>{% endif %}
+    </div>
+    {% endif %}
+    <p id="avatarModeLabel" class="avatar-mode-label">{% if user.avatar_data_uri %}Current finish: <b>{{'AI styled' if user.avatar_generation_mode=='ai' else 'Polished portrait'}}</b>{% else %}Upload a photo to activate your personal mascot.{% endif %}</p>
+  </div>
+</section>
+
+<form method="post" class="form-card narrow stack liquid-card account-details-card">
+  <div class="account-card-heading"><div><p class="eyebrow">PROFILE & SECURITY</p><h2>Account details</h2></div>{% if user.avatar_data_uri %}<img src="{{user.avatar_data_uri}}" alt="">{% endif %}</div>
+  <label>Full Name<input name="full_name" value="{{user.full_name or ''}}"></label>
+  <label>Login ID<input name="username" value="{{user.username}}" required></label>
+  <label>New Password<input type="password" name="new_password" placeholder="Leave blank to keep current password"></label>
+  {% if user.webauthn_enabled %}<div class="passkey-account-box"><h3>Fingerprint / Windows Hello</h3><p class="muted">Enrollment is allowed by an administrator. Your fingerprint stays in this device's secure authenticator.</p><button type="button" class="secondary" data-enroll-passkey>Enroll this device</button><p id="webauthnStatus" class="muted" aria-live="polite"></p></div>{% endif %}
+  <div class="aadhaar-box"><h3>Aadhaar / Identity Verification</h3><p class="muted">Only masked Aadhaar details are stored. Full Aadhaar/VID should be used transiently only through an authorized verification flow.</p><label>Name as per Aadhaar<input name="aadhaar_name" value="{{user.aadhaar_name or ''}}"></label><label>Last 4 Aadhaar digits<input name="aadhaar_last4" maxlength="4" inputmode="numeric" value="{{user.aadhaar_last4 or ''}}"></label><p>Status: <b>{{user.aadhaar_verification_status or 'Not verified'}}</b>{% if user.aadhaar_last4 %} · XXXX XXXX {{user.aadhaar_last4}}{% endif %}</p><a class="small-link" href="https://myaadhaar.uidai.gov.in/offline-ekyc" target="_blank" rel="noopener">Open UIDAI Paperless Offline e-KYC ↗</a></div>
+  <button class="primary">Update Account</button>
+</form>
+{% endblock %}

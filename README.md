@@ -1,4 +1,14 @@
-# Livenza Life Operations Cloud — Web 1.5.11
+# Livenza Life Operations Cloud — Web 1.5.12
+
+## Web 1.5.12 personal live avatar and rotation stability
+
+- A profile-photo upload now creates a clean personal companion avatar and applies it to login welcomes, live updates, weather, help and the account identity.
+- The Avatar Studio provides automatic upload progress, a responsive preview, regeneration and a one-click return to the original Livenza mascot.
+- When `OPENAI_API_KEY` is configured, the app uses the current GPT Image edit workflow for an identity-preserving professional avatar. A private polished portrait fallback keeps the feature functional if the image service is unavailable.
+- Website rotation now applies instantly without waiting on native orientation APIs, deduplicates resize/orientation work and suspends costly full-page effects while rotated.
+- The Rotate menu is outside the transformed workspace so users can always reopen it and return to Automatic mode.
+- Home now includes direct icon controls for rotation lock, Horizontal and Vertical modes, with persistent active states.
+- Apply `migrations/web_v1_5_12.sql` on managed PostgreSQL/Supabase databases. SQLite/local installations add the columns automatically at startup.
 
 ## Web 1.5.11 restored website rotation
 
@@ -134,7 +144,7 @@ Deploy as usual, then confirm `/version` returns `Web 1.5.9` and includes `unifi
 5. Configure passkeys: `WEBAUTHN_RP_ID=YOUR-SITE-HOST` and `WEBAUTHN_ORIGIN=https://YOUR-SITE`.
 6. In Admin, connect Google, assign the WhatsApp/Email/Drive permissions, enable pattern or fingerprint access per user, and optionally enable kiosk lock.
 
-See `README_v1.5.11.md`, `README_v1.5.10.md`, `README_v1.5.9.md`, `README_v1.5.8.md`, `README_v1.5.7.md`, `README_v1.5.6.md`, `README_v1.5.5.md`, `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
+See `README_v1.5.12.md`, `README_v1.5.11.md`, `README_v1.5.10.md`, `README_v1.5.9.md`, `README_v1.5.8.md`, `README_v1.5.7.md`, `README_v1.5.6.md`, `README_v1.5.5.md`, `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
 
 ## Web 1.4.9 addition
 - The Livenza Assistant now has a high-contrast cross icon that remains visible after messages are added.

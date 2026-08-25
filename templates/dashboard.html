@@ -9,10 +9,10 @@
       <strong>Welcome back, {{current_user.full_name or current_user.username}}!</strong>
       <span>Your workspace is ready. Let’s make today exceptional.</span>
     </div>
-    <div class="mascot-stage" aria-hidden="true">
+    <div class="mascot-stage{% if current_user.avatar_data_uri %} personal-welcome-stage{% endif %}" aria-hidden="true">
       <i class="mascot-star star-one">✦</i><i class="mascot-star star-two">✦</i><i class="mascot-star star-three">•</i><i class="mascot-star star-four">✦</i>
       <span class="mascot-spotlight"></span>
-      <div class="mascot-character"><img src="{{url_for('static',filename='livenza_welcome_mascot.png')}}" alt=""></div>
+      {% if current_user.avatar_data_uri %}<div class="mascot-character welcome-personal-avatar"><span class="welcome-avatar-halo"></span><img src="{{current_user.avatar_data_uri}}" alt=""><i>✦</i></div>{% else %}<div class="mascot-character"><img src="{{url_for('static',filename='livenza_welcome_mascot.png')}}" alt=""></div>{% endif %}
       <span class="mascot-floor-shadow"></span>
     </div>
   </div>
@@ -32,6 +32,11 @@
       <span class="ai-spark s1">✦</span><span class="ai-spark s2">✦</span><span class="ai-spark s3">·</span>
     </div>
   </div>
+  <nav class="home-display-dock no-print" aria-label="Home screen orientation controls">
+    <button type="button" data-home-display="lock" aria-pressed="false" title="Lock or unlock website rotation"><span aria-hidden="true">⌾</span><small>Lock</small></button>
+    <button type="button" data-home-display="landscape" aria-pressed="false" title="Horizontal website view"><span aria-hidden="true">▭</span><small>Horizontal</small></button>
+    <button type="button" data-home-display="portrait" aria-pressed="false" title="Vertical website view"><span aria-hidden="true">▯</span><small>Vertical</small></button>
+  </nav>
 </section>
 
 <div class="stats">

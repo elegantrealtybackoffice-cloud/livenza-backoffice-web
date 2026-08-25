@@ -1,12 +1,12 @@
-LIVENZA WEB 1.5.11 — DIRECT ROOT UPLOAD
+LIVENZA WEB 1.5.12 — DIRECT ROOT UPLOAD
 
 1. Extract this ZIP.
-2. Upload its contents directly to the root of the existing repository, preserving the templates/, static/, migrations/ and windows-kiosk/ folders.
-3. Run migrations/web_v1_5_0.sql and migrations/web_v1_5_8.sql in Supabase SQL Editor when those schema changes are not already present.
-4. Add the Google, WhatsApp, integration-encryption and WebAuthn environment values listed in README.md.
-5. Deploy with the supplied Dockerfile/render.yaml. Confirm /version returns Web 1.5.11.
-6. In Admin, connect Google, enable module permissions and configure kiosk/pattern/fingerprint access.
+2. Upload its contents directly to the root of the existing repository, preserving templates/, static/, migrations/ and windows-kiosk/.
+3. Run migrations/web_v1_5_12.sql in Supabase SQL Editor. Also run the older web_v1_5_0.sql and web_v1_5_8.sql migrations if they were not previously applied.
+4. Keep OPENAI_API_KEY configured to enable AI-styled personal avatars. Optional: set OPENAI_AVATAR_MODEL and OPENAI_AVATAR_QUALITY.
+5. Keep the Google, WhatsApp, integration-encryption and WebAuthn environment values listed in README.md.
+6. Deploy with the supplied Dockerfile/render.yaml and confirm /version returns Web 1.5.12.
 
-The Windows scripts are downloads/setup helpers. Full operating-system restriction requires Microsoft Assigned Access, as described in windows-kiosk/README_WINDOWS_KIOSK.md.
+Web 1.5.12 makes the profile photo the user's live mascot and fixes rotation hanging by moving the display menu outside the transformed workspace and reducing expensive effects only during rotation.
 
-Web 1.5.11 restores the responsive Rotate Website control in the top header with Automatic, Portrait, Landscape, 90°, 180°, 270° and Full Screen modes. No new migration is required. Web 1.5.8 added `migrations/web_v1_5_8.sql` and remains required on installations that have not run it. Keep `INTEGRATION_ENCRYPTION_KEY` stable between deployments.
+The Windows scripts are setup helpers. Full operating-system restriction requires Microsoft Assigned Access as described in windows-kiosk/README_WINDOWS_KIOSK.md.

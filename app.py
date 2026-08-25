@@ -11,13 +11,13 @@ from sqlalchemy import func, or_, inspect
 from dateutil.relativedelta import relativedelta
 import requests
 import qrcode
-from PIL import Image as PILImage, ImageOps
+from PIL import Image as PILImage, ImageOps, ImageEnhance
 from zoneinfo import ZoneInfo
 
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.5.11'
+APP_VERSION = 'Web 1.5.12'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -63,6 +63,9 @@ class User(db.Model):
     role = db.Column(db.String(30), default='manager')
     full_name = db.Column(db.String(180), default='')
     photo_data_uri = db.Column(db.Text, default='')
+    avatar_data_uri = db.Column(db.Text, default='')
+    avatar_generation_mode = db.Column(db.String(40), default='')
+    avatar_updated_at = db.Column(db.DateTime, nullable=True)
     aadhaar_last4 = db.Column(db.String(4), default='')
     aadhaar_name = db.Column(db.String(180), default='')
     aadhaar_verification_status = db.Column(db.String(40), default='Not verified')
@@ -640,7 +643,7 @@ def _companion_weather(city):
         'timezone':'Asia/Kolkata','forecast_days':4,
     }
     try:
-        response=requests.get('https://api.open-meteo.com/v1/forecast',params=params,headers={'User-Agent':'LivenzaLife-OperationsCloud/1.5.11'},timeout=10)
+        response=requests.get('https://api.open-meteo.com/v1/forecast',params=params,headers={'User-Agent':'LivenzaLife-OperationsCloud/1.5.12'},timeout=10)
         response.raise_for_status();payload=response.json();current=payload.get('current') or {};daily=payload.get('daily') or {}
         code=int(current.get('weather_code') or 0);is_day=bool(int(current.get('is_day',1) or 0))
         dates=daily.get('time') or [];codes=daily.get('weather_code') or [];highs=daily.get('temperature_2m_max') or [];lows=daily.get('temperature_2m_min') or [];rain_chance=daily.get('precipitation_probability_max') or []
@@ -856,18 +859,116 @@ def normalize_whatsapp_number(value):
 def share_serializer():
     return URLSafeTimedSerializer(app.config['SECRET_KEY'], salt='livenza-agreement-share-v1')
 
-def image_data_uri(file_storage):
+def _upload_image_bytes(file_storage, max_bytes=12*1024*1024):
     if not file_storage or not getattr(file_storage, 'filename', ''):
-        return ''
+        return b'', 'Choose a JPG, PNG or WebP profile photo.'
     try:
-        img=PILImage.open(file_storage.stream).convert('RGB')
-        img.thumbnail((640,640))
-        buf=io.BytesIO(); img.save(buf,format='JPEG',quality=84,optimize=True)
-        if buf.tell()>900000:
-            img.thumbnail((420,420)); buf=io.BytesIO(); img.save(buf,format='JPEG',quality=76,optimize=True)
-        return 'data:image/jpeg;base64,'+base64.b64encode(buf.getvalue()).decode('ascii')
+        file_storage.stream.seek(0)
+        raw=file_storage.stream.read(max_bytes+1)
+        file_storage.stream.seek(0)
+    except Exception:
+        return b'', 'The selected photo could not be read.'
+    if not raw:
+        return b'', 'The selected photo is empty.'
+    if len(raw)>max_bytes:
+        return b'', 'The profile photo must be smaller than 12 MB.'
+    try:
+        probe=PILImage.open(io.BytesIO(raw)); probe.verify()
+    except Exception:
+        return b'', 'Use a valid JPG, PNG or WebP profile photo.'
+    return raw, ''
+
+def _portrait_image(raw, size=768):
+    image=ImageOps.exif_transpose(PILImage.open(io.BytesIO(raw))).convert('RGB')
+    # Keep the face slightly above center so both portraits and selfies crop well.
+    return ImageOps.fit(image,(size,size),method=PILImage.Resampling.LANCZOS,centering=(.5,.36))
+
+def _jpeg_data_uri(image, max_size=768, quality=88):
+    image=image.convert('RGB')
+    image.thumbnail((max_size,max_size),PILImage.Resampling.LANCZOS)
+    buf=io.BytesIO(); image.save(buf,format='JPEG',quality=quality,optimize=True,progressive=True)
+    if buf.tell()>950000:
+        image.thumbnail((640,640),PILImage.Resampling.LANCZOS)
+        buf=io.BytesIO(); image.save(buf,format='JPEG',quality=80,optimize=True,progressive=True)
+    return 'data:image/jpeg;base64,'+base64.b64encode(buf.getvalue()).decode('ascii')
+
+def profile_photo_data_uri_from_bytes(raw):
+    try: return _jpeg_data_uri(_portrait_image(raw,640),640,86)
+    except Exception: return ''
+
+def polished_avatar_data_uri_from_bytes(raw):
+    """Reliable private fallback: a clean Livenza-toned portrait with no cloud dependency."""
+    try:
+        portrait=_portrait_image(raw,768)
+        portrait=ImageEnhance.Contrast(portrait).enhance(1.035)
+        portrait=ImageEnhance.Color(portrait).enhance(1.045)
+        portrait=ImageEnhance.Sharpness(portrait).enhance(1.08)
+        background=PILImage.new('RGB',(768,768),(244,249,253))
+        for y in range(768):
+            t=y/767
+            color=(int(248-16*t),int(251-12*t),int(253-4*t))
+            background.paste(color,(0,y,768,y+1))
+        # A restrained blue glass grade makes mixed source photos feel consistent.
+        graded=PILImage.blend(portrait,background,.075)
+        return _jpeg_data_uri(graded,768,89)
     except Exception:
         return ''
+
+def image_data_uri(file_storage):
+    raw,error=_upload_image_bytes(file_storage)
+    return '' if error else profile_photo_data_uri_from_bytes(raw)
+
+def _data_uri_bytes(value):
+    try:
+        encoded=(value or '').split(',',1)[1]
+        return base64.b64decode(encoded,validate=True)
+    except Exception:
+        return b''
+
+def _ai_avatar_data_uri(raw):
+    key=os.getenv('OPENAI_API_KEY','').strip()
+    if not key:
+        return '', 'AI image service is not configured.'
+    try:
+        from openai import OpenAI
+        source=_portrait_image(raw,1024)
+        source_buf=io.BytesIO(); source.save(source_buf,format='PNG',optimize=True); source_buf.seek(0)
+        source_buf.name='livenza-profile.png'
+        result=OpenAI(api_key=key).images.edit(
+            model=os.getenv('OPENAI_AVATAR_MODEL','gpt-image-2'),
+            image=source_buf,
+            prompt=(
+                'Create a clean, premium live assistant avatar from this exact person. Preserve identity, facial geometry, '
+                'skin tone, hairstyle, eyewear and age faithfully. Compose a friendly head-and-shoulders professional '
+                '3D editorial portrait, sophisticated rather than cartoonish, with a soft white and ice-blue studio '
+                'background and a restrained Livenza blue accent in the clothing. Soft natural light, refined materials, '
+                'confident welcoming expression, centered square composition. No text, no logo, no border, no extra '
+                'people, no exaggerated features and no childish robot styling.'
+            ),
+            size='1024x1024',
+            quality=os.getenv('OPENAI_AVATAR_QUALITY','medium'),
+        )
+        item=(getattr(result,'data',None) or [None])[0]
+        encoded=getattr(item,'b64_json',None) if item else None
+        generated=base64.b64decode(encoded) if encoded else b''
+        if not generated and item and getattr(item,'url',None):
+            response=requests.get(item.url,timeout=45); response.raise_for_status(); generated=response.content
+        if not generated: return '', 'The AI image service returned no avatar.'
+        return _jpeg_data_uri(_portrait_image(generated,768),768,89), ''
+    except Exception as exc:
+        app.logger.warning('Live avatar generation fell back to local polish: %s',str(exc)[:180])
+        return '', 'AI styling was unavailable, so the private polished portrait was used.'
+
+def create_live_avatar(raw, prefer_ai=True):
+    if prefer_ai:
+        generated,error=_ai_avatar_data_uri(raw)
+        if generated: return generated,'ai','AI avatar created and applied across the workspace.'
+    else:
+        error=''
+    fallback=polished_avatar_data_uri_from_bytes(raw)
+    if fallback:
+        return fallback,'polished',('Polished live avatar created. AI styling will activate when the image service is available.' if error else 'Polished live avatar created.')
+    return '','','The selected image could not be converted into an avatar.'
 
 def masked_aadhaar(last4):
     d=''.join(ch for ch in (last4 or '') if ch.isdigit())[-4:]
@@ -1529,7 +1630,7 @@ def diagnostics():
 @app.route('/version')
 def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode'])
 
-def version_v1511():
+def version_v1512():
     return jsonify(version=APP_VERSION,features=[
         'reliable-aadhaar-ocr','json-safe-aadhaar-errors','resumable-video-wall-upload','verified-media-finalization',
         'agreement-wizard','agreement-local-autosave','visual-agreement-presets','encrypted-landlord-profiles','encrypted-tenant-profiles',
@@ -1540,11 +1641,14 @@ def version_v1511():
         'progressive-device-auth','credential-skeleton-loader','password-visibility-toggle','inline-auth-errors',
         'accessible-pattern-hitboxes','keyboard-pattern-navigation','dedicated-pattern-clear','absolute-legal-strip',
         'restored-header-rotation','responsive-rotation-popover','website-rotation-modes','rotation-fullscreen-control',
+        'personal-live-avatar','profile-photo-avatar-generation','gpt-image-avatar-styling','polished-avatar-fallback',
+        'workspace-wide-avatar-identity','responsive-avatar-companion','avatar-upload-progress','avatar-reset-control',
+        'home-rotation-lock','home-horizontal-control','home-vertical-control','persistent-display-lock',
     ])
 
 # Keep the original endpoint identity while exposing the current release's
 # verified feature contract instead of accumulating obsolete UI flags.
-app.view_functions['version']=version_v1511
+app.view_functions['version']=version_v1512
 
 @app.route('/login', methods=['GET','POST'])
 def login():
@@ -1599,13 +1703,49 @@ def account():
         if request.form.get('full_name') is not None:
             u.full_name=request.form.get('full_name','').strip()
         if request.files.get('photo') and request.files['photo'].filename:
-            data=image_data_uri(request.files['photo'])
-            if data: u.photo_data_uri=data
+            raw,error=_upload_image_bytes(request.files['photo'])
+            if not error:
+                profile=profile_photo_data_uri_from_bytes(raw)
+                avatar,mode,_=create_live_avatar(raw,prefer_ai=request.form.get('use_ai_avatar','1')=='1')
+                if profile: u.photo_data_uri=profile
+                if avatar:
+                    u.avatar_data_uri=avatar; u.avatar_generation_mode=mode; u.avatar_updated_at=datetime.datetime.utcnow()
         last4=''.join(ch for ch in request.form.get('aadhaar_last4','') if ch.isdigit())[-4:]
         if last4: u.aadhaar_last4=last4
         if request.form.get('aadhaar_name') is not None: u.aadhaar_name=request.form.get('aadhaar_name','').strip()
         db.session.commit(); flash('Account updated.','success'); return redirect(url_for('account'))
     return render_template('account.html', user=u)
+
+@app.route('/account/avatar',methods=['POST'])
+@login_required
+def account_avatar():
+    u=current_user()
+    wants_json=request.headers.get('X-Requested-With')=='XMLHttpRequest' or 'application/json' in request.headers.get('Accept','')
+    if request.form.get('reset_avatar')=='1':
+        u.avatar_data_uri=''; u.avatar_generation_mode=''; u.avatar_updated_at=datetime.datetime.utcnow(); db.session.commit()
+        message='The original Livenza companion is active again.'
+        if wants_json: return jsonify(ok=True,reset=True,message=message)
+        flash(message,'success'); return redirect(url_for('account'))
+    upload=request.files.get('avatar_photo') or request.files.get('photo')
+    if upload and upload.filename:
+        raw,error=_upload_image_bytes(upload)
+    elif request.form.get('regenerate_avatar')=='1' and u.photo_data_uri:
+        raw=_data_uri_bytes(u.photo_data_uri); error='' if raw else 'Upload the profile photo again to regenerate the avatar.'
+    else:
+        raw,error=b'','Choose a clear front-facing profile photo.'
+    if error:
+        if wants_json: return jsonify(ok=False,error=error),400
+        flash(error,'danger'); return redirect(url_for('account'))
+    profile=profile_photo_data_uri_from_bytes(raw)
+    avatar,mode,message=create_live_avatar(raw,prefer_ai=request.form.get('use_ai_avatar','1')=='1')
+    if not avatar:
+        if wants_json: return jsonify(ok=False,error=message),422
+        flash(message,'danger'); return redirect(url_for('account'))
+    if profile: u.photo_data_uri=profile
+    u.avatar_data_uri=avatar; u.avatar_generation_mode=mode; u.avatar_updated_at=datetime.datetime.utcnow(); db.session.commit()
+    if wants_json:
+        return jsonify(ok=True,avatar_data_uri=avatar,profile_data_uri=profile,mode=mode,message=message)
+    flash(message,'success'); return redirect(url_for('account'))
 
 @app.route('/')
 @login_required
@@ -1730,7 +1870,7 @@ def _agreement_aadhaar_extract_payload(upload):
             ai_error='AI enhancement could not complete.'
     if not any(data.get(k) for k in ('tenant_name','tenant_dob','tenant_address','tenant_id_no')):
         if local_error and not os.getenv('OPENAI_API_KEY','').strip():
-            message='The secure OCR reader is not ready on this deployment. Redeploy Web 1.5.11 with its updated system and Python dependencies, then try again.'
+            message='The secure OCR reader is not ready on this deployment. Redeploy Web 1.5.12 with its updated system and Python dependencies, then try again.'
         else:
             message='No reliable Aadhaar fields were detected. Use a clear, straight photo in good light or a PDF containing both sides, then try again.'
         return {'ok':False,'error':message,'reader_status':local_error or 'No readable identity fields detected.'},422
@@ -2080,7 +2220,7 @@ def food_integration_sync(iid):
     row=db.session.get(FoodIntegration,iid) or abort(404)
     if not row.active or not row.api_enabled or not (row.api_base_url or '').strip():
         flash('Enable API Sync and add the official/API endpoint supplied by the platform first.','warning');return redirect(url_for('food_integrations'))
-    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.11'}
+    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.12'}
     bearer=os.getenv((row.api_token_env or '').strip(),'').strip() if row.api_token_env else ''
     api_key=os.getenv((row.api_key_env or '').strip(),'').strip() if row.api_key_env else ''
     if bearer: headers['Authorization']=f'Bearer {bearer}'
@@ -2949,8 +3089,12 @@ def admin_user_save():
             u.password_hash=generate_password_hash(request.form['password'])
     u.full_name=request.form.get('full_name','').strip()
     if request.files.get('photo') and request.files['photo'].filename:
-        data=image_data_uri(request.files['photo'])
-        if data: u.photo_data_uri=data
+        raw,error=_upload_image_bytes(request.files['photo'])
+        if not error:
+            profile=profile_photo_data_uri_from_bytes(raw); avatar=polished_avatar_data_uri_from_bytes(raw)
+            if profile: u.photo_data_uri=profile
+            if avatar:
+                u.avatar_data_uri=avatar; u.avatar_generation_mode='polished'; u.avatar_updated_at=datetime.datetime.utcnow()
     last4=''.join(ch for ch in request.form.get('aadhaar_last4','') if ch.isdigit())[-4:]
     if last4: u.aadhaar_last4=last4
     if request.form.get('aadhaar_name') is not None: u.aadhaar_name=request.form.get('aadhaar_name','').strip()
@@ -3007,10 +3151,21 @@ def ensure_v150_user_columns():
     for sql in statements: db.session.execute(db.text(sql))
     if statements: db.session.commit()
 
+def ensure_v1512_user_columns():
+    """Compatibility bridge for personal live-avatar storage."""
+    existing={c['name'] for c in inspect(db.engine).get_columns('user')}
+    statements=[]
+    if 'avatar_data_uri' not in existing: statements.append('ALTER TABLE "user" ADD COLUMN avatar_data_uri TEXT DEFAULT \'\'')
+    if 'avatar_generation_mode' not in existing: statements.append('ALTER TABLE "user" ADD COLUMN avatar_generation_mode VARCHAR(40) DEFAULT \'\'')
+    if 'avatar_updated_at' not in existing: statements.append('ALTER TABLE "user" ADD COLUMN avatar_updated_at TIMESTAMP NULL')
+    for sql in statements: db.session.execute(db.text(sql))
+    if statements: db.session.commit()
+
 def bootstrap():
     os.makedirs(os.path.join(BASE_DIR,'instance'),exist_ok=True)
     db.create_all()
     ensure_v150_user_columns()
+    ensure_v1512_user_columns()
     if User.query.count()==0:
         username=os.getenv('ADMIN_USERNAME','admin').strip() or 'admin'
         password=os.getenv('ADMIN_PASSWORD','')
