@@ -1,3 +1,34 @@
+# Livenza Life Operations Cloud — Web 1.6.0
+
+## Web 1.6.0 — Avatar reliability, Banking Suite & Reconciliation
+
+This is the current Livenza Life Operations Cloud release.
+
+### What changed
+
+- **Avatar Studio reliability:** direct webcam-blob submission, laptop camera diagnostics, camera selection/retry, phone camera picker, broader photo intake and a server-side polished-avatar fallback.
+- **Banking Suite:** searchable bank dropdown and secure launchers for official bank websites, using current official destinations where verified.
+- **Statement Vault:** save bank statements inside Livenza after explicit upload, with encrypted storage for supported deployments.
+- **Bank Reconciliation:** upload reusable templates and compare bank-statement entries by amount, date, reference/UTR and narration; review matched, missing, extra and exception entries; export reconciliation results.
+- **Full Screen restored:** the header full-screen control remains available and internal Livenza navigation is handled in-place wherever browser security permits.
+- **360° lifestyle identity:** the sitewide visual direction represents Livenza Life as a broader lifestyle/operations ecosystem rather than only hotel rooms.
+
+### Deployment
+
+- Application version marker: **Web 1.6.0**
+- Runtime: **Python / Flask**
+- Deploy with the supplied `Dockerfile`, `render.yaml` or another compatible Python hosting service.
+- **GitHub Pages alone cannot run the Flask routes** used by Avatar Studio, Banking, reconciliation, login and other server features.
+- After deployment, open `/version` and confirm the response reports `Web 1.6.0`.
+
+### Security notes
+
+Livenza does not proxy or store bank passwords, PINs, OTPs, cookies or authenticated bank sessions. Bank sites that disallow iframe embedding must open through their official secure site. Browser security also prevents a normal website from silently reading the computer's Downloads folder, so downloaded statements must be explicitly selected for upload.
+
+---
+
+## Previous release history
+
 # Livenza Life Operations Cloud — Web 1.5.13
 
 ## Web 1.5.13 progressive authentication and header display controls
