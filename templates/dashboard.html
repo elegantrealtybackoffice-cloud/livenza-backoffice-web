@@ -42,15 +42,15 @@
 
 <section class="experience-gallery" aria-label="Livenza visual operations">
   <a class="experience-shot experience-wide" href="https://unsplash.com/photos/clean-well-lit-room-with-several-neatly-made-beds-0xJJ2k72AQs" target="_blank" rel="noopener">
-    <img src="https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&amp;fit=crop&amp;q=78&amp;w=1500" alt="Bright modern shared accommodation room" loading="lazy" referrerpolicy="no-referrer">
+    <img src="https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&amp;fit=crop&amp;q=76&amp;w=1200" srcset="https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&amp;fit=crop&amp;q=62&amp;w=640 640w, https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&amp;fit=crop&amp;q=76&amp;w=1200 1200w" sizes="(max-width:700px) 94vw, 54vw" alt="Bright modern shared accommodation room" loading="lazy" decoding="async" referrerpolicy="no-referrer">
     <span><small>STAY EXPERIENCE</small><b>Rooms that feel ready</b></span>
   </a>
   <a class="experience-shot" href="https://unsplash.com/photos/restaurant-staff-preparing-food-in-a-professional-kitchen-Ew2PDNZB4qA" target="_blank" rel="noopener">
-    <img src="https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&amp;fit=crop&amp;q=78&amp;w=1000" alt="Hospitality team preparing food in a professional kitchen" loading="lazy" referrerpolicy="no-referrer">
+    <img src="https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&amp;fit=crop&amp;q=74&amp;w=900" srcset="https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&amp;fit=crop&amp;q=62&amp;w=560 560w, https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&amp;fit=crop&amp;q=74&amp;w=900 900w" sizes="(max-width:700px) 94vw, 24vw" alt="Hospitality team preparing food in a professional kitchen" loading="lazy" decoding="async" referrerpolicy="no-referrer">
     <span><small>FOOD OPERATIONS</small><b>Service in motion</b></span>
   </a>
   <a class="experience-shot" href="https://unsplash.com/photos/modern-office-space-with-city-view-and-desks-56U797Gamac" target="_blank" rel="noopener">
-    <img src="https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&amp;fit=crop&amp;q=78&amp;w=1000" alt="Modern operations workspace" loading="lazy" referrerpolicy="no-referrer">
+    <img src="https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&amp;fit=crop&amp;q=74&amp;w=900" srcset="https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&amp;fit=crop&amp;q=62&amp;w=560 560w, https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&amp;fit=crop&amp;q=74&amp;w=900 900w" sizes="(max-width:700px) 94vw, 24vw" alt="Modern operations workspace" loading="lazy" decoding="async" referrerpolicy="no-referrer">
     <span><small>ONE WORKSPACE</small><b>Everything connected</b></span>
   </a>
 </section>
@@ -86,7 +86,7 @@
   {% for icon,title,desc,endpoint,perm,glyph,photo,photo_alt in mods %}{% if can_access(perm) %}
   <a class="module-card liquid-card module-{{loop.index}}" data-app-nav href="{{url_for(endpoint)}}">
     <div class="module-card-media">
-      <img class="module-photo" src="{{photo}}" alt="{{photo_alt}}" loading="lazy" referrerpolicy="no-referrer">
+      <img class="module-photo" src="{{photo}}" srcset="{{photo|replace('w=900','w=520')}} 520w, {{photo}} 900w" sizes="(max-width:700px) 110px, (max-width:1100px) 130px, 126px" alt="{{photo_alt}}" loading="lazy" decoding="async" referrerpolicy="no-referrer">
       <div class="glass-icon module-icon">{% if icon %}<img src="{{url_for('static',filename=icon)}}" alt="">{% else %}<span>{{glyph}}</span>{% endif %}</div>
     </div>
     <div class="module-card-copy"><p class="access">ACCESS // AUTHORIZED</p><h3>{{title}}</h3><p>{{desc}}</p><span>OPEN MODULE →</span></div>

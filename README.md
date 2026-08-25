@@ -1,4 +1,12 @@
-# Livenza Life Operations Cloud — Web 1.5.5
+# Livenza Life Operations Cloud — Web 1.5.6
+
+## Web 1.5.6 Aadhaar, header and mobile reliability
+
+- Agreement Aadhaar uploads now use bundled server-side OCR automatically, with direct PDF text extraction and optional secure AI enhancement. The phone or Windows device does not need an AI/OCR setup.
+- The L logo and its AI light effect now sit fully inside the header and never cover the LIVE marquee.
+- Scrolling contracts the header to the applications button and a small centred L avatar; account and admin destinations remain available inside the applications menu.
+- Phones and constrained devices receive a preloaded performance mode that removes expensive blur, shimmer, tilt and background-particle work while preserving content, the mascot panel and lightweight temporary weather.
+- No database migration is required. Deploy the updated OCR dependencies from `requirements.txt`.
 
 ## Web 1.5.5 Livenza Live Companion
 
@@ -62,7 +70,7 @@
 5. Configure passkeys: `WEBAUTHN_RP_ID=YOUR-SITE-HOST` and `WEBAUTHN_ORIGIN=https://YOUR-SITE`.
 6. In Admin, connect Google, assign the WhatsApp/Email/Drive permissions, enable pattern or fingerprint access per user, and optionally enable kiosk lock.
 
-See `README_v1.5.5.md`, `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
+See `README_v1.5.6.md`, `README_v1.5.5.md`, `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
 
 ## Web 1.4.9 addition
 - The Livenza Assistant now has a high-contrast cross icon that remains visible after messages are added.

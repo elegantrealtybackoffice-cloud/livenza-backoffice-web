@@ -1462,3 +1462,92 @@ body.weather-tone-night .app-viewport>.shell:not(.login-shell){border-color:rgba
 @media(prefers-reduced-motion:reduce){
   .mascot-companion,.mascot-side-character,.mascot-side-glow,.mascot-side-shadow,.companion-float-icon,.companion-ai-star,.companion-weather-icon,.companion-quote-card>span{animation:none!important;transition:none!important}.livenza-weather-scene{display:none!important}.mascot-companion.is-parked{opacity:1;transform:none}
 }
+
+/* =====================================================================
+   Web 1.5.6 — contained header identity + stable mobile performance mode
+   ===================================================================== */
+:root{--header-height:68px;--header-compact-height:50px}
+.showcase-header{
+  height:var(--header-height)!important;min-height:var(--header-height)!important;
+  padding-inline:clamp(12px,4vw,58px)!important;overflow:visible!important;
+  transition:height .28s cubic-bezier(.2,.8,.2,1),min-height .28s cubic-bezier(.2,.8,.2,1),background .34s ease,box-shadow .34s ease,border-color .34s ease,backdrop-filter .34s ease!important;
+}
+.hanging-brand{
+  --ai-orbit-one:20px;--ai-orbit-two:16px;left:50%!important;top:50%!important;
+  width:48px!important;height:50px!important;transform:translate(-50%,-50%)!important;
+  display:grid!important;place-items:center!important;
+}
+.hanging-brand>span{width:48px!important;height:48px!important;display:grid!important;place-items:center!important}
+.hanging-brand>span:after{inset:-1px!important;box-shadow:0 0 16px rgba(0,113,227,.14)!important}
+.hanging-brand img{width:40px!important;height:44px!important;object-fit:contain!important;filter:drop-shadow(0 4px 7px rgba(10,37,64,.14))!important}
+.showcase-header.is-scrolled{height:var(--header-compact-height)!important;min-height:var(--header-compact-height)!important;padding-inline:12px!important;animation:none!important}
+.showcase-header.is-scrolled .icon-header-actions{opacity:0!important;visibility:hidden!important;pointer-events:none!important;transform:translateY(-7px) scale(.96);transition:opacity .16s ease,transform .22s ease,visibility 0s linear .2s!important}
+.showcase-header.is-scrolled .hamburger-button{width:40px!important;height:36px!important;padding:7px 9px!important}
+.showcase-header.is-scrolled .hamburger-button span{width:21px!important;height:2px!important}
+.showcase-header.is-scrolled .hanging-brand{--ai-orbit-one:15px;--ai-orbit-two:12px;width:36px!important;height:38px!important}
+.showcase-header.is-scrolled .hanging-brand>span{width:36px!important;height:36px!important}
+.showcase-header.is-scrolled .hanging-brand img{width:30px!important;height:33px!important}
+.showcase-header.is-scrolled+.live-operations-marquee{top:var(--header-compact-height)!important}
+.page-paused *{animation-play-state:paused!important}
+
+@media(max-width:820px){
+  :root{--header-height:56px;--header-compact-height:48px;--ticker-height:30px}
+  .showcase-header{height:56px!important;min-height:56px!important;padding:0 8px!important;background:rgba(250,252,253,.94)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  .showcase-header.is-scrolled{height:48px!important;min-height:48px!important}
+  .icon-header-actions{display:none!important}
+  .hamburger-button{width:42px!important;height:36px!important;padding:7px 9px!important;border-radius:10px!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  .hamburger-button span{width:22px!important;height:2px!important}
+  .hanging-brand{--ai-orbit-one:16px;--ai-orbit-two:13px;width:38px!important;height:40px!important}
+  .hanging-brand>span{width:38px!important;height:38px!important}.hanging-brand img{width:32px!important;height:35px!important}
+  .showcase-header.is-scrolled .hanging-brand{--ai-orbit-one:14px;--ai-orbit-two:11px;width:34px!important;height:36px!important}
+  .showcase-header.is-scrolled .hanging-brand>span{width:34px!important;height:34px!important}.showcase-header.is-scrolled .hanging-brand img{width:28px!important;height:31px!important}
+  .apps-mega-menu{left:8px!important;width:calc(100vw - 16px)!important;top:calc(100% + 6px)!important;padding:11px!important;border-radius:18px!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:#f8fbfd!important}
+  .apps-menu-grid{grid-template-columns:1fr!important;max-height:min(72vh,620px)!important;overflow:auto!important;overscroll-behavior:contain}
+  .live-operations-marquee{top:56px!important;height:30px!important;padding-left:64px!important;padding-right:38px!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:#f2f7fa!important}
+  .showcase-header.is-scrolled+.live-operations-marquee{top:48px!important}
+  .marquee-live-label{left:7px!important;background:#f2f7fa!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+}
+
+/* Apply this class before CSS loads on phones, data-saving connections and
+   low-memory devices. Information and weather remain available; only costly
+   visual compositing is removed. */
+html.mobile-performance,html.mobile-performance body{scroll-behavior:auto!important}
+html.mobile-performance body{
+  background:#eef4f7!important;background-image:linear-gradient(160deg,#f8fbfd,#eaf2f6 58%,#f5f8fa)!important;
+  background-attachment:scroll!important;animation:none!important;
+}
+html.mobile-performance body:before,html.mobile-performance body:after,
+html.mobile-performance .aurora,html.mobile-performance .liquid-noise,html.mobile-performance .live-motion-layer,
+html.mobile-performance .page-transition,html.mobile-performance .app-viewport>.shell:not(.login-shell):after,
+html.mobile-performance .liquid-card:before,html.mobile-performance .module-card:before,html.mobile-performance .stats>div:before,
+html.mobile-performance .form-card:before,html.mobile-performance .query-card:before{display:none!important;animation:none!important}
+html.mobile-performance .app-viewport>.shell:not(.login-shell),html.mobile-performance .liquid-card,html.mobile-performance .glass-panel,
+html.mobile-performance .form-card,html.mobile-performance .table-card,html.mobile-performance .review-card,html.mobile-performance .query-card,
+html.mobile-performance .city-card,html.mobile-performance .module-card,html.mobile-performance .stats>div,html.mobile-performance .history>div,
+html.mobile-performance .note,html.mobile-performance .placeholder,html.mobile-performance .login-card,html.mobile-performance .user-access-card,
+html.mobile-performance .screen-card,html.mobile-performance .media-card,html.mobile-performance .sheet-toolbar,html.mobile-performance .query-sheet-wrap,
+html.mobile-performance .agreement-section,html.mobile-performance .aadhaar-intake,html.mobile-performance .iframe-wrap,html.mobile-performance .flash,
+html.mobile-performance .drive-card,html.mobile-performance .partner-browser,html.mobile-performance .integration-card,
+html.mobile-performance .assistant-launcher,html.mobile-performance .assistant-panel,html.mobile-performance .mascot-companion-panel,
+html.mobile-performance .mascot-companion-nudge,html.mobile-performance .companion-panel-head,html.mobile-performance .mascot-weather-chip,
+html.mobile-performance .site-footer,html.mobile-performance .showcase-header,html.mobile-performance .live-operations-marquee{
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important;
+  box-shadow:0 8px 24px rgba(10,37,64,.08),inset 0 1px 0 rgba(255,255,255,.72)!important;
+}
+html.mobile-performance .app-viewport>.shell:not(.login-shell){background:rgba(248,251,253,.96)!important;contain:layout paint}
+html.mobile-performance .module-card,html.mobile-performance .experience-shot,html.mobile-performance .module-visual-ribbon{
+  transform:none!important;transform-style:flat!important;will-change:auto!important;transition:none!important;animation:none!important;
+}
+html.mobile-performance .module-card,html.mobile-performance .city-card,html.mobile-performance .query-card,html.mobile-performance .agreement-section{content-visibility:auto;contain-intrinsic-size:220px}
+html.mobile-performance .module-card:hover{transform:none!important}
+html.mobile-performance .module-photo,html.mobile-performance .experience-shot img,html.mobile-performance .module-visual-ribbon img{transition:none!important;transform:none!important}
+html.mobile-performance .hanging-brand:before,html.mobile-performance .hanging-brand:after,html.mobile-performance .hanging-brand>span:before,html.mobile-performance .hanging-brand>span:after,
+html.mobile-performance .companion-float-icon,html.mobile-performance .mascot-side-glow,html.mobile-performance .mascot-side-shadow,
+html.mobile-performance .companion-ai-star,html.mobile-performance .companion-weather-icon,html.mobile-performance .companion-quote-card>span{
+  animation:none!important;will-change:auto!important;
+}
+html.mobile-performance .weather-cloud,html.mobile-performance .weather-fog-band,html.mobile-performance .weather-sun-glow{display:none!important}
+html.mobile-performance .weather-rain-drop,html.mobile-performance .weather-snowflake,html.mobile-performance .weather-night-star{box-shadow:none!important;will-change:transform}
+html.mobile-performance .livenza-weather-scene{transition:opacity .3s ease!important;isolation:auto!important}
+html.mobile-performance .operations-marquee-track{will-change:transform!important;animation-duration:42s!important}
+html.mobile-performance .touch-ripple{display:none!important}

@@ -1,1 +1,10 @@
-LIVENZA WEB 1.5.5 — PERSISTENT LIVE MASCOT + WEATHER FORECAST + TRANSIENT WEATHER SCENES
+LIVENZA WEB 1.5.6 — AUTOMATIC AADHAAR OCR + CONTAINED COMPACT HEADER + MOBILE STABILITY
+
+1. Confirm `/version` returns `Web 1.5.6`.
+2. Confirm `server-local-ocr`, `contained-header-logo`, `compact-scroll-header` and `mobile-performance-mode` appear in the feature list.
+3. Open a new agreement and upload a clear Aadhaar JPG/PNG or PDF. Confirm detected fields populate without a device-configuration warning.
+4. Confirm the L logo remains fully inside the header and never covers the LIVE strip.
+5. Scroll: the header should contract to the applications button and a small L avatar.
+6. On a phone, confirm pages load without background shimmer or hanging and that the applications menu remains responsive.
+
+No database migration is required for Web 1.5.6. The updated requirements must be installed during deployment.

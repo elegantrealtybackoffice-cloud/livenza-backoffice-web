@@ -1,10 +1,12 @@
-LIVENZA WEB 1.5.5 — DIRECT ROOT UPLOAD + LIVE MASCOT AND WEATHER UI
+LIVENZA WEB 1.5.6 — DIRECT ROOT UPLOAD + AADHAAR OCR, COMPACT HEADER AND MOBILE STABILITY
 
 1. Extract this ZIP.
 2. Upload its contents directly to the root of the existing repository, preserving the templates/, static/, migrations/ and windows-kiosk/ folders.
 3. Run migrations/web_v1_5_0.sql in Supabase SQL Editor.
 4. Add the Google, WhatsApp, integration-encryption and WebAuthn environment values listed in README.md.
-5. Deploy. Confirm /version returns Web 1.5.5.
+5. Deploy the updated requirements. Confirm /version returns Web 1.5.6.
 6. In Admin, connect Google, enable module permissions and configure kiosk/pattern/fingerprint access.
 
 The Windows scripts are downloads/setup helpers. Full operating-system restriction requires Microsoft Assigned Access, as described in windows-kiosk/README_WINDOWS_KIOSK.md.
+
+Web 1.5.6 adds no database migration. `rapidocr`, `onnxruntime` and `PyMuPDF` are installed from requirements.txt so Aadhaar image/PDF autofill works without device-side AI configuration.

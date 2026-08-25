@@ -1,4 +1,4 @@
-import os, io, csv, json, hashlib, hmac, datetime, urllib.parse, html, base64, re, secrets, uuid
+import os, io, csv, json, hashlib, hmac, datetime, urllib.parse, html, base64, re, secrets, uuid, shutil, subprocess, threading
 from email.message import EmailMessage
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, abort
@@ -10,13 +10,13 @@ from sqlalchemy import func, or_, inspect
 from dateutil.relativedelta import relativedelta
 import requests
 import qrcode
-from PIL import Image as PILImage
+from PIL import Image as PILImage, ImageOps
 from zoneinfo import ZoneInfo
 
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.5.5'
+APP_VERSION = 'Web 1.5.6'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -608,7 +608,7 @@ def _companion_weather(city):
         'timezone':'Asia/Kolkata','forecast_days':4,
     }
     try:
-        response=requests.get('https://api.open-meteo.com/v1/forecast',params=params,headers={'User-Agent':'LivenzaLife-OperationsCloud/1.5.5'},timeout=10)
+        response=requests.get('https://api.open-meteo.com/v1/forecast',params=params,headers={'User-Agent':'LivenzaLife-OperationsCloud/1.5.6'},timeout=10)
         response.raise_for_status();payload=response.json();current=payload.get('current') or {};daily=payload.get('daily') or {}
         code=int(current.get('weather_code') or 0);is_day=bool(int(current.get('is_day',1) or 0))
         dates=daily.get('time') or [];codes=daily.get('weather_code') or [];highs=daily.get('temperature_2m_max') or [];lows=daily.get('temperature_2m_min') or [];rain_chance=daily.get('precipitation_probability_max') or []
@@ -873,9 +873,9 @@ def _normalize_aadhaar_extract(value):
 def _parse_aadhaar_text_fallback(raw_text):
     txt='\n'.join(x.strip() for x in (raw_text or '').splitlines() if x.strip())
     result={'name':'','father_or_spouse':'','date_of_birth':'','gender':'','address':'','aadhaar_number':''}
-    m=re.search(r'(?<!\d)(\d{4})\s*(\d{4})\s*(\d{4})(?!\d)',txt)
+    m=re.search(r'(?<!\d)(\d{4})[\s\-]*(\d{4})[\s\-]*(\d{4})(?!\d)',txt)
     if m: result['aadhaar_number']=' '.join(m.groups())
-    m=re.search(r'(?:DOB|Date\s*of\s*Birth|YOB)\s*[:\-/]?\s*([0-3]?\d[\-/][01]?\d[\-/]\d{4}|\d{4})',txt,re.I)
+    m=re.search(r'(?:DOB|Date\s*of\s*Birth|Year\s*of\s*Birth|YOB)\s*[:\-/]?\s*([0-3]?\d[\-/][01]?\d[\-/]\d{4}|\d{4})',txt,re.I)
     if m: result['date_of_birth']=m.group(1)
     m=re.search(r'\b(Male|Female|Transgender)\b',txt,re.I)
     if m: result['gender']=m.group(1).title()
@@ -885,7 +885,7 @@ def _parse_aadhaar_text_fallback(raw_text):
     if m: result['address']=' '.join(m.group(1).split())[:1000]
     # Name heuristic: a short human-name line immediately preceding DOB/gender.
     lines=[x.strip() for x in txt.splitlines() if x.strip()]
-    dob_idx=next((i for i,x in enumerate(lines) if re.search(r'\b(?:DOB|Date\s*of\s*Birth|YOB)\b',x,re.I)),None)
+    dob_idx=next((i for i,x in enumerate(lines) if re.search(r'\b(?:DOB|Date\s*of\s*Birth|Year\s*of\s*Birth|YOB)\b',x,re.I)),None)
     if dob_idx is not None:
         for cand in reversed(lines[max(0,dob_idx-4):dob_idx]):
             if 2 <= len(cand) <= 80 and not re.search(r'Government|भारत|UIDAI|Aadhaar|Enrollment|VID|Male|Female|Address',cand,re.I) and not re.search(r'\d{4}',cand):
@@ -893,10 +893,91 @@ def _parse_aadhaar_text_fallback(raw_text):
     return _normalize_aadhaar_extract(result)
 
 
+_AADHAAR_OCR_ENGINE=None
+_AADHAAR_OCR_LOCK=threading.Lock()
+
+
+def _aadhaar_image_pages(file_bytes, filename, mimetype):
+    """Return bounded RGB images without writing the identity document to disk."""
+    is_pdf=mimetype=='application/pdf' or (filename or '').lower().endswith('.pdf')
+    if is_pdf:
+        try:
+            try:
+                import pymupdf as fitz
+            except ImportError:
+                import fitz
+            pages=[]
+            with fitz.open(stream=file_bytes,filetype='pdf') as document:
+                for page_number in range(min(4,document.page_count)):
+                    page=document.load_page(page_number)
+                    area=max(1,float(page.rect.width*page.rect.height))
+                    scale=min(2.15,max(.35,(5_200_000/area) ** .5))
+                    pixmap=page.get_pixmap(matrix=fitz.Matrix(scale,scale),alpha=False)
+                    pages.append(PILImage.open(io.BytesIO(pixmap.tobytes('png'))).convert('RGB'))
+            return pages
+        except Exception:
+            return []
+    try:
+        source=PILImage.open(io.BytesIO(file_bytes))
+        if source.width*source.height>36_000_000:
+            return []
+        image=ImageOps.exif_transpose(source).convert('RGB')
+        image.thumbnail((2400,2400),PILImage.Resampling.LANCZOS)
+        return [image]
+    except Exception:
+        return []
+
+
+def _aadhaar_tesseract_text(image):
+    binary=shutil.which('tesseract')
+    if not binary:
+        return ''
+    try:
+        payload=io.BytesIO(); image.save(payload,format='PNG',optimize=True)
+        run=subprocess.run(
+            [binary,'stdin','stdout','-l','eng','--psm','6'],input=payload.getvalue(),
+            stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=24,check=False,
+        )
+        return run.stdout.decode('utf-8','ignore') if run.returncode==0 else ''
+    except Exception:
+        return ''
+
+
+def _aadhaar_local_ocr_text(file_bytes, filename, mimetype):
+    """Run server-local OCR first so Aadhaar autofill does not depend on a browser/device setup."""
+    pages=_aadhaar_image_pages(file_bytes,filename,mimetype)
+    if not pages:
+        return '', 'The document could not be rendered for automatic reading.'
+    rapid_error=''
+    try:
+        global _AADHAAR_OCR_ENGINE
+        import numpy as np
+        lines=[]
+        with _AADHAAR_OCR_LOCK:
+            if _AADHAAR_OCR_ENGINE is None:
+                from rapidocr import RapidOCR
+                _AADHAAR_OCR_ENGINE=RapidOCR()
+            for image in pages:
+                result=_AADHAAR_OCR_ENGINE(np.asarray(image),use_det=True,use_cls=True,use_rec=True)
+                texts=list(getattr(result,'txts',()) or ())
+                scores=list(getattr(result,'scores',()) or ())
+                lines.extend(text for index,text in enumerate(texts) if text and (index>=len(scores) or float(scores[index])>=.42))
+        if lines:
+            return '\n'.join(lines), ''
+    except Exception as exc:
+        rapid_error=str(exc)[:120]
+    # Tesseract remains a secondary local option on installations that already
+    # provide the binary. Raw OCR text and document bytes are never logged.
+    text='\n'.join(filter(None,(_aadhaar_tesseract_text(image) for image in pages)))
+    if text.strip():
+        return text, ''
+    return '', ('Server-local OCR is unavailable.' if rapid_error else 'No readable text was detected.')
+
+
 def _aadhaar_ai_extract(file_bytes, filename, mimetype):
     key=os.getenv('OPENAI_API_KEY','').strip()
     if not key:
-        return {}, 'AI extraction is not configured on this server.'
+        return {}, 'AI enhancement is unavailable.'
     from openai import OpenAI
     client=OpenAI(api_key=key)
     prompt=(
@@ -1261,7 +1342,7 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects'])
 
 @app.route('/login', methods=['GET','POST'])
 def login():
@@ -1394,8 +1475,8 @@ def agreement_aadhaar_extract():
     if len(raw)>10*1024*1024:
         return jsonify(ok=False,error='Aadhaar upload must be 10 MB or smaller.'),413
     mimetype=(upload.mimetype or '').lower()
-    data={}; local_note=''
-    # Text-based PDFs can be parsed locally first, without sending the file to an AI service.
+    data={}; notes=[]
+    # Text-based PDFs can be parsed first without sending the file to any service.
     if ext=='.pdf':
         try:
             from pypdf import PdfReader
@@ -1403,25 +1484,30 @@ def agreement_aadhaar_extract():
             pdf_text='\n'.join((page.extract_text() or '') for page in reader.pages[:4])
             if len(pdf_text.strip())>40:
                 data=_parse_aadhaar_text_fallback(pdf_text)
-                local_note='Text was extracted from the PDF locally.'
+                notes.append('Text was read directly from the PDF.')
         except Exception:
             pass
     essential=sum(bool(data.get(k)) for k in ('tenant_name','tenant_dob','tenant_address','tenant_id_no'))
+    if essential<3:
+        ocr_text,_ocr_error=_aadhaar_local_ocr_text(raw,filename,mimetype or ('application/pdf' if ext=='.pdf' else 'image/jpeg'))
+        if ocr_text:
+            ocr_data=_parse_aadhaar_text_fallback(ocr_text)
+            for key,value in ocr_data.items():
+                if value and not data.get(key): data[key]=value
+            notes.append('Automatic server-side OCR filled the visible identity details.')
+        essential=sum(bool(data.get(k)) for k in ('tenant_name','tenant_dob','tenant_address','tenant_id_no'))
     if essential<3:
         try:
             ai_data,err=_aadhaar_ai_extract(raw,filename,mimetype or ('application/pdf' if ext=='.pdf' else 'image/jpeg'))
             if ai_data:
                 for k,v in ai_data.items():
                     if v: data[k]=v
-                local_note='Document read using the configured AI extraction service.'
-            elif err and essential==0:
-                return jsonify(ok=False,error=err),503
-        except Exception as exc:
-            if essential==0:
-                return jsonify(ok=False,error='Could not extract Aadhaar details. Confirm the server AI key is configured or upload a text-based PDF.'),500
+                notes.append('Secure AI enhancement completed the remaining fields.')
+        except Exception:
+            pass
     if not any(data.get(k) for k in ('tenant_name','tenant_dob','tenant_address','tenant_id_no')):
-        return jsonify(ok=False,error='No reliable Aadhaar fields were detected. Try a clearer scan or a PDF containing both sides.'),422
-    return jsonify(ok=True,fields=data,note=local_note,warning='Autofill only — review the extracted details. This does not verify Aadhaar authenticity with UIDAI.')
+        return jsonify(ok=False,error='No reliable Aadhaar fields were detected. Use a clear, straight photo in good light or a PDF containing both sides, then try again.'),422
+    return jsonify(ok=True,fields=data,note=' '.join(notes),warning='Autofill only — review the extracted details. This does not verify Aadhaar authenticity with UIDAI.')
 
 @app.route('/agreements')
 @permission_required('agreements')
@@ -1719,7 +1805,7 @@ def food_integration_sync(iid):
     row=db.session.get(FoodIntegration,iid) or abort(404)
     if not row.active or not row.api_enabled or not (row.api_base_url or '').strip():
         flash('Enable API Sync and add the official/API endpoint supplied by the platform first.','warning');return redirect(url_for('food_integrations'))
-    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.5'}
+    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.6'}
     bearer=os.getenv((row.api_token_env or '').strip(),'').strip() if row.api_token_env else ''
     api_key=os.getenv((row.api_key_env or '').strip(),'').strip() if row.api_key_env else ''
     if bearer: headers['Authorization']=f'Bearer {bearer}'

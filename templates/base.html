@@ -17,7 +17,10 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static',filename='apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static',filename='site.webmanifest') }}">
   <title>{% block title %}Livenza Back Office{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.5">
+  <script>
+    (()=>{const small=matchMedia('(max-width:820px)').matches,lowMemory=Number(navigator.deviceMemory||8)<=4,lowCpu=Number(navigator.hardwareConcurrency||8)<=4,saveData=Boolean(navigator.connection?.saveData);if(small||lowMemory||lowCpu||saveData)document.documentElement.classList.add('mobile-performance')})();
+  </script>
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.6">
 </head>
 <body data-page="{{ request.endpoint or '' }}">
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
@@ -28,7 +31,7 @@
     {% if current_user %}
     <header class="topbar liquid-nav reference-header showcase-header">
       <button type="button" id="appsMenuToggle" class="hamburger-button" aria-label="Open applications menu" aria-controls="appsMenu" aria-expanded="false"><span></span><span></span><span></span></button>
-      <a class="hanging-brand" href="{{url_for('dashboard')}}" aria-label="Livenza Life home"><span class="hanging-ai-core"><img src="{{url_for('static',filename='livenza_logo_transparent.png')}}" alt="Livenza Life"></span></a>
+      <a class="hanging-brand compact-header-brand" href="{{url_for('dashboard')}}" aria-label="Livenza Life home"><span class="hanging-ai-core"><img src="{{url_for('static',filename='livenza_logo_transparent.png')}}" alt="Livenza Life"></span></a>
       <nav id="appsMenu" class="apps-mega-menu liquid-card" aria-label="Applications" hidden>
         <div class="apps-menu-head"><div><p class="eyebrow">LIVENZA APPLICATIONS</p><b>Everything in one workspace</b></div><button type="button" id="appsMenuClose" aria-label="Close applications menu">×</button></div>
         <div class="apps-menu-grid">
@@ -43,6 +46,9 @@
           {% if can_access('whatsapp') %}<a href="{{url_for('whatsapp_workspace')}}" data-app-nav><i>◍</i><span><b>WhatsApp</b><small>Cloud conversations</small></span></a>{% endif %}
           {% if can_access('email') %}<a href="{{url_for('email_workspace')}}" data-app-nav><i>✉</i><span><b>Email</b><small>Gmail workspace</small></span></a>{% endif %}
           {% if can_access('drive') %}<a href="{{url_for('drive_workspace')}}" data-app-nav><i>☁</i><span><b>Drive</b><small>Cloud files</small></span></a>{% endif %}
+          <a href="{{url_for('account')}}" data-app-nav><i>◉</i><span><b>My Account</b><small>Profile and sign-in security</small></span></a>
+          {% if is_admin %}<a href="{{url_for('admin_panel')}}" data-app-nav><i>⌘</i><span><b>Admin</b><small>Users and access</small></span></a><a href="{{url_for('settings_page')}}" data-app-nav><i>⚙</i><span><b>Settings</b><small>System configuration</small></span></a>{% endif %}
+          <a href="{{url_for('logout')}}"><i>↗</i><span><b>Logout</b><small>End this session</small></span></a>
         </div>
       </nav>
       <div class="header-actions icon-header-actions no-print">
@@ -151,7 +157,7 @@
     <button type="button" role="menuitem" data-view-mode="270"><span class="view-menu-icon">↺</span><div><b>Rotate 270°</b><small>Vertical screen, left</small></div></button>
   </div>
 
-  <script src="{{url_for('static',filename='app.js')}}?v=1.5.5"></script>
+  <script src="{{url_for('static',filename='app.js')}}?v=1.5.6"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
