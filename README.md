@@ -1,4 +1,17 @@
-# Livenza Life Operations Cloud — Web 1.8.0
+# Livenza Life Operations Cloud — Web 1.9.0
+
+
+## Web 1.9.0 — Livenza Letterhead Studio
+
+### Web 1.9.0 highlights
+- Adds **Livenza Letterhead Studio** with Ask Livenza AI, manual/hybrid drafting, Final Review, controlled PDF issuance and a searchable automatic Document Vault.
+- Adds connected, permission-aware internal-data drafting with sensitive-data minimization and explicit user approval before protected supporting documents are attached.
+- Adds user-authored letterhead template drafts with Admin-only publication, immutable published versions, protected signatures/seals and versioned template history.
+- Adds Email and WhatsApp delivery using providers configured only in the centralized **Integrations Center**, with retryable delivery state/history.
+- Adds automatic reference numbering, immutable finalized PDFs, revision chains, audited no-store downloads and encrypted-at-rest Letterhead assets using `LIVENZA_VAULT_MASTER_KEY`.
+
+### Deployment
+v1.8.0 must already be deployed/merged. Apply `migrations/web_v1_9_0.sql` where automatic table creation is unavailable. Historical PDFs are not automatically reconstructed into the new Document Vault. See `README_v1.9.0.md` for complete deployment notes.
 
 
 ## Web 1.8.0 — 3D Digital Host, Integrations Center & TV Stability

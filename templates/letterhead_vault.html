@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block title %}Document Vault · Livenza Letterhead Studio{% endblock %}
+{% block content %}
+<section class="letterhead-shell letterhead-vault">
+  <div class="letterhead-page-head nav-safe-stack">
+    <div>
+      <p class="eyebrow">Livenza Letterhead Studio</p>
+      <h1>Document Vault</h1>
+      <p class="muted">Finalized documents are immutable. Search, review delivery history, download the issued PDF, or create a new revision.</p>
+    </div>
+    <div class="letterhead-toolbar nav-safe-toolbar">
+      <a class="btn ghost" href="{{ url_for('letterhead_studio') }}">Studio</a>
+      <a class="btn primary" href="{{ url_for('letterhead_templates_page') }}">Templates</a>
+    </div>
+  </div>
+
+  {% if selected %}
+  {% set doc = selected.document %}
+  {% set rev = selected.revision %}
+  <div class="letterhead-vault-detail">
+    <div class="card letterhead-vault-summary">
+      <div class="nav-safe-stack">
+        <div>
+          <p class="eyebrow">{{ rev.reference_number }}</p>
+          <h2>{{ doc.title }}</h2>
+          <p class="muted">{{ doc.document_family|replace('_',' ')|title }} · {{ doc.property_ref or doc.entity_ref or 'Livenza Life' }}</p>
+        </div>
+        <div class="letterhead-toolbar nav-safe-toolbar">
+          <a class="btn primary" href="{{ url_for('letterhead_document_pdf', document_id=doc.id) }}">Download issued PDF</a>
+          <a class="btn ghost" href="{{ url_for('letterhead_vault') }}">Back to Vault</a>
+        </div>
+      </div>
+      <div class="letterhead-history-grid">
+        <div><span>Template</span><strong>{{ selected.template.name if selected.template else '—' }}{% if selected.template_version %} · v{{ selected.template_version.version_no }}{% endif %}</strong></div>
+        <div><span>Creator</span><strong>{{ selected.creator.full_name or selected.creator.username if selected.creator else '—' }}</strong></div>
+        <div><span>Approver</span><strong>{{ selected.approver.full_name or selected.approver.username if selected.approver else '—' }}</strong></div>
+        <div><span>Finalized</span><strong>{{ rev.finalized_at.strftime('%d %b %Y, %H:%M') if rev.finalized_at else '—' }}</strong></div>
+      </div>
+      {% if selected.content.get('source_summary') %}
+      <div class="letterhead-source-summary"><h3>Source Summary</h3><ul>{% for item in selected.content.get('source_summary',[]) %}<li>{{ item }}</li>{% endfor %}</ul></div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3>Approved Attachments</h3>
+      {% if selected.attachments %}
+      <div class="letterhead-history-list">{% for link in selected.attachments %}<div><strong>{{ link.source_kind|replace('_',' ')|title }}</strong><span>Protected record #{{ link.source_id }}</span></div>{% endfor %}</div>
+      {% else %}<p class="muted">No supporting attachments were approved for this issued revision.</p>{% endif %}
+    </div>
+
+    <div class="card">
+      <h3>Revision History</h3>
+      <div class="letterhead-history-list">
+        {% for item in selected.revisions %}
+        <div><strong>Revision {{ item.revision_no }} · {{ item.status|replace('_',' ')|title }}</strong><span>{{ item.reference_number or 'Draft / no issued reference' }}{% if item.finalized_at %} · {{ item.finalized_at.strftime('%d %b %Y, %H:%M') }}{% endif %}</span></div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Delivery History</h3>
+      {% if selected.deliveries %}
+      <div class="letterhead-history-list">
+        {% for delivery in selected.deliveries %}
+        <div><strong>{{ delivery.channel|title }} · {{ delivery.state|title }}</strong><span>{{ delivery.recipient }} · Attempt {{ delivery.attempt_no }}{% if delivery.provider_reference %} · Ref {{ delivery.provider_reference }}{% endif %}</span></div>
+        {% endfor %}
+      </div>
+      {% else %}<p class="muted">This PDF has not been sent through a configured delivery provider yet.</p>{% endif %}
+    </div>
+  </div>
+  {% else %}
+  <form class="card letterhead-vault-filters" method="get" action="{{ url_for('letterhead_vault') }}">
+    <label>Reference<input name="reference" value="{{ filters.get('reference','') }}" placeholder="LIV/OASIS/…"></label>
+    <label>Document Type<input name="family" value="{{ filters.get('family','') }}" placeholder="Residence certificate"></label>
+    <label>Property<input name="property" value="{{ filters.get('property','') }}" placeholder="Oasis / Gurugram"></label>
+    <label>Recipient<input name="recipient" value="{{ filters.get('recipient','') }}" placeholder="Email or WhatsApp recipient"></label>
+    <label>Delivery Status<select name="delivery_state"><option value="">Any status</option>{% for state in ('pending','sent','failed') %}<option value="{{ state }}" {% if filters.get('delivery_state')==state %}selected{% endif %}>{{ state|title }}</option>{% endfor %}</select></label>
+    <label>Subject / Person / Company<input name="subject" value="{{ filters.get('subject','') }}"></label>
+    <label>Room<input name="room" value="{{ filters.get('room','') }}"></label>
+    <label>Creator<input name="creator" value="{{ filters.get('creator','') }}"></label>
+    <label>Approver<input name="approver" value="{{ filters.get('approver','') }}"></label>
+    <label>Template<input name="template" value="{{ filters.get('template','') }}"></label>
+    <label>From<input type="date" name="date_from" value="{{ filters.get('date_from','') }}"></label>
+    <label>To<input type="date" name="date_to" value="{{ filters.get('date_to','') }}"></label>
+    <div class="letterhead-filter-actions"><button class="btn primary" type="submit">Search Vault</button><a class="btn ghost" href="{{ url_for('letterhead_vault') }}">Reset</a></div>
+  </form>
+
+  <div class="card letterhead-vault-table-wrap">
+    <div class="letterhead-table-head"><h2>Issued Documents</h2><span class="muted">{{ vault_rows|length }} result{% if vault_rows|length != 1 %}s{% endif %}</span></div>
+    {% if vault_rows %}
+    <div class="letterhead-vault-table" role="table">
+      {% for row in vault_rows %}
+      <a class="letterhead-vault-row" href="{{ url_for('letterhead_vault_detail', document_id=row.document.id) }}">
+        <span><strong>{{ row.revision.reference_number }}</strong><small>{{ row.document.title }}</small></span>
+        <span>{{ row.document.document_family|replace('_',' ')|title }}<small>{{ row.document.property_ref or row.document.entity_ref or 'Livenza Life' }}</small></span>
+        <span>{{ row.creator.full_name or row.creator.username if row.creator else '—' }}<small>{{ row.revision.finalized_at.strftime('%d %b %Y') if row.revision.finalized_at else '—' }}</small></span>
+        <span>{{ row.deliveries[0].state|title if row.deliveries else 'Not Sent' }}<small>{{ row.deliveries[0].recipient if row.deliveries else '—' }}</small></span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}<div class="empty-state"><h3>No finalized documents found</h3><p>Adjust the filters or finalize a Letterhead Studio document.</p></div>{% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

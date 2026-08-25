@@ -22,6 +22,7 @@
   </script>
   <script src="{{url_for('static',filename='tv_capability.js')}}?v={{app_version|replace('Web ','')}}"></script>
   <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v={{app_version|replace('Web ','')}}">
+  {% if current_user and can_access('letterhead') %}<link rel="stylesheet" href="{{url_for('static',filename='letterhead.css')}}?v={{app_version|replace('Web ','')}}">{% endif %}
 </head>
 <body data-page="{{ request.endpoint or '' }}">
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
@@ -73,6 +74,7 @@
           {% if can_access('whatsapp') %}<a class="apps-drawer-item" href="{{url_for('whatsapp_workspace')}}" data-app-nav><i>◍</i><span><b>WhatsApp</b><small>Cloud conversations</small></span></a>{% endif %}
           {% if can_access('email') %}<a class="apps-drawer-item" href="{{url_for('email_workspace')}}" data-app-nav><i>✉</i><span><b>Email</b><small>Gmail workspace</small></span></a>{% endif %}
           {% if can_access('drive') %}<a class="apps-drawer-item" href="{{url_for('drive_workspace')}}" data-app-nav><i>☁</i><span><b>Drive</b><small>Cloud files</small></span></a>{% endif %}
+          {% if can_access('letterhead') %}<a class="apps-drawer-item" href="{{url_for('letterhead_studio')}}" data-app-nav><i>✎</i><span><b>Letterhead Studio</b><small>Ask Livenza AI, PDFs & Document Vault</small></span></a>{% endif %}
         </div></section>
         <section class="apps-drawer-section"><p>Connections</p><div class="apps-drawer-items"><a class="apps-drawer-item" href="{{url_for('integrations_center')}}" data-app-nav><i>⌁</i><span><b>Integrations Center</b><small>Third-party workflows & connections</small></span></a></div></section>
         {% if is_admin %}<section class="apps-drawer-section"><p>Administration</p><div class="apps-drawer-items"><a class="apps-drawer-item" href="{{url_for('admin_panel')}}" data-app-nav><i>⌘</i><span><b>Admin</b><small>Users and access</small></span></a><a class="apps-drawer-item" href="{{url_for('vault_page')}}" data-app-nav><i>◇</i><span><b>Livenza Vault</b><small>Protected operational credentials</small></span></a><a class="apps-drawer-item" href="{{url_for('settings_page')}}" data-app-nav><i>⚙</i><span><b>Settings</b><small>System configuration</small></span></a></div></section>{% endif %}
@@ -171,6 +173,7 @@
   <script src="{{url_for('static',filename='app.js')}}?v={{app_version|replace('Web ','')}}"></script>
   <script src="{{url_for('static',filename='livenza_host3d_state.js')}}?v={{app_version|replace('Web ','')}}"></script>
   <script src="{{url_for('static',filename='livenza_host3d.js')}}?v={{app_version|replace('Web ','')}}"></script>
+  {% if current_user and can_access('letterhead') %}<script src="{{url_for('static',filename='letterhead.js')}}?v={{app_version|replace('Web ','')}}"></script>{% endif %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -1,22 +1,30 @@
-LIVENZA WEB v1.8.0 — GITHUB BROWSER UPDATE
+LIVENZA WEB v1.8.0 → v1.9.0 GITHUB BROWSER UPDATE
 
-Base required: Web 1.7.1
-Target: Web 1.8.0
-
-This package contains only production files changed/new from v1.7.1 to v1.8.0.
-It is below GitHub's 100-file browser-upload limit.
-
-UPLOAD
-1. Extract this ZIP on your computer.
-2. Open your existing Livenza GitHub repository.
-3. Upload the extracted production files to the matching repository paths. Root files go to the repository root; files under data/, migrations/, static/, and templates/ go into those existing folders.
-4. Replace/overwrite older files when GitHub asks.
-5. Commit with a message such as: Upgrade Livenza Web to 1.8.0
-6. Let Render redeploy.
-7. Open /version and confirm Web 1.8.0.
+This package contains only the production files changed or added for Web 1.9.0.
+It is below GitHub's 100-file browser upload limit.
 
 IMPORTANT
-- Do not upload this ZIP itself as the application. Upload its extracted contents.
-- Keep LIVENZA_VAULT_MASTER_KEY stable in Render.
-- Apply migrations/web_v1_8_0.sql if your production database does not permit automatic schema creation.
-- The full WebGL host is local code; no CDN dependency is required for the live 3D host.
+1. Your repository must already contain the completed Web 1.8.0 release.
+2. Extract this ZIP on your computer. Do NOT upload the ZIP itself to GitHub.
+3. Upload each extracted file into the matching GitHub folder, replacing the existing file when prompted.
+4. Preserve the directory structure (templates/, static/, migrations/, etc.).
+5. Commit with a message such as: Upgrade to Livenza Web 1.9.0.
+6. Let Render redeploy.
+7. Confirm /version reports Web 1.9.0.
+8. If automatic table creation is unavailable, apply migrations/web_v1_9_0.sql to the production database.
+
+SECURITY
+- Keep LIVENZA_VAULT_MASTER_KEY configured in Render and never upload it to GitHub.
+- Configure AI, Email and WhatsApp credentials only through the v1.8.0 Integrations Center / Render environment as documented.
+- Do not put provider secrets inside Letterhead templates.
+
+MAIN v1.9.0 FEATURES
+- Ask Livenza AI document drafting
+- Published/versioned letterhead templates
+- Protected signatures and seals
+- Mandatory Final Review
+- Immutable PDF issuance and revisions
+- Email + WhatsApp delivery through Integrations Center
+- Automatic searchable Document Vault
+
+Files in this package: 23
