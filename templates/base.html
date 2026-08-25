@@ -17,9 +17,9 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static',filename='apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static',filename='site.webmanifest') }}">
   <title>{% block title %}Livenza Back Office{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.1">
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v=1.5.2">
 </head>
-<body>
+<body data-page="{{ request.endpoint or '' }}">
   <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
   <div id="liveMotionLayer" class="live-motion-layer" aria-hidden="true"></div>
   <div id="pageTransition" class="page-transition" aria-hidden="true"><span></span></div>
@@ -28,7 +28,7 @@
     {% if current_user %}
     <header class="topbar liquid-nav reference-header showcase-header">
       <button type="button" id="appsMenuToggle" class="hamburger-button" aria-label="Open applications menu" aria-controls="appsMenu" aria-expanded="false"><span></span><span></span><span></span></button>
-      <a class="hanging-brand" href="{{url_for('dashboard')}}" aria-label="Livenza Life home"><span class="hanging-ai-core"><img src="{{url_for('static',filename='livenza_logo.png')}}" alt="Livenza Life"></span></a>
+      <a class="hanging-brand" href="{{url_for('dashboard')}}" aria-label="Livenza Life home"><span class="hanging-ai-core"><img src="{{url_for('static',filename='livenza_logo_transparent.png')}}" alt="Livenza Life"></span></a>
       <nav id="appsMenu" class="apps-mega-menu liquid-card" aria-label="Applications" hidden>
         <div class="apps-menu-head"><div><p class="eyebrow">LIVENZA APPLICATIONS</p><b>Everything in one workspace</b></div><button type="button" id="appsMenuClose" aria-label="Close applications menu">×</button></div>
         <div class="apps-menu-grid">
@@ -120,7 +120,7 @@
     <button type="button" role="menuitem" data-view-mode="270"><span class="view-menu-icon">↺</span><div><b>Rotate 270°</b><small>Vertical screen, left</small></div></button>
   </div>
 
-  <script src="{{url_for('static',filename='app.js')}}?v=1.5.1"></script>
+  <script src="{{url_for('static',filename='app.js')}}?v=1.5.2"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

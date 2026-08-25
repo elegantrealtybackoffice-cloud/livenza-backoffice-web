@@ -1,4 +1,78 @@
-{% extends 'base.html' %}{% block content %}<section class="hero compact lively-hero liquid-card"><div><p class="eyebrow">SYSTEM ONLINE • LIVE CLOUD</p><h1>Livenza Life <span>Back Office</span></h1><p>One beautifully simple workspace for agreements, rooms, tenants, reviews, live queries, video walls, delivery reconciliation and billing operations.</p></div><div class="core ai-core-wrap" aria-label="Livenza Operations Cloud live"><div class="ai-logo-core"><div class="ai-orbit orbit-one"><i></i></div><div class="ai-orbit orbit-two"><i></i></div><div class="ai-border-run"></div><div class="ai-logo-shell"><img src="{{url_for('static',filename='livenza_logo.png')}}" alt="Livenza Life"></div><span class="ai-spark s1">✦</span><span class="ai-spark s2">✦</span><span class="ai-spark s3">·</span></div></div></section>
-<div class="stats"><div><b>{{stats.agreements}}</b><span>Agreements</span></div><div><b>{{stats.tenants}}</b><span>Tenants</span></div><div><b>{{stats.rooms}}</b><span>Rooms</span></div><div><b>{{stats.vacant}}</b><span>Vacant</span></div><div><b>{{stats.queries}}</b><span>Queries</span></div><div><b>{{stats.screens_online}}/{{stats.screens}}</b><span>TVs Online</span></div></div>
-<div class="section-head"><div><p class="eyebrow">CITY OPERATIONS</p><h2 class="section-title">Cities</h2></div>{% if is_admin %}<a class="secondary btn" href="{{url_for('admin_panel')}}#cities">+ Manage Cities</a>{% endif %}</div><div class="city-grid">{% for c in cities %}<div class="city-card liquid-card"><div class="city-orb">{{c.code or c.name[:2]|upper}}</div><div><h3>{{c.name}}</h3><p><b>{{c.rooms}}</b> rooms • <b>{{c.tenants}}</b> tenants • <b>{{c.agreements}}</b> agreements</p></div></div>{% else %}<div class="placeholder compact-placeholder liquid-card">No cities added yet.{% if is_admin %} Add cities from Admin.{% endif %}</div>{% endfor %}</div>
-<h2 class="section-title">Applications</h2><div class="module-grid">{% set mods=[('agreement_tile.png','Agreement Studio','Agreements, PDF and WhatsApp sharing.','agreements','agreements','✦'),('room_tile.png','Room Status & Tenants','Inventory, tenants and automated vacancy reports.','rooms','rooms','▦'),('review_tile.png','Google Review Generator','AI drafts, Google review link and QR.','reviews','reviews','★'),('','Live Queries Manager','Meta, Google, OTA and direct query command center.','queries','queries','◎'),('','Video Wall Studio • LIVE','Control every TV, upload media, rotate screens and launch festive takeovers.','video_wall','video_wall','▶'),('food_tile.png','Food Delivery Hub','Live Swiggy/Zomato/Toing feeds, partner portals, orders and settlements.','food','food','⌁'),('rentok_tile.png','Livenza Billing Suite','Billing, collections and account operations portal.','billing','rentok','◈'),('','WhatsApp Workspace','Send and receive official Cloud API messages inside Livenza.','whatsapp_workspace','whatsapp','◍'),('','Email Workspace','Read recent Gmail messages and send email without leaving Livenza.','email_workspace','email','✉'),('','Google Drive','Store, list and download operational cloud files.','drive_workspace','drive','☁')] %}{% for icon,title,desc,endpoint,perm,glyph in mods %}{% if can_access(perm) %}<a class="module-card liquid-card module-{{loop.index}}" data-app-nav href="{{url_for(endpoint)}}"><div class="glass-icon module-icon">{% if icon %}<img src="{{url_for('static',filename=icon)}}">{% else %}<span>{{glyph}}</span>{% endif %}</div><div><p class="access">ACCESS // AUTHORIZED</p><h3>{{title}}</h3><p>{{desc}}</p><span>OPEN MODULE →</span></div></a>{% endif %}{% endfor %}</div>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<section class="hero compact lively-hero liquid-card">
+  <div>
+    <p class="eyebrow">SYSTEM ONLINE • LIVE CLOUD</p>
+    <h1>Livenza Life <span>Back Office</span></h1>
+    <p>One beautifully simple workspace for agreements, rooms, tenants, reviews, live queries, video walls, delivery reconciliation and billing operations.</p>
+  </div>
+  <div class="core ai-core-wrap" aria-label="Livenza Operations Cloud live">
+    <div class="ai-logo-core">
+      <div class="ai-orbit orbit-one"><i></i></div><div class="ai-orbit orbit-two"><i></i></div>
+      <div class="ai-border-run"></div>
+      <div class="ai-logo-shell"><img src="{{url_for('static',filename='livenza_logo.png')}}" alt="Livenza Life"></div>
+      <span class="ai-spark s1">✦</span><span class="ai-spark s2">✦</span><span class="ai-spark s3">·</span>
+    </div>
+  </div>
+</section>
+
+<div class="stats">
+  <div><b>{{stats.agreements}}</b><span>Agreements</span></div><div><b>{{stats.tenants}}</b><span>Tenants</span></div>
+  <div><b>{{stats.rooms}}</b><span>Rooms</span></div><div><b>{{stats.vacant}}</b><span>Vacant</span></div>
+  <div><b>{{stats.queries}}</b><span>Queries</span></div><div><b>{{stats.screens_online}}/{{stats.screens}}</b><span>TVs Online</span></div>
+</div>
+
+<section class="experience-gallery" aria-label="Livenza visual operations">
+  <a class="experience-shot experience-wide" href="https://unsplash.com/photos/clean-well-lit-room-with-several-neatly-made-beds-0xJJ2k72AQs" target="_blank" rel="noopener">
+    <img src="https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&amp;fit=crop&amp;q=78&amp;w=1500" alt="Bright modern shared accommodation room" loading="lazy" referrerpolicy="no-referrer">
+    <span><small>STAY EXPERIENCE</small><b>Rooms that feel ready</b></span>
+  </a>
+  <a class="experience-shot" href="https://unsplash.com/photos/restaurant-staff-preparing-food-in-a-professional-kitchen-Ew2PDNZB4qA" target="_blank" rel="noopener">
+    <img src="https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&amp;fit=crop&amp;q=78&amp;w=1000" alt="Hospitality team preparing food in a professional kitchen" loading="lazy" referrerpolicy="no-referrer">
+    <span><small>FOOD OPERATIONS</small><b>Service in motion</b></span>
+  </a>
+  <a class="experience-shot" href="https://unsplash.com/photos/modern-office-space-with-city-view-and-desks-56U797Gamac" target="_blank" rel="noopener">
+    <img src="https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&amp;fit=crop&amp;q=78&amp;w=1000" alt="Modern operations workspace" loading="lazy" referrerpolicy="no-referrer">
+    <span><small>ONE WORKSPACE</small><b>Everything connected</b></span>
+  </a>
+</section>
+
+<div class="section-head">
+  <div><p class="eyebrow">CITY OPERATIONS</p><h2 class="section-title">Cities</h2></div>
+  {% if is_admin %}<a class="secondary btn" href="{{url_for('admin_panel')}}#cities">+ Manage Cities</a>{% endif %}
+</div>
+<div class="city-grid">
+  {% for c in cities %}<div class="city-card liquid-card"><div class="city-orb">{{c.code or c.name[:2]|upper}}</div><div><h3>{{c.name}}</h3><p><b>{{c.rooms}}</b> rooms • <b>{{c.tenants}}</b> tenants • <b>{{c.agreements}}</b> agreements</p></div></div>
+  {% else %}<div class="placeholder compact-placeholder liquid-card">No cities added yet.{% if is_admin %} Add cities from Admin.{% endif %}</div>{% endfor %}
+</div>
+
+<div class="section-head" id="applications"><div><p class="eyebrow">LIVENZA WORKSPACE</p><h2 class="section-title">Applications</h2></div><span class="section-kicker">Select a module to begin</span></div>
+<div class="module-grid">
+  {% set office_photo='https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&fit=crop&q=76&w=900' %}
+  {% set room_photo='https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&fit=crop&q=76&w=900' %}
+  {% set agreement_photo='https://images.unsplash.com/photo-1758518731462-d091b0b4ed0d?auto=format&fit=crop&q=76&w=900' %}
+  {% set food_photo='https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&fit=crop&q=76&w=900' %}
+  {% set hotel_photo='https://images.unsplash.com/photo-1784720845648-a79a9ba6d16d?auto=format&fit=crop&q=76&w=900' %}
+  {% set mods=[
+    ('agreement_tile.png','Agreement Studio','Agreements, PDF and WhatsApp sharing.','agreements','agreements','✦',agreement_photo,'Business agreement workflow'),
+    ('room_tile.png','Room Status & Tenants','Inventory, tenants and automated vacancy reports.','rooms','rooms','▦',room_photo,'Modern Livenza accommodation'),
+    ('review_tile.png','Google Review Generator','AI drafts, Google review link and QR.','reviews','reviews','★',office_photo,'Professional review workspace'),
+    ('','Live Queries Manager','Meta, Google, OTA and direct query command center.','queries','queries','◎',office_photo,'Live query operations workspace'),
+    ('','Video Wall Studio • LIVE','Control every TV, upload media, rotate screens and launch festive takeovers.','video_wall','video_wall','▶',hotel_photo,'Hospitality display experience'),
+    ('food_tile.png','Food Delivery Hub','Live Swiggy/Zomato/Toing feeds, partner portals, orders and settlements.','food','food','⌁',food_photo,'Professional food operations'),
+    ('rentok_tile.png','Livenza Billing Suite','Billing, collections and account operations portal.','billing','rentok','◈',office_photo,'Connected billing workspace'),
+    ('','WhatsApp Workspace','Send and receive official Cloud API messages inside Livenza.','whatsapp_workspace','whatsapp','◍',office_photo,'Connected communications workspace'),
+    ('','Email Workspace','Read recent Gmail messages and send email without leaving Livenza.','email_workspace','email','✉',office_photo,'Connected email workspace'),
+    ('','Google Drive','Store, list and download operational cloud files.','drive_workspace','drive','☁',office_photo,'Cloud operations workspace')
+  ] %}
+  {% for icon,title,desc,endpoint,perm,glyph,photo,photo_alt in mods %}{% if can_access(perm) %}
+  <a class="module-card liquid-card module-{{loop.index}}" data-app-nav href="{{url_for(endpoint)}}">
+    <div class="module-card-media">
+      <img class="module-photo" src="{{photo}}" alt="{{photo_alt}}" loading="lazy" referrerpolicy="no-referrer">
+      <div class="glass-icon module-icon">{% if icon %}<img src="{{url_for('static',filename=icon)}}" alt="">{% else %}<span>{{glyph}}</span>{% endif %}</div>
+    </div>
+    <div class="module-card-copy"><p class="access">ACCESS // AUTHORIZED</p><h3>{{title}}</h3><p>{{desc}}</p><span>OPEN MODULE →</span></div>
+  </a>
+  {% endif %}{% endfor %}
+</div>
+{% endblock %}

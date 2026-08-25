@@ -1,4 +1,13 @@
-# Livenza Life Operations Cloud — Web 1.5.1
+# Livenza Life Operations Cloud — Web 1.5.2
+
+## Web 1.5.2 visual refinement
+
+- The top-header mark now uses a transparent Livenza asset: no white square or circular tile sits behind the L.
+- The L itself remains stationary while the independent AI light runner, halo and orbit indicators animate behind it.
+- The header starts transparent and becomes a softly blurred, animated glass ribbon as the page scrolls.
+- Major workspaces receive compact contextual photography without pushing the primary controls below a large hero.
+- Dashboard applications now use photo-led media panels, hover depth, staggered gallery motion and responsive layouts.
+- Reduced-motion preferences pause decorative motion while preserving every control and visual.
 
 ## Web 1.5.1 header refinement
 
@@ -26,7 +35,7 @@
 5. Configure passkeys: `WEBAUTHN_RP_ID=YOUR-SITE-HOST` and `WEBAUTHN_ORIGIN=https://YOUR-SITE`.
 6. In Admin, connect Google, assign the WhatsApp/Email/Drive permissions, enable pattern or fingerprint access per user, and optionally enable kiosk lock.
 
-See `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
+See `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
 
 ## Web 1.4.9 addition
 - The Livenza Assistant now has a high-contrast cross icon that remains visible after messages are added.

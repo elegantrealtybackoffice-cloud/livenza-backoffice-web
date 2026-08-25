@@ -1,10 +1,10 @@
-LIVENZA WEB 1.5.1 — DIRECT ROOT UPLOAD
+LIVENZA WEB 1.5.2 — DIRECT ROOT UPLOAD
 
 1. Extract this ZIP.
 2. Upload its contents directly to the root of the existing repository, preserving the templates/, static/, migrations/ and windows-kiosk/ folders.
 3. Run migrations/web_v1_5_0.sql in Supabase SQL Editor.
 4. Add the Google, WhatsApp, integration-encryption and WebAuthn environment values listed in README.md.
-5. Deploy. Confirm /version returns Web 1.5.1.
+5. Deploy. Confirm /version returns Web 1.5.2.
 6. In Admin, connect Google, enable module permissions and configure kiosk/pattern/fingerprint access.
 
 The Windows scripts are downloads/setup helpers. Full operating-system restriction requires Microsoft Assigned Access, as described in windows-kiosk/README_WINDOWS_KIOSK.md.

@@ -240,6 +240,75 @@ initPageFeatures(document);
   };
 })();
 
+// ===== Web 1.5.2 • transparent scroll header + contextual visual storytelling =====
+(()=>{
+  const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const header=document.querySelector('.reference-header');
+  let scrollFrame=0,lastY=window.scrollY;
+
+  function updateScrollSurfaces(){
+    scrollFrame=0;
+    const y=Math.max(0,window.scrollY),progress=Math.min(1,y/260);
+    if(header){
+      header.classList.toggle('is-scrolled',y>18);
+      header.classList.toggle('scrolling-down',y>lastY&&y>110);
+      header.style.setProperty('--header-scroll',progress.toFixed(3));
+    }
+    document.querySelectorAll('.module-visual-ribbon').forEach(el=>{
+      const rect=el.getBoundingClientRect(),viewport=window.innerHeight||800;
+      const shift=Math.max(-18,Math.min(18,(viewport*.5-(rect.top+rect.height*.5))*.035));
+      el.style.setProperty('--visual-shift',`${shift.toFixed(1)}px`);
+    });
+    lastY=y;
+  }
+  function queueScroll(){if(!scrollFrame)scrollFrame=requestAnimationFrame(updateScrollSurfaces)}
+  window.addEventListener('scroll',queueScroll,{passive:true});
+
+  const photos={
+    agreement:{match:/agreement/,eyebrow:'DOCUMENT EXPERIENCE',title:'Clear agreements. Confident decisions.',alt:'Business agreement being reviewed',image:'https://images.unsplash.com/photo-1758518731462-d091b0b4ed0d?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/business-people-signing-a-contract-at-a-table-iPheGw7_UaI'},
+    rooms:{match:/room|tenant/,eyebrow:'STAY OPERATIONS',title:'Every room, visibly under control.',alt:'Bright modern shared accommodation room',image:'https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/clean-well-lit-room-with-several-neatly-made-beds-0xJJ2k72AQs'},
+    food:{match:/food/,eyebrow:'FOOD EXPERIENCE',title:'Orders, kitchens and settlements in motion.',alt:'Restaurant staff preparing food in a professional kitchen',image:'https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/restaurant-staff-preparing-food-in-a-professional-kitchen-Ew2PDNZB4qA'},
+    hospitality:{match:/video-wall|billing|rentok/,eyebrow:'HOSPITALITY EXPERIENCE',title:'A polished guest journey on every screen.',alt:'Modern hotel room interior',image:'https://images.unsplash.com/photo-1784720845648-a79a9ba6d16d?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/modern-hotel-room-with-a-king-size-bed-and-wooden-interior-fTiPYH7rN2A'},
+    office:{match:/quer|review|whatsapp|email|drive|admin|setting|account/,eyebrow:'CONNECTED WORKSPACE',title:'One calm command centre for every operation.',alt:'Modern connected office workspace',image:'https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/modern-office-space-with-city-view-and-desks-56U797Gamac'}
+  };
+
+  function visualForPath(){const path=location.pathname.toLowerCase();return Object.values(photos).find(item=>item.match.test(path))}
+  function mountContextVisual(root=document){
+    if(root.querySelector?.('.module-visual-ribbon,.experience-gallery'))return;
+    const pageHead=root.querySelector?.('.page-head');if(!pageHead)return;
+    const visual=visualForPath();if(!visual)return;
+    const ribbon=document.createElement('a');ribbon.className='module-visual-ribbon';ribbon.href=visual.credit;ribbon.target='_blank';ribbon.rel='noopener';ribbon.setAttribute('aria-label',`${visual.title} Photography source`);
+    const img=document.createElement('img');img.src=visual.image;img.alt=visual.alt;img.loading='lazy';img.referrerPolicy='no-referrer';
+    const wash=document.createElement('span');wash.className='module-visual-copy';
+    const small=document.createElement('small');small.textContent=visual.eyebrow;
+    const strong=document.createElement('strong');strong.textContent=visual.title;
+    const source=document.createElement('i');source.textContent='VIEW PHOTOGRAPHY ↗';
+    wash.append(small,strong,source);ribbon.append(img,wash);pageHead.insertAdjacentElement('afterend',ribbon);
+  }
+
+  function bindDepth(root=document){
+    if(reduce)return;
+    root.querySelectorAll?.('.module-card,.experience-shot').forEach(card=>{
+      if(card.dataset.depthBound)return;card.dataset.depthBound='1';
+      card.addEventListener('pointermove',e=>{const r=card.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;card.style.setProperty('--tilt-x',`${(-y*2.4).toFixed(2)}deg`);card.style.setProperty('--tilt-y',`${(x*3.2).toFixed(2)}deg`)});
+      card.addEventListener('pointerleave',()=>{card.style.setProperty('--tilt-x','0deg');card.style.setProperty('--tilt-y','0deg')});
+    });
+  }
+
+  function animateMetrics(root=document){
+    if(reduce)return;
+    root.querySelectorAll?.('.stats b').forEach(el=>{
+      if(el.dataset.counted||!/^\d+$/.test(el.textContent.trim()))return;el.dataset.counted='1';
+      const target=Number(el.textContent.trim());if(!target)return;const start=performance.now(),duration=720;
+      const tick=now=>{const t=Math.min(1,(now-start)/duration),ease=1-Math.pow(1-t,3);el.textContent=String(Math.round(target*ease));if(t<1)requestAnimationFrame(tick)};requestAnimationFrame(tick);
+    });
+  }
+
+  function enhance(root=document){mountContextVisual(root);bindDepth(root);animateMetrics(root);updateScrollSurfaces()}
+  enhance(document);
+  window.addEventListener('livenza:content-swapped',e=>enhance(e.detail?.root||document));
+})();
+
 // ===== Web 1.5.0 • pattern login + WebAuthn / Windows Hello =====
 (function(){
   const fromB64url=value=>{
