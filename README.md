@@ -343,3 +343,6 @@ The app derives the Supabase project reference from `DATABASE_URL`. External/CDN
 Open Video Wall Studio, register a screen, copy its unique Player URL, and open that URL in the smart-TV browser, signage mini-PC, Fire TV browser, or attached computer. Keep the page open. Media changes and festive takeover commands are picked up automatically.
 ### Web 1.9.0 Light Aqua Liquid Glass maintenance
 The current v1.9.0 UI maintenance layer uses a high-key aqua background, highly translucent glass surfaces, compact system typography and a full-site text-containment audit while preserving the persistent animated/live-updating blue mascot and all Letterhead Studio workflows. Printable paper surfaces remain intentionally white with dark text.
+
+### Web 1.9.0 Medium Aqua Adaptive Liquid Glass maintenance
+The current Web 1.9.0 presentation uses a medium aqua adaptive glass hierarchy: stronger translucent material for navigation/controls, calmer content surfaces, high-contrast segmented selection, a dedicated final theme layer loaded after feature CSS, persistent live blue mascot behavior, and mobile-to-5K text/layout verification. No database or business-workflow migration is required for this UI maintenance update.

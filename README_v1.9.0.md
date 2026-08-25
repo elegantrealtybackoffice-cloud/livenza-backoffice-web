@@ -104,3 +104,13 @@ Typography is intentionally more compact: page titles are capped at 40px, sectio
 Legacy module-specific opaque styling for Food Hub tabs, portal tabs, query-sheet cells, agreement accordions, mascot settings, popover menus and integration cards is superseded by the same final Light Aqua Liquid Glass contract. Printable agreement/document paper remains dark text on white.
 
 The persistent blue mascot, live operational/weather updates, Ask Livenza panel and marquee motion remain part of the shared authenticated shell. Performance profiles reduce blur cost without reverting the site to dark opaque surfaces or freezing the mascot/marquee.
+
+## Medium Aqua Adaptive Liquid Glass Refinement
+
+The Web 1.9.0 interface now uses a medium aqua/blue wallpaper environment with adaptive glass hierarchy inspired by the interaction principles in Apple's official Liquid Glass guidance while remaining an original Livenza design. Functional elements such as navigation, segmented controls, toolbars, menus, drawers, popovers and mascot controls use the stronger refractive/tinted material; content cards, forms and tables use a calmer translucent material so information remains visually primary.
+
+The final theme is isolated in `static/theme_v190.css` and is loaded after feature stylesheets, preventing Letterhead Studio or Integrations Center from silently overriding the site-wide material contract. Selected segmented controls use a high-contrast milky glass state, inactive controls remain transparent, and status/icon color is restrained to meaningful active/on states.
+
+The background is intentionally darker than the previous Light Aqua maintenance build to improve white-text readability while keeping the original Livenza wallpaper visible. Text remains content-driven: meaningful labels and copy wrap, cards grow with content, dense tables scroll locally, and printable/document paper remains white with dark text.
+
+Browser acceptance remains mobile through 5K/iMac class widths, and the persistent animated blue mascot continues live operational/weather polling and Ask Livenza behavior without using the retired WebGL host.
