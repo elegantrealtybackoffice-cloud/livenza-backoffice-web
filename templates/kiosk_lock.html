@@ -1,2 +1,40 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#071a2c"><title>Locked · Livenza Back Office</title><link rel="stylesheet" href="{{url_for('static',filename='style.css')}}?v=1.5.8"></head>
-<body class="kiosk-lock-body"><main class="kiosk-lock-stage"><section class="kiosk-lock-card liquid-card"><img src="{{url_for('static',filename='livenza_logo.png')}}" alt="Livenza Life"><div class="kiosk-lock-icon">▣</div><p class="eyebrow">LIVENZA SECURE SCREEN</p><h1>Workspace locked</h1><p>Enter the kiosk PIN or your account password to return to the website.</p>{% with msgs=get_flashed_messages(with_categories=true) %}{% for cat,msg in msgs %}<div class="flash {{cat}}">{{msg}}</div>{% endfor %}{% endwith %}<form method="post" action="{{url_for('kiosk_unlock')}}" class="stack"><input type="hidden" name="next" value="{{request.args.get('next','')}}"><label>PIN or password<input type="password" name="secret" autocomplete="current-password" autofocus required></label><button class="primary">Unlock Livenza</button></form><a href="{{url_for('logout')}}" class="small-link">Sign out instead</a><small>Windows Assigned Access provides the operating-system lock. This PIN protects all Livenza routes.</small></section></main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#071a2c">
+  <title>Locked · Livenza Back Office</title>
+  <link rel="stylesheet" href="{{url_for('static',filename='style.css')}}?v=1.5.10">
+</head>
+<body class="kiosk-lock-body">
+  <main class="kiosk-lock-stage">
+    <section class="kiosk-lock-card liquid-card">
+      <img src="{{url_for('static',filename='livenza_logo.png')}}" alt="Livenza Life">
+      <div class="kiosk-lock-icon">▣</div>
+      <p class="eyebrow">LIVENZA SECURE SCREEN</p>
+      <h1>Workspace locked</h1>
+      <p>Enter the kiosk PIN or your account password to return to the website.</p>
+      {% with msgs=get_flashed_messages(with_categories=true) %}{% for cat,msg in msgs %}<div class="flash {{cat}}" role="alert" aria-live="assertive">{{msg}}</div>{% endfor %}{% endwith %}
+      <form method="post" action="{{url_for('kiosk_unlock')}}" class="stack" data-kiosk-unlock-form novalidate>
+        <input type="hidden" name="next" value="{{request.args.get('next','')}}">
+        <div class="auth-field" data-auth-field="secret">
+          <label for="kioskSecret">PIN or password</label>
+          <div class="auth-input-frame password-input-frame">
+            <input id="kioskSecret" type="password" name="secret" autocomplete="current-password" aria-describedby="kioskSecretFeedback" autofocus required>
+            <button type="button" class="password-visibility-toggle" data-password-toggle aria-label="Show PIN or password" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.7"></circle></svg>
+            </button>
+          </div>
+          <small id="kioskSecretFeedback" class="field-feedback" aria-live="polite">Use the kiosk PIN or your account password.</small>
+        </div>
+        <button class="primary">Unlock Livenza</button>
+        <div class="auth-inline-alert" data-kiosk-error role="alert" aria-live="assertive" hidden></div>
+      </form>
+      <a href="{{url_for('logout')}}" class="small-link">Sign out instead</a>
+      <small>Windows Assigned Access provides the operating-system lock. This PIN protects all Livenza routes.</small>
+    </section>
+  </main>
+  <script src="{{url_for('static',filename='app.js')}}?v=1.5.10"></script>
+</body>
+</html>

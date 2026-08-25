@@ -1,4 +1,29 @@
-# Livenza Life Operations Cloud — Web 1.5.8
+# Livenza Life Operations Cloud — Web 1.5.10
+
+## Web 1.5.10 progressive secure access
+
+- Login is now one central card with a dominant Login ID field and **Continue with Device Security** action. Pressing Enter from the primary field follows the same WebAuthn flow.
+- A lightweight skeleton state appears while Livenza checks local device credentials and waits for the native Windows Hello, Touch ID, Face ID or passkey prompt.
+- Password and gesture options are hidden on the initial screen and revealed through one accessible **⚙️ Try another sign-in method** control.
+- Password fields include a keyboard-accessible eye toggle. Login failures now return field-specific inline guidance for missing details, Caps Lock, password mismatch, incomplete patterns and inactive accounts.
+- Gesture entry uses large numbered targets, pointer/touch drawing, roving keyboard focus, Arrow/Home/End navigation, Enter/Space selection, `aria-pressed` state, a live selection count and a visible **🧹 Clear Grid** button. Double-tap clearing has been removed.
+- Legal and administrative metadata now lives in a muted absolute bottom strip, separated from authentication actions. Form frames and confirmation selectors have hover, focus and pressed feedback.
+
+### Web 1.5.10 deployment
+
+No database migration is required. Confirm `/version` returns `Web 1.5.10` and reports `progressive-device-auth`, `password-visibility-toggle`, `keyboard-pattern-navigation` and `absolute-legal-strip`.
+
+## Web 1.5.9 unified mascot assistant
+
+- The separate footer chatbot has been removed. The persistent mascot is now the single entry point for both live information and workspace help.
+- The mascot panel has accessible **Live** and **Ask Livenza** tabs. Help suggestions and typed questions continue to use the secure same-origin help endpoint.
+- One close control and Escape close the entire companion; focus returns to the mascot trigger.
+- The mascot artwork is now a high-fidelity transparent cutout with clean antenna, cap and body edges, a restrained glow, soft grounding shadow and subtle idle motion. No rectangular artwork background remains.
+- Existing non-blocking placement, scroll collapse and the sub-400 px minimalist bubble are preserved.
+
+### Web 1.5.9 deployment
+
+Deploy as usual, then confirm `/version` returns `Web 1.5.9` and includes `unified-mascot-assistant`, `standalone-chatbot-removed` and `transparent-polished-mascot`. No database migration is required for this release.
 
 ## Web 1.5.8 secure workflow and reliability release
 
@@ -99,7 +124,7 @@
 5. Configure passkeys: `WEBAUTHN_RP_ID=YOUR-SITE-HOST` and `WEBAUTHN_ORIGIN=https://YOUR-SITE`.
 6. In Admin, connect Google, assign the WhatsApp/Email/Drive permissions, enable pattern or fingerprint access per user, and optionally enable kiosk lock.
 
-See `README_v1.5.8.md`, `README_v1.5.7.md`, `README_v1.5.6.md`, `README_v1.5.5.md`, `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
+See `README_v1.5.10.md`, `README_v1.5.9.md`, `README_v1.5.8.md`, `README_v1.5.7.md`, `README_v1.5.6.md`, `README_v1.5.5.md`, `README_v1.5.4.md`, `README_v1.5.3.md`, `README_v1.5.2.md`, `README_v1.5.1.md`, `README_v1.5.0.md` and `windows-kiosk/README_WINDOWS_KIOSK.md` for full setup.
 
 ## Web 1.4.9 addition
 - The Livenza Assistant now has a high-contrast cross icon that remains visible after messages are added.

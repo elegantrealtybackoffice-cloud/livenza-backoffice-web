@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.5.8'
+APP_VERSION = 'Web 1.5.10'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -640,7 +640,7 @@ def _companion_weather(city):
         'timezone':'Asia/Kolkata','forecast_days':4,
     }
     try:
-        response=requests.get('https://api.open-meteo.com/v1/forecast',params=params,headers={'User-Agent':'LivenzaLife-OperationsCloud/1.5.8'},timeout=10)
+        response=requests.get('https://api.open-meteo.com/v1/forecast',params=params,headers={'User-Agent':'LivenzaLife-OperationsCloud/1.5.10'},timeout=10)
         response.raise_for_status();payload=response.json();current=payload.get('current') or {};daily=payload.get('daily') or {}
         code=int(current.get('weather_code') or 0);is_day=bool(int(current.get('is_day',1) or 0))
         dates=daily.get('time') or [];codes=daily.get('weather_code') or [];highs=daily.get('temperature_2m_max') or [];lows=daily.get('temperature_2m_min') or [];rain_chance=daily.get('precipitation_probability_max') or []
@@ -1529,37 +1529,59 @@ def diagnostics():
 @app.route('/version')
 def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode'])
 
-def version_v158():
+def version_v1510():
     return jsonify(version=APP_VERSION,features=[
         'reliable-aadhaar-ocr','json-safe-aadhaar-errors','resumable-video-wall-upload','verified-media-finalization',
         'agreement-wizard','agreement-local-autosave','visual-agreement-presets','encrypted-landlord-profiles','encrypted-tenant-profiles',
         'biometric-first-login','gesture-pattern-login','responsive-native-workspace','dedicated-player-rotation',
         'editable-query-sheet','query-batch-save','excel-csv-query-import','collapsed-scroll-mascot','nonblocking-mascot-layer',
         'wcag-aa-form-contrast','livenza-branded-agreement-banner','responsive-marquee-status',
+        'unified-mascot-assistant','mascot-help-chat','standalone-chatbot-removed','transparent-polished-mascot',
+        'progressive-device-auth','credential-skeleton-loader','password-visibility-toggle','inline-auth-errors',
+        'accessible-pattern-hitboxes','keyboard-pattern-navigation','dedicated-pattern-clear','absolute-legal-strip',
     ])
 
 # Keep the original endpoint identity while exposing the current release's
 # verified feature contract instead of accumulating obsolete UI flags.
-app.view_functions['version']=version_v158
+app.view_functions['version']=version_v1510
 
 @app.route('/login', methods=['GET','POST'])
 def login():
+    username=request.form.get('username','').strip() if request.method=='POST' else ''
+    method=request.form.get('auth_method','password') if request.method=='POST' else 'fingerprint'
+    if request.method=='POST' and method not in {'password','pattern'}: method='password'
+    error={}
     if request.method=='POST':
-        u=User.query.filter_by(username=request.form.get('username','').strip()).first()
-        method=request.form.get('auth_method','password')
-        valid=False
-        if u and u.active and method=='pattern' and u.pattern_hash:
-            pattern=_pattern_value(request.form.get('pattern',''))
-            valid=bool(pattern and check_password_hash(u.pattern_hash,'pattern:'+pattern))
-        elif u and u.active:
-            valid=check_password_hash(u.password_hash, request.form.get('password',''))
-        if valid:
-            session.clear(); session['uid']=u.id
-            session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
-            session['show_login_welcome']=True
-            return redirect(url_for('kiosk_lock') if not session['kiosk_unlocked'] else (request.args.get('next') or url_for('dashboard')))
-        flash('Invalid login ID, password/pattern or inactive account.', 'danger')
-    return render_template('login.html')
+        u=User.query.filter_by(username=username).first() if username else None
+        if not username:
+            error={'field':'username','message':'Enter your Login ID before choosing a sign-in method.'}
+        elif u and not u.active:
+            error={'field':'account','message':'Sign-in is unavailable for this account. Ask an administrator to reactivate access.'}
+        elif method=='pattern':
+            raw_pattern=request.form.get('pattern','')
+            pattern=_pattern_value(raw_pattern)
+            if not pattern:
+                error={'field':'pattern','message':'Connect at least four different points, then try the gesture again.'}
+            elif u and u.pattern_hash and check_password_hash(u.pattern_hash,'pattern:'+pattern):
+                session.clear(); session['uid']=u.id
+                session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
+                session['show_login_welcome']=True
+                return redirect(url_for('kiosk_lock') if not session['kiosk_unlocked'] else (request.args.get('next') or url_for('dashboard')))
+            else:
+                error={'field':'pattern','message':'That pattern did not match. Clear the grid, redraw the saved sequence, or use another sign-in method.'}
+        else:
+            password=request.form.get('password','')
+            if not password:
+                error={'field':'password','message':'Enter your password to continue.'}
+            elif u and check_password_hash(u.password_hash,password):
+                session.clear(); session['uid']=u.id
+                session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
+                session['show_login_welcome']=True
+                return redirect(url_for('kiosk_lock') if not session['kiosk_unlocked'] else (request.args.get('next') or url_for('dashboard')))
+            else:
+                error={'field':'password','message':'The password did not match. Check Caps Lock and try again, or use another sign-in method.'}
+        return render_template('login.html',login_error=error,login_username=username,login_method=method),401
+    return render_template('login.html',login_error=error,login_username=username,login_method=method)
 
 @app.route('/logout')
 def logout(): session.clear(); return redirect(url_for('login'))
@@ -1707,7 +1729,7 @@ def _agreement_aadhaar_extract_payload(upload):
             ai_error='AI enhancement could not complete.'
     if not any(data.get(k) for k in ('tenant_name','tenant_dob','tenant_address','tenant_id_no')):
         if local_error and not os.getenv('OPENAI_API_KEY','').strip():
-            message='The secure OCR reader is not ready on this deployment. Redeploy Web 1.5.8 with its updated system and Python dependencies, then try again.'
+            message='The secure OCR reader is not ready on this deployment. Redeploy Web 1.5.10 with its updated system and Python dependencies, then try again.'
         else:
             message='No reliable Aadhaar fields were detected. Use a clear, straight photo in good light or a PDF containing both sides, then try again.'
         return {'ok':False,'error':message,'reader_status':local_error or 'No readable identity fields detected.'},422
@@ -2057,7 +2079,7 @@ def food_integration_sync(iid):
     row=db.session.get(FoodIntegration,iid) or abort(404)
     if not row.active or not row.api_enabled or not (row.api_base_url or '').strip():
         flash('Enable API Sync and add the official/API endpoint supplied by the platform first.','warning');return redirect(url_for('food_integrations'))
-    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.8'}
+    headers={'Accept':'application/json','User-Agent':'LivenzaLife-OperationsCloud/1.5.10'}
     bearer=os.getenv((row.api_token_env or '').strip(),'').strip() if row.api_token_env else ''
     api_key=os.getenv((row.api_key_env or '').strip(),'').strip() if row.api_key_env else ''
     if bearer: headers['Authorization']=f'Bearer {bearer}'

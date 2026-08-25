@@ -1,12 +1,12 @@
-LIVENZA WEB 1.5.8 — DIRECT ROOT UPLOAD
+LIVENZA WEB 1.5.10 — DIRECT ROOT UPLOAD
 
 1. Extract this ZIP.
 2. Upload its contents directly to the root of the existing repository, preserving the templates/, static/, migrations/ and windows-kiosk/ folders.
 3. Run migrations/web_v1_5_0.sql and migrations/web_v1_5_8.sql in Supabase SQL Editor when those schema changes are not already present.
 4. Add the Google, WhatsApp, integration-encryption and WebAuthn environment values listed in README.md.
-5. Deploy with the supplied Dockerfile/render.yaml. Confirm /version returns Web 1.5.8.
+5. Deploy with the supplied Dockerfile/render.yaml. Confirm /version returns Web 1.5.10.
 6. In Admin, connect Google, enable module permissions and configure kiosk/pattern/fingerprint access.
 
 The Windows scripts are downloads/setup helpers. Full operating-system restriction requires Microsoft Assigned Access, as described in windows-kiosk/README_WINDOWS_KIOSK.md.
 
-Web 1.5.8 adds `migrations/web_v1_5_8.sql` for encrypted reusable landlord/tenant profiles. It also installs Tesseract OCR, adds resumable Video Wall uploads, an editable Query Sheet with Excel/CSV import, a four-step Agreement Studio, biometric-first login and a non-blocking collapsing mascot. Keep `INTEGRATION_ENCRYPTION_KEY` stable between deployments.
+Web 1.5.10 adds the progressive WebAuthn-first login, credential-check skeleton, inline authentication feedback, password visibility controls, keyboard-accessible gesture entry, dedicated Clear Grid control and absolute legal strip. No new migration is required. Web 1.5.8 added `migrations/web_v1_5_8.sql` and remains required on installations that have not run it. Keep `INTEGRATION_ENCRYPTION_KEY` stable between deployments.

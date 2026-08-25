@@ -55,7 +55,7 @@ async function handleAadhaarExtract(btn){
   try{
     const fd=new FormData();fd.append('aadhaar_file',file);const r=await fetch('/agreements/aadhaar-extract',{method:'POST',body:fd,credentials:'same-origin',signal:controller.signal});
     const contentType=(r.headers.get('content-type')||'').toLowerCase();
-    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.5.8 and retry.`);
+    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.5.10 and retry.`);
     const d=await r.json();
     if(!r.ok||!d.ok)throw new Error([d.error,d.reader_status].filter(Boolean).join(' Reader status: '));
     const fields=d.fields||{};let filled=0;['tenant_name','tenant_father','tenant_dob','tenant_address','tenant_id_type','tenant_id_no'].forEach(k=>{if(fillAgreementField(k,fields[k]))filled++});
@@ -178,7 +178,7 @@ function updateFooterClock(){const el=document.getElementById('footerClock');if(
 updateFooterClock();setInterval(updateFooterClock,1000);const footerYear=document.getElementById('footerYear');if(footerYear)footerYear.textContent=new Date().getFullYear();
 initPageFeatures(document);
 
-// ===== Web 1.5.8 • native responsive workspace (manual display controls removed) =====
+// ===== Web 1.5.10 • progressive device-first authentication =====
 (function(){
   const root=document.documentElement;
   const viewport=document.getElementById('appViewport');
@@ -413,29 +413,92 @@ initPageFeatures(document);
   };
   function initPatternWidgets(root=document){
     root.querySelectorAll?.('[data-pattern-widget]').forEach(widget=>{
-      if(widget.dataset.ready)return;widget.dataset.ready='1';const selected=[],selectedNodes=[],hidden=widget.querySelector('[data-pattern-value]');let drawing=false,moved=false;
+      if(widget.dataset.ready)return;
+      widget.dataset.ready='1';
+      const selected=[],selectedNodes=[],hidden=widget.querySelector('[data-pattern-value]'),nodes=[...widget.querySelectorAll('[data-pattern-node]')];
+      let drawing=false,moved=false;
+      const widgetId=widget.id||`pattern-${Math.random().toString(36).slice(2,9)}`;widget.id=widgetId;
+      widget.setAttribute('role','group');widget.setAttribute('aria-label',widget.dataset.patternLabel||'Gesture pattern');
+      let controls=[...widget.parentElement.children].find(item=>item.hasAttribute?.('data-pattern-controls'));
+      if(!controls){
+        controls=document.createElement('div');controls.className='pattern-control-bar';controls.dataset.patternControls='';
+        const status=document.createElement('span');status.className='pattern-selection-status';status.dataset.patternStatus='';status.setAttribute('aria-live','polite');status.textContent='No points selected';
+        const clearButton=document.createElement('button');clearButton.type='button';clearButton.className='pattern-clear-button';clearButton.dataset.patternClear='';clearButton.innerHTML='<span aria-hidden="true">🧹</span> Clear Grid';
+        controls.append(status,clearButton);widget.insertAdjacentElement('afterend',controls);
+      }
+      const status=controls.querySelector('[data-pattern-status]'),clearButton=controls.querySelector('[data-pattern-clear]');
+      if(status){status.id=status.id||`${widgetId}-status`;widget.setAttribute('aria-describedby',status.id)}
       const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),line=document.createElementNS('http://www.w3.org/2000/svg','polyline');svg.classList.add('pattern-links');svg.setAttribute('aria-hidden','true');line.setAttribute('fill','none');line.setAttribute('vector-effect','non-scaling-stroke');svg.appendChild(line);widget.insertBefore(svg,widget.firstChild);
       const updateLine=()=>{const bounds=widget.getBoundingClientRect();svg.setAttribute('viewBox',`0 0 ${Math.max(1,bounds.width)} ${Math.max(1,bounds.height)}`);line.setAttribute('points',selectedNodes.map(node=>{const r=node.getBoundingClientRect();return `${r.left-bounds.left+r.width/2},${r.top-bounds.top+r.height/2}`}).join(' '))};
-      const clear=()=>{selected.splice(0);selectedNodes.splice(0);widget.querySelectorAll('.selected').forEach(node=>node.classList.remove('selected'));if(hidden)hidden.value='';updateLine()};
-      const add=node=>{if(!node||!widget.contains(node))return;const value=node.dataset.patternNode;if(value===undefined||selected.includes(value))return;selected.push(value);selectedNodes.push(node);node.classList.add('selected');if(hidden)hidden.value=selected.join('-');updateLine()};
+      const announce=()=>{if(!status)return;const count=selected.length;status.textContent=count===0?'No points selected':count<4?`${count} selected — choose ${4-count} more`:`${count} points selected — ready`};
+      const resetHelp=()=>{const help=widget.parentElement.querySelector('[data-pattern-help]');if(help?.dataset.defaultMessage)help.textContent=help.dataset.defaultMessage};
+      const clear=(focus=false)=>{selected.splice(0);selectedNodes.splice(0);nodes.forEach(node=>{node.classList.remove('selected');node.setAttribute('aria-pressed','false')});if(hidden)hidden.value='';widget.parentElement.classList.remove('has-error');resetHelp();updateLine();announce();if(focus)nodes[0]?.focus()};
+      const add=node=>{if(!node||!widget.contains(node))return;const value=node.dataset.patternNode;if(value===undefined||selected.includes(value))return;selected.push(value);selectedNodes.push(node);node.classList.add('selected');node.setAttribute('aria-pressed','true');if(hidden)hidden.value=selected.join('-');widget.parentElement.classList.remove('has-error');resetHelp();updateLine();announce();widget.dispatchEvent(new CustomEvent('livenza:pattern-change',{bubbles:true,detail:{count:selected.length}}))};
       const nodeAt=(x,y)=>document.elementFromPoint(x,y)?.closest?.('[data-pattern-node]');
       widget.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse'&&event.button!==0)return;event.preventDefault();clear();drawing=true;moved=false;add(event.target.closest('[data-pattern-node]'));try{widget.setPointerCapture(event.pointerId)}catch(e){}});
       widget.addEventListener('pointermove',event=>{if(!drawing)return;event.preventDefault();moved=true;add(nodeAt(event.clientX,event.clientY))});
       const finish=event=>{if(!drawing)return;drawing=false;try{widget.releasePointerCapture(event.pointerId)}catch(e){};updateLine()};widget.addEventListener('pointerup',finish);widget.addEventListener('pointercancel',finish);
-      widget.querySelectorAll('[data-pattern-node]').forEach(node=>node.addEventListener('click',event=>{if(moved){event.preventDefault();moved=false;return}add(node)}));
-      widget.addEventListener('dblclick',event=>{event.preventDefault();clear()});window.addEventListener('resize',updateLine,{passive:true});updateLine();
+      nodes.forEach((node,index)=>{
+        const row=Math.floor(index/3)+1,column=index%3+1;node.setAttribute('aria-label',node.getAttribute('aria-label')||`Pattern point, row ${row}, column ${column}`);node.setAttribute('aria-pressed','false');node.tabIndex=index===0?0:-1;
+        node.addEventListener('click',event=>{if(moved){event.preventDefault();moved=false;return}add(node)});
+        node.addEventListener('keydown',event=>{
+          const key=event.key;if(key==='Enter'||key===' '){event.preventDefault();add(node);return}
+          let next=index;if(key==='ArrowRight')next=index%3===2?index-2:index+1;else if(key==='ArrowLeft')next=index%3===0?index+2:index-1;else if(key==='ArrowDown')next=(index+3)%9;else if(key==='ArrowUp')next=(index+6)%9;else if(key==='Home')next=0;else if(key==='End')next=8;else return;
+          event.preventDefault();nodes.forEach(item=>item.tabIndex=-1);nodes[next].tabIndex=0;nodes[next].focus();
+        });
+        node.addEventListener('focus',()=>{nodes.forEach(item=>item.tabIndex=item===node?0:-1)});
+      });
+      clearButton?.addEventListener('click',()=>clear(true));
+      window.addEventListener('resize',updateLine,{passive:true});updateLine();announce();
     });
+  }
+  function initPasswordToggles(root=document){
+    root.querySelectorAll?.('[data-password-toggle]').forEach(button=>{
+      if(button.dataset.ready)return;button.dataset.ready='1';const input=button.parentElement?.querySelector('input');if(!input)return;
+      button.addEventListener('click',()=>{const reveal=input.type==='password';input.type=reveal?'text':'password';button.classList.toggle('is-visible',reveal);button.setAttribute('aria-pressed',String(reveal));button.setAttribute('aria-label',`${reveal?'Hide':'Show'} ${input.name==='secret'?'PIN or password':'password'}`);input.focus({preventScroll:true})});
+    });
+  }
+  function setFieldState(input,message,error=true){
+    if(!input)return;const field=input.closest('[data-auth-field]'),feedback=field?.querySelector('.field-feedback');field?.classList.toggle('has-error',error);input.setAttribute('aria-invalid',String(error));if(feedback&&message)feedback.textContent=message;
+  }
+  function showAuthAlert(message){const alert=document.getElementById('loginFormAlert');if(!alert)return;alert.textContent=message||'';alert.hidden=!message}
+  function setFallbackLayer(open,focusMode=''){
+    const layer=document.getElementById('authFallbackLayer'),toggle=document.getElementById('authFallbackToggle');if(!layer||!toggle)return;
+    layer.hidden=!open;layer.classList.toggle('is-open',open);toggle.setAttribute('aria-expanded',String(open));
+    if(open&&focusMode){const target=document.getElementById(focusMode==='pattern'?'patternFallback':'passwordFallback');if(target){target.open=true;window.setTimeout(()=>target.querySelector('summary')?.focus(),60)}}
+  }
+  function setCredentialLoader(active){
+    const loader=document.getElementById('deviceCredentialLoader'),button=document.getElementById('fingerprintLogin');if(loader)loader.hidden=!active;if(button){button.disabled=active;button.classList.toggle('is-checking',active)}
+  }
+  function initInlineAuth(){
+    const form=document.getElementById('loginForm'),username=document.getElementById('loginUsername'),password=document.getElementById('loginPassword'),method=document.getElementById('authMethod');
+    const fallbackToggle=document.getElementById('authFallbackToggle');fallbackToggle?.addEventListener('click',()=>setFallbackLayer(fallbackToggle.getAttribute('aria-expanded')!=='true'));
+    document.querySelectorAll('#authFallbackLayer details').forEach(details=>details.addEventListener('toggle',()=>{if(!details.open)return;if(method)method.value=details.id==='patternFallback'?'pattern':'password';document.querySelectorAll('#authFallbackLayer details').forEach(other=>{if(other!==details)other.open=false})}));
+    username?.addEventListener('input',()=>{if(username.value.trim()){setFieldState(username,'Use the Login ID assigned by your administrator.',false);showAuthAlert('')}});
+    password?.addEventListener('input',()=>{if(password.value){setFieldState(password,'Password is case-sensitive.',false);showAuthAlert('')}});
+    password?.addEventListener('keyup',event=>{if(password.value&&event.getModifierState?.('CapsLock'))setFieldState(password,'Caps Lock is on.',false);else if(password.value&&!password.closest('.has-error'))setFieldState(password,'Password is case-sensitive.',false)});
+    document.addEventListener('livenza:pattern-change',event=>{if(event.target.closest('#patternFallback'))showAuthAlert('')});
+    form?.addEventListener('submit',event=>{
+      const mode=method?.value||'password';let message='';
+      if(!username?.value.trim()){message='Enter your Login ID before choosing a sign-in method.';setFieldState(username,message,true)}
+      else if(mode==='password'&&!password?.value){message='Enter your password to continue.';setFieldState(password,message,true)}
+      else if(mode==='pattern'){const points=(form.querySelector('[data-pattern-value]')?.value||'').split('-').filter(Boolean);if(points.length<4){message=`Choose at least four pattern points${points.length?` — ${points.length} selected`:''}.`;const shell=form.querySelector('.pattern-entry-shell'),help=shell?.querySelector('[data-pattern-help]');shell?.classList.add('has-error');if(help)help.textContent=message}}
+      if(message){event.preventDefault();showAuthAlert(message);if(username?.value.trim()&&(mode==='password'||mode==='pattern'))setFallbackLayer(true,mode);window.setTimeout(()=>(mode==='pattern'?form.querySelector('[data-pattern-node]'):(!username?.value.trim()?username:password))?.focus(),70)}
+    });
+    const kioskForm=document.querySelector('[data-kiosk-unlock-form]');kioskForm?.addEventListener('submit',event=>{const secret=document.getElementById('kioskSecret'),alert=kioskForm.querySelector('[data-kiosk-error]');if(secret?.value)return;event.preventDefault();setFieldState(secret,'Enter your kiosk PIN or account password.',true);if(alert){alert.textContent='Enter your kiosk PIN or account password.';alert.hidden=false}secret?.focus()});
   }
   function setStatus(message,error=false){const el=document.getElementById('webauthnStatus');if(el){el.textContent=message;el.classList.toggle('danger',error)}}
   async function jsonRequest(url,body){const r=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});const d=await r.json().catch(()=>({error:`Request failed (${r.status})`}));if(!r.ok||d.ok===false)throw new Error(d.error||`Request failed (${r.status})`);return d}
   async function fingerprintLogin(){
     if(!window.PublicKeyCredential)throw new Error('Fingerprint/passkeys are not supported by this browser.');
-    const username=document.getElementById('loginUsername')?.value?.trim();if(!username)throw new Error('Enter the Login ID first.');
-    setStatus('Waiting for the device fingerprint/passkey prompt…');const options=await jsonRequest('/api/webauthn/auth/options',{username});
-    options.challenge=fromB64url(options.challenge);(options.allowCredentials||[]).forEach(c=>c.id=fromB64url(c.id));
-    const credential=await navigator.credentials.get({publicKey:options});
-    const payload={id:credential.id,rawId:toB64url(credential.rawId),type:credential.type,response:{clientDataJSON:toB64url(credential.response.clientDataJSON),authenticatorData:toB64url(credential.response.authenticatorData),signature:toB64url(credential.response.signature),userHandle:toB64url(credential.response.userHandle)},clientExtensionResults:credential.getClientExtensionResults()};
-    const verified=await jsonRequest('/api/webauthn/auth/verify',payload);setStatus('Verified. Opening Livenza…');location.assign(verified.redirect||'/');
+    const usernameInput=document.getElementById('loginUsername'),username=usernameInput?.value?.trim();if(!username){const message='Enter your Login ID before checking this device.';setFieldState(usernameInput,message,true);showAuthAlert(message);usernameInput?.focus();throw new Error(message)}
+    setCredentialLoader(true);setStatus('Checking this device for a secure credential…');
+    try{
+      const options=await jsonRequest('/api/webauthn/auth/options',{username});options.challenge=fromB64url(options.challenge);(options.allowCredentials||[]).forEach(c=>c.id=fromB64url(c.id));
+      setStatus('Waiting for the native identity prompt…');const credential=await navigator.credentials.get({publicKey:options});
+      const payload={id:credential.id,rawId:toB64url(credential.rawId),type:credential.type,response:{clientDataJSON:toB64url(credential.response.clientDataJSON),authenticatorData:toB64url(credential.response.authenticatorData),signature:toB64url(credential.response.signature),userHandle:toB64url(credential.response.userHandle)},clientExtensionResults:credential.getClientExtensionResults()};
+      const verified=await jsonRequest('/api/webauthn/auth/verify',payload);setStatus('Verified. Opening Livenza…');setCredentialLoader(false);location.assign(verified.redirect||'/');
+    }catch(error){setCredentialLoader(false);throw error}
   }
   async function enrollPasskey(button){
     if(!window.PublicKeyCredential)throw new Error('Fingerprint/passkeys are not supported by this browser.');
@@ -451,11 +514,11 @@ initPageFeatures(document);
     const mode=tab.dataset.authTab;document.querySelectorAll('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===tab));document.querySelectorAll('[data-auth-panel]').forEach(x=>x.hidden=x.dataset.authPanel!==mode);const method=document.getElementById('authMethod');if(method)method.value=mode;const submit=document.getElementById('normalLoginButton');if(submit)submit.hidden=mode==='fingerprint';
   }));
   document.getElementById('fingerprintLogin')?.addEventListener('click',async()=>{try{await fingerprintLogin()}catch(e){setStatus(e.message||'Fingerprint login failed.',true)}});
-  document.querySelectorAll('[data-submit-auth]').forEach(button=>button.addEventListener('click',()=>{const method=document.getElementById('authMethod');if(method)method.value=button.dataset.submitAuth||'password'}));
+  document.querySelectorAll('[data-submit-auth]').forEach(button=>button.addEventListener('click',()=>{const method=document.getElementById('authMethod');if(method)method.value=button.dataset.submitAuth||'password';showAuthAlert('')}));
   document.getElementById('loginForm')?.addEventListener('submit',async e=>{if(document.getElementById('authMethod')?.value==='fingerprint'){e.preventDefault();try{await fingerprintLogin()}catch(err){setStatus(err.message||'Fingerprint login failed.',true)}}});
   document.addEventListener('click',async e=>{const btn=e.target.closest('[data-enroll-passkey]');if(!btn)return;e.preventDefault();try{await enrollPasskey(btn)}catch(err){setStatus(err.message||'Enrollment failed.',true)}});
-  if(!window.PublicKeyCredential){const fallback=document.getElementById('passwordFallback');if(fallback)fallback.open=true;setStatus('This browser does not support device passkeys. Use your password or gesture pattern.',true)}
-  initPatternWidgets(document);window.addEventListener('livenza:page-ready',e=>initPatternWidgets(e.detail?.root||document));
+  if(!window.PublicKeyCredential){const method=document.getElementById('authMethod');if(method)method.value='password';setFallbackLayer(true,'password');setStatus('This browser does not support device passkeys. Use your password or gesture pattern.',true)}
+  initPatternWidgets(document);initPasswordToggles(document);initInlineAuth();window.addEventListener('livenza:page-ready',e=>{initPatternWidgets(e.detail?.root||document);initPasswordToggles(e.detail?.root||document)});
 })();
 
 // ===== Web 1.4.6 • professional motion + fullscreen-safe navigation =====
@@ -584,26 +647,20 @@ initPageFeatures(document);
 
   // Click/touch ripple for a more tactile but still professional feel.
   document.addEventListener('pointerdown',e=>{
-    const target=e.target.closest('button,.btn,.module-card,.nav-dropdown-menu>a,.assistant-launcher');if(!target||reduce)return;
+    const target=e.target.closest('button,.btn,.module-card,.nav-dropdown-menu>a');if(!target||reduce)return;
     const r=target.getBoundingClientRect(),dot=document.createElement('i');dot.className='touch-ripple';dot.style.left=`${e.clientX-r.left}px`;dot.style.top=`${e.clientY-r.top}px`;target.appendChild(dot);setTimeout(()=>dot.remove(),650);
   },{passive:true});
 
-  // Footer-adjacent feature assistant.
-  const launcher=document.getElementById('assistantLauncher'),panel=document.getElementById('assistantPanel'),close=document.getElementById('assistantClose'),form=document.getElementById('assistantForm'),input=document.getElementById('assistantInput'),messages=document.getElementById('assistantMessages');
-  function setAssistant(open,restoreFocus=false){
-    if(!panel||!launcher)return;
-    panel.hidden=!open;panel.setAttribute('aria-hidden',String(!open));launcher.setAttribute('aria-expanded',String(open));panel.classList.toggle('open',open);
-    if(open)setTimeout(()=>input?.focus(),60);else if(restoreFocus)launcher.focus();
-  }
+  // The mascot now owns the help conversation; there is no second launcher.
+  const form=document.getElementById('assistantForm'),input=document.getElementById('assistantInput'),messages=document.getElementById('assistantMessages');
   function addMessage(text,who='bot'){
     if(!messages)return;const div=document.createElement('div');div.className=`assistant-message ${who}`;div.textContent=text;messages.appendChild(div);messages.scrollTop=messages.scrollHeight;
   }
   async function askAssistant(text){
-    text=(text||'').trim();if(!text)return;setAssistant(true);addMessage(text,'user');if(input)input.value='';const thinking=document.createElement('div');thinking.className='assistant-message bot thinking';thinking.textContent='Thinking…';messages?.appendChild(thinking);messages.scrollTop=messages.scrollHeight;
+    text=(text||'').trim();if(!text)return;window.LivenzaCompanion?.open?.('chat');addMessage(text,'user');if(input)input.value='';const thinking=document.createElement('div');thinking.className='assistant-message bot thinking';thinking.textContent='Thinking…';messages?.appendChild(thinking);messages.scrollTop=messages.scrollHeight;
     try{const r=await fetch('/api/help',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({message:text})});const d=await r.json();thinking.remove();addMessage(d.answer||d.error||'I could not answer that right now.','bot')}catch(e){thinking.remove();addMessage('I could not reach the help service. Please try again.','bot')}
   }
-  launcher?.addEventListener('click',()=>setAssistant(panel?.hidden));close?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();setAssistant(false,true)});form?.addEventListener('submit',e=>{e.preventDefault();askAssistant(input?.value)});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel&&!panel.hidden){e.preventDefault();setAssistant(false,true)}});
+  form?.addEventListener('submit',e=>{e.preventDefault();askAssistant(input?.value)});
   document.addEventListener('click',e=>{const b=e.target.closest('[data-help-prompt]');if(b)askAssistant(b.dataset.helpPrompt)});
 
   // Authenticated partner portals often refuse third-party iframe embedding.
@@ -723,6 +780,8 @@ initPageFeatures(document);
   const weatherScene=document.getElementById('livenzaWeatherScene');
   const replay=document.getElementById('companionReplayWeather');
   const nextQuote=document.getElementById('companionNextQuote');
+  const modeTabs=[...panel.querySelectorAll('[data-companion-tab]')];
+  const modeViews=[...panel.querySelectorAll('[data-companion-view]')];
   const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const mobilePerformance=livenzaMobilePerformance();
   let currentCity=companion.dataset.defaultCity||'Gurugram';
@@ -737,6 +796,15 @@ initPageFeatures(document);
     panel.hidden=!open;panel.setAttribute('aria-hidden',String(!open));panel.classList.toggle('open',open);button.setAttribute('aria-expanded',String(open));companion.classList.toggle('panel-open',open);
     if(open){nudge?.classList.remove('show');companion.classList.remove('scroll-collapsed')}else{if(restoreFocus)button.focus();syncCompanionCollapse()}
   }
+  function showMode(mode='live',focus=false){
+    const chosen=mode==='chat'?'chat':'live';
+    modeTabs.forEach(tab=>{const active=tab.dataset.companionTab===chosen;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1});
+    modeViews.forEach(view=>{const active=view.dataset.companionView===chosen;view.hidden=!active;view.classList.toggle('active',active)});
+    panel.dataset.mode=chosen;if(focus&&chosen==='chat')window.setTimeout(()=>document.getElementById('assistantInput')?.focus(),70);
+  }
+  modeTabs.forEach(tab=>tab.addEventListener('click',()=>showMode(tab.dataset.companionTab,true)));
+  window.LivenzaCompanion={open:(mode='live')=>{setPanel(true);showMode(mode,mode==='chat')},close:()=>setPanel(false,true),showMode};
+  showMode('live');
   let scrollFrame=0;
   function syncCompanionCollapse(){companion.classList.toggle('scroll-collapsed',window.scrollY>140&&Boolean(panel?.hidden))}
   window.addEventListener('scroll',()=>{if(scrollFrame)return;scrollFrame=requestAnimationFrame(()=>{scrollFrame=0;syncCompanionCollapse()})},{passive:true});syncCompanionCollapse();

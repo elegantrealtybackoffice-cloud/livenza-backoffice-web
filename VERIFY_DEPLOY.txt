@@ -1,7 +1,11 @@
-LIVENZA WEB 1.5.8 — DEPLOYMENT VERIFICATION
+LIVENZA WEB 1.5.10 — DEPLOYMENT VERIFICATION
 
-1. Confirm `/version` returns `Web 1.5.8` and includes resumable-video-wall-upload, agreement-wizard and editable-query-sheet.
-2. Confirm `/health` returns HTTP 200 and the response header `X-Livenza-Build` is `Web 1.5.8`.
+1. Confirm `/version` returns `Web 1.5.10` and includes progressive-device-auth, credential-skeleton-loader, password-visibility-toggle, keyboard-pattern-navigation and absolute-legal-strip.
+2. Confirm `/health` returns HTTP 200 and the response header `X-Livenza-Build` is `Web 1.5.10`.
+3. Confirm Login ID and Continue with Device Security are the only initial controls; fallback fields remain hidden until Try another sign-in method is activated.
+4. Check the device-security skeleton, password eye toggle, inline empty/mismatch states and Caps Lock feedback.
+5. Navigate the gesture grid with Arrow/Home/End, select with Enter/Space, verify the live count, and clear it with the visible Clear Grid button. Confirm double-tap no longer clears.
+6. Check the muted absolute legal strip and input/selector hover, focus and pressed states on desktop and mobile.
 3. Upload a clear Aadhaar JPG/PDF in Agreement Studio. Verify extracted fields or an exact OCR dependency/image-quality diagnostic is shown.
 4. Upload an MP4 in Video Wall Studio. Verify resumable progress reaches 100% and the media appears under Available Media.
 5. Save/apply one landlord and tenant profile. Run `migrations/web_v1_5_8.sql` first if the table cannot be created automatically.
