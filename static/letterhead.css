@@ -19,3 +19,18 @@ html.tv-performance .letterhead-paper,html.low-gpu-mode .letterhead-paper{box-sh
 /* Issued-document paper intentionally stays print-white. */
 .letterhead-shell :is(.letterhead-paper,.letterhead-review-paper){background:#fff!important;color:#172033!important}.letterhead-shell :is(.letterhead-paper,.letterhead-review-paper) :is(h1,h2,h3,h4,p,b,strong,small,label,span,dd,dt){color:inherit!important}
 @media(max-width:760px){.letterhead-vault-row{min-width:620px}.letterhead-shell .letterhead-status-grid{grid-template-columns:1fr!important}}
+
+/* Web 1.9.0 Light Aqua Liquid Glass feature final contract. */
+.letterhead-shell{color:#fff!important;text-shadow:var(--lg-text-shadow,0 1px 2px rgba(8,61,94,.46))}
+.letterhead-shell :is(.letterhead-card,.letterhead-template-card,.letterhead-preview-card,.letterhead-list,.letterhead-review-banner,.letterhead-vault,.letterhead-integration-readiness,.letterhead-history-grid>div,.letterhead-readiness-item){
+  background:linear-gradient(145deg,rgba(255,255,255,.18),rgba(255,255,255,.06)),rgba(83,181,226,.13)!important;
+  border-color:rgba(255,255,255,.58)!important;color:#fff!important;
+  box-shadow:0 15px 34px rgba(55,126,161,.12),inset 0 1px 0 rgba(255,255,255,.58)!important;
+  height:auto!important;max-height:none!important;min-width:0!important;overflow:visible!important;
+}
+.letterhead-shell :is(h1,h2,h3,h4,b,strong,label,dt,p,small,.form-note,dd){color:#fff!important;text-shadow:var(--lg-text-shadow,0 1px 2px rgba(8,61,94,.46))!important;white-space:normal!important;overflow-wrap:anywhere!important}
+.letterhead-shell :is(input,textarea,select){background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(66,165,215,.11))!important;border-color:rgba(255,255,255,.52)!important;color:#fff!important;text-shadow:var(--lg-text-shadow,0 1px 2px rgba(8,61,94,.46))!important}
+.letterhead-shell .letterhead-block,.letterhead-shell .letterhead-save-state{background:rgba(255,255,255,.15)!important;border-color:rgba(255,255,255,.5)!important;color:#fff!important}
+.letterhead-shell .letterhead-list a:hover,.letterhead-shell .letterhead-vault-row:hover{background:rgba(255,255,255,.15)!important}
+.letterhead-vault-row small{color:rgba(255,255,255,.82)!important}
+.letterhead-shell :is(.letterhead-paper,.letterhead-review-paper),.letterhead-shell :is(.letterhead-paper,.letterhead-review-paper) *{color:#172033!important;text-shadow:none!important}

@@ -7,3 +7,16 @@
 .integration-provider-row{color:var(--lg-text,#f8fbff)!important}.integration-provider-row small,.connection-card small,.integration-stream p,.portal-card small{color:var(--lg-text-muted,rgba(230,239,255,.72))!important}.integration-provider-row:hover,.integration-provider-row.active,.portal-card:hover{background:rgba(255,255,255,.11)!important}
 .integration-workspace :is(input,select,textarea){background:rgba(4,15,38,.5)!important;border:1px solid rgba(255,255,255,.15)!important;color:#fff!important;border-radius:14px!important}.integration-admin-card{border-top-color:rgba(255,255,255,.14)!important}.status-badge{background:rgba(255,255,255,.10)!important;color:#fff!important;border:1px solid rgba(255,255,255,.13)!important}
 .provider-embed iframe{background:#fff!important;border-color:rgba(255,255,255,.16)!important}
+
+/* Web 1.9.0 Light Aqua Liquid Glass feature final contract. */
+.integrations-hero,.integrations-layout,.integration-workflow{color:#fff!important;text-shadow:var(--lg-text-shadow,0 1px 2px rgba(8,61,94,.46))}
+.integration-provider-list,.integration-workspace,.connection-card,.integration-stream article,.portal-card,.integration-admin-card,.integration-empty{
+  background:linear-gradient(145deg,rgba(255,255,255,.18),rgba(255,255,255,.06)),rgba(83,181,226,.13)!important;
+  border-color:rgba(255,255,255,.58)!important;color:#fff!important;
+  box-shadow:0 15px 34px rgba(55,126,161,.12),inset 0 1px 0 rgba(255,255,255,.58)!important;
+  min-width:0!important;height:auto!important;max-height:none!important;
+}
+.integration-provider-row,.integration-provider-row small,.connection-card small,.integration-stream p,.portal-card small{color:#fff!important;text-shadow:var(--lg-text-shadow,0 1px 2px rgba(8,61,94,.46))!important;white-space:normal!important;overflow-wrap:anywhere!important}
+.integration-provider-row:hover,.integration-provider-row.active,.portal-card:hover{background:rgba(255,255,255,.16)!important}
+.integration-workspace :is(input,select,textarea){background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(66,165,215,.11))!important;border-color:rgba(255,255,255,.52)!important;color:#fff!important;text-shadow:var(--lg-text-shadow,0 1px 2px rgba(8,61,94,.46))!important}
+.status-badge{background:rgba(255,255,255,.14)!important;color:#fff!important;border-color:rgba(255,255,255,.5)!important}

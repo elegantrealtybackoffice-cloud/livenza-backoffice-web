@@ -341,3 +341,5 @@ The app derives the Supabase project reference from `DATABASE_URL`. External/CDN
 ## TV setup
 
 Open Video Wall Studio, register a screen, copy its unique Player URL, and open that URL in the smart-TV browser, signage mini-PC, Fire TV browser, or attached computer. Keep the page open. Media changes and festive takeover commands are picked up automatically.
+### Web 1.9.0 Light Aqua Liquid Glass maintenance
+The current v1.9.0 UI maintenance layer uses a high-key aqua background, highly translucent glass surfaces, compact system typography and a full-site text-containment audit while preserving the persistent animated/live-updating blue mascot and all Letterhead Studio workflows. Printable paper surfaces remain intentionally white with dark text.

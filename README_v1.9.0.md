@@ -94,3 +94,13 @@ After deployment, `/version` should report:
 **Web 1.9.0**
 
 The response should include Letterhead Studio feature flags such as `letterhead-studio`, `mandatory-final-review`, `immutable-letterhead-pdf`, and `letterhead-document-vault`.
+
+## Light Aqua Liquid Glass Refinement
+
+The Web 1.9.0 maintenance UI now uses a light aqua, high-transparency Liquid Glass presentation across the authenticated workspace. The original Livenza wallpaper is washed into a high-key sky/aqua composition so the background remains visible through translucent cards, tabs, drawers, forms and controls while white interface text retains contrast through local glass tint and subtle text shadow.
+
+Typography is intentionally more compact: page titles are capped at 40px, section/card/body/meta sizes use bounded responsive scales, and text-bearing containers grow with content instead of clipping. The repository-wide text audit covers all 52 Jinja templates plus the Integrations and Letterhead feature stylesheets. Dense tables and tab rails use local scrolling rather than page overflow.
+
+Legacy module-specific opaque styling for Food Hub tabs, portal tabs, query-sheet cells, agreement accordions, mascot settings, popover menus and integration cards is superseded by the same final Light Aqua Liquid Glass contract. Printable agreement/document paper remains dark text on white.
+
+The persistent blue mascot, live operational/weather updates, Ask Livenza panel and marquee motion remain part of the shared authenticated shell. Performance profiles reduce blur cost without reverting the site to dark opaque surfaces or freezing the mascot/marquee.

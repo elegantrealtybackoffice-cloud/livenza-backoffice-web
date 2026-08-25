@@ -1,0 +1,18 @@
+Livenza Web 1.9.0 — Light Aqua Liquid Glass Maintenance
+
+Use this update only on an existing genuine Web 1.9.0 installation.
+Preserve the directory structure when uploading files.
+No database migration is required for this UI maintenance update.
+
+Key UI changes:
+- Light aqua/high-key original Livenza wallpaper treatment.
+- Highly translucent white/blue Liquid Glass tabs, cards, drawers and controls.
+- White interface text with local contrast treatment.
+- Compact typography and site-wide text containment fixes.
+- Persistent animated blue mascot and live updates preserved.
+- Mobile, desktop, iMac and 5K responsive contracts preserved.
+
+After upload:
+1. Restart/redeploy the web service.
+2. Hard-refresh browser assets if a previous CSS bundle is cached.
+3. Confirm /version still reports Web 1.9.0.
