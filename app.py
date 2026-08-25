@@ -11,13 +11,19 @@ from sqlalchemy import func, or_, inspect
 from dateutil.relativedelta import relativedelta
 import requests
 import qrcode
-from PIL import Image as PILImage, ImageOps, ImageEnhance
+from PIL import Image as PILImage, ImageOps, ImageEnhance, ImageFilter, ImageStat
 from zoneinfo import ZoneInfo
+
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except Exception:
+    pillow_heif=None
 
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.5.13'
+APP_VERSION = 'Web 1.5.14'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -861,7 +867,7 @@ def share_serializer():
 
 def _upload_image_bytes(file_storage, max_bytes=12*1024*1024):
     if not file_storage or not getattr(file_storage, 'filename', ''):
-        return b'', 'Choose a JPG, PNG or WebP profile photo.'
+        return b'', 'Choose a JPG, PNG, WebP or HEIC/HEIF profile photo.'
     try:
         file_storage.stream.seek(0)
         raw=file_storage.stream.read(max_bytes+1)
@@ -875,13 +881,47 @@ def _upload_image_bytes(file_storage, max_bytes=12*1024*1024):
     try:
         probe=PILImage.open(io.BytesIO(raw)); probe.verify()
     except Exception:
-        return b'', 'Use a valid JPG, PNG or WebP profile photo.'
+        return b'', 'Use a valid JPG, PNG, WebP or HEIC/HEIF profile photo.'
     return raw, ''
 
-def _portrait_image(raw, size=768):
+def _open_avatar_source(raw, max_side=1800):
     image=ImageOps.exif_transpose(PILImage.open(io.BytesIO(raw))).convert('RGB')
-    # Keep the face slightly above center so both portraits and selfies crop well.
-    return ImageOps.fit(image,(size,size),method=PILImage.Resampling.LANCZOS,centering=(.5,.36))
+    image.thumbnail((max_side,max_side),PILImage.Resampling.LANCZOS)
+    # Gentle adaptive recovery helps low-light, soft and phone-camera images without overprocessing identity.
+    try:
+        luminance=float(ImageStat.Stat(ImageOps.grayscale(image)).mean[0])
+        if luminance < 72: image=ImageEnhance.Brightness(image).enhance(1.28)
+        elif luminance < 105: image=ImageEnhance.Brightness(image).enhance(1.12)
+        image=ImageEnhance.Contrast(image).enhance(1.045)
+        image=ImageEnhance.Sharpness(image).enhance(1.10)
+    except Exception:
+        pass
+    return image
+
+def _preserved_square(image, size=768):
+    # Preserve the whole source first instead of forcing a centred face crop.
+    bg=ImageOps.fit(image,(size,size),method=PILImage.Resampling.LANCZOS,centering=(.5,.5)).filter(ImageFilter.GaussianBlur(max(8,size//28)))
+    bg=ImageEnhance.Brightness(bg).enhance(.90)
+    fg=ImageOps.contain(image,(int(size*.90),int(size*.90)),method=PILImage.Resampling.LANCZOS)
+    x=(size-fg.width)//2; y=(size-fg.height)//2
+    bg.paste(fg,(x,y))
+    return bg
+
+def _portrait_image(raw, size=768):
+    image=_open_avatar_source(raw,max_side=max(1600,size*2))
+    return _preserved_square(image,size)
+
+def _avatar_reference_board(raw, size=1024):
+    image=_open_avatar_source(raw,max_side=2200)
+    canvas=PILImage.new('RGB',(size,size),(239,246,251))
+    gutter=max(8,size//96); left=int(size*.66); right=size-left-gutter
+    main=_preserved_square(image,left)
+    canvas.paste(main,(0,(size-left)//2))
+    slot_h=(size-gutter*2)//3
+    for i,cx in enumerate((.30,.50,.70)):
+        crop=ImageOps.fit(image,(right,slot_h),method=PILImage.Resampling.LANCZOS,centering=(cx,.42))
+        canvas.paste(crop,(left+gutter,i*(slot_h+gutter)))
+    return canvas
 
 def _jpeg_data_uri(image, max_size=768, quality=88):
     image=image.convert('RGB')
@@ -931,22 +971,24 @@ def _ai_avatar_data_uri(raw):
         return '', 'AI image service is not configured.'
     try:
         from openai import OpenAI
-        source=_portrait_image(raw,1024)
+        source=_avatar_reference_board(raw,1024)
         source_buf=io.BytesIO(); source.save(source_buf,format='PNG',optimize=True); source_buf.seek(0)
-        source_buf.name='livenza-profile.png'
+        source_buf.name='livenza-avatar-reference-board.png'
         result=OpenAI(api_key=key).images.edit(
             model=os.getenv('OPENAI_AVATAR_MODEL','gpt-image-2'),
             image=source_buf,
             prompt=(
-                'Create a clean, premium live assistant avatar from this exact person. Preserve identity, facial geometry, '
-                'skin tone, hairstyle, eyewear and age faithfully. Compose a friendly head-and-shoulders professional '
-                '3D editorial portrait, sophisticated rather than cartoonish, with a soft white and ice-blue studio '
-                'background and a restrained Livenza blue accent in the clothing. Soft natural light, refined materials, '
-                'confident welcoming expression, centered square composition. No text, no logo, no border, no extra '
-                'people, no exaggerated features and no childish robot styling.'
+                'Create a clean, premium live assistant avatar of the same person shown across this reference board. The source may be '
+                'a side profile, three-quarter angle, candid, full-body, off-centre, low-light, slightly soft, partially obstructed or '
+                'not front-facing. Use all visible references together to recover identity conservatively. Preserve facial geometry, '
+                'skin tone, hairstyle, eyewear, age and distinctive visible traits faithfully; never invent a distinctive feature that '
+                'is not supported by the source. Recompose only the framing into a friendly head-and-shoulders professional 3D editorial '
+                'portrait, sophisticated rather than cartoonish, with a soft white and ice-blue studio background and restrained Livenza '
+                'blue accent in the clothing. Soft natural light, refined materials, confident welcoming expression, centered square '
+                'composition. No text, no logo, no border, no extra people, no exaggerated features and no childish robot styling.'
             ),
             size='1024x1024',
-            quality=os.getenv('OPENAI_AVATAR_QUALITY','medium'),
+            quality=os.getenv('OPENAI_AVATAR_QUALITY','high'),
         )
         item=(getattr(result,'data',None) or [None])[0]
         encoded=getattr(item,'b64_json',None) if item else None
@@ -1628,7 +1670,7 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture'])
 
 def version_v1513():
     return jsonify(version=APP_VERSION,features=[
@@ -1734,7 +1776,7 @@ def account_avatar():
     elif request.form.get('regenerate_avatar')=='1' and u.photo_data_uri:
         raw=_data_uri_bytes(u.photo_data_uri); error='' if raw else 'Upload the profile photo again to regenerate the avatar.'
     else:
-        raw,error=b'','Choose a clear front-facing profile photo.'
+        raw,error=b'','Choose a profile photo or capture one with the camera.'
     if error:
         if wants_json: return jsonify(ok=False,error=error),400
         flash(error,'danger'); return redirect(url_for('account'))
@@ -1872,7 +1914,7 @@ def _agreement_aadhaar_extract_payload(upload):
             ai_error='AI enhancement could not complete.'
     if not any(data.get(k) for k in ('tenant_name','tenant_dob','tenant_address','tenant_id_no')):
         if local_error and not os.getenv('OPENAI_API_KEY','').strip():
-            message='The secure OCR reader is not ready on this deployment. Redeploy Web 1.5.13 with its updated system and Python dependencies, then try again.'
+            message='The secure OCR reader is not ready on this deployment. Redeploy Web 1.5.14 with its updated system and Python dependencies, then try again.'
         else:
             message='No reliable Aadhaar fields were detected. Use a clear, straight photo in good light or a PDF containing both sides, then try again.'
         return {'ok':False,'error':message,'reader_status':local_error or 'No readable identity fields detected.'},422

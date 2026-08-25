@@ -15,3 +15,5 @@ rapidocr>=3.9.2,<4
 onnxruntime>=1.23,<2
 cryptography>=44,<48
 webauthn>=2.2,<3
+
+pillow-heif>=0.18,<2

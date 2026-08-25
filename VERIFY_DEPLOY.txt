@@ -1,17 +1,13 @@
-LIVENZA WEB 1.5.13 — DEPLOYMENT VERIFICATION
+LIVENZA WEB 1.5.14 — DEPLOYMENT VERIFICATION
 
-1. Confirm /version returns Web 1.5.13 and includes progressive-login-disclosure, numeric-keypad-pattern, realtime-pattern-progress and header-display-dropdown.
-2. Confirm /health returns HTTP 200 and X-Livenza-Build is Web 1.5.13.
-3. Run migrations/web_v1_5_12.sql on managed PostgreSQL/Supabase.
-4. Open Login and confirm only Login ID and Verify Device appear initially; password and gesture controls must be hidden.
-5. Confirm Verify Device invokes the native credential prompt and biometric failure opens the Password fallback without a page reload.
-6. Open Try another sign-in method and confirm Password and Gesture/Keypad are separate accessible tabs.
-7. Confirm Password Login shows the Biometric-free option badge, visibility toggle and field-specific inline errors.
-8. On desktop, type four different number keys in the 3×3 keypad. Confirm live progress turns green, Backspace removes the last number and Delete clears the sequence.
-9. On mobile, drag across four gesture nodes and confirm the same live progress feedback. Confirm Clear Pattern works without double tapping.
-10. Confirm the legal/company disclosure is outside the login card in the low-contrast utility footer.
-11. Confirm the Display icon is beside the three-line Applications button on desktop and mobile, and its dropdown contains only Rotation Lock, Horizontal and Vertical.
-12. Confirm the old floating Home orientation controls are absent and all three header choices remain responsive after reload.
-13. Recheck Aadhaar extraction, Video Wall MP4 upload, agreement party profiles, personal avatar, mascot, and Query Sheet save/import.
+1. Confirm /version returns Web 1.5.14 and X-Livenza-Build is Web 1.5.14.
+2. Confirm the dedicated Full Screen icon appears beside the Display control and toggles native fullscreen (or theatre fallback).
+3. While fullscreen is active, switch between normal internal Livenza modules and confirm the workspace remains fullscreen through in-place navigation.
+4. Confirm the sitewide background is the Livenza 360° lifestyle scene, including fullscreen/kiosk surfaces, with no hotel-room background remaining.
+5. Open My Account > Avatar Studio and verify JPG, PNG, WebP and HEIC/HEIF input is offered.
+6. Test an angled or candid source image and confirm avatar generation completes without requiring a centred front-facing crop.
+7. Test Take Selfie / Camera on HTTPS desktop and a mobile camera picker; only the captured still should enter the upload flow.
+8. Confirm the AI avatar request defaults to high quality and the polished local fallback still works if the AI image service is unavailable.
+9. Recheck Login progressive disclosure, Display rotation lock, Aadhaar extraction, Video Wall, Billing/Rentok, Query Sheet and integrations.
 
-Deploy through the supplied Docker configuration so Tesseract OCR remains available. Keep INTEGRATION_ENCRYPTION_KEY stable.
+No new database migration is required beyond migrations already shipped with Web 1.5.13.

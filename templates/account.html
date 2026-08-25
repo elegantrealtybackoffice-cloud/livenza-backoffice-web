@@ -16,11 +16,13 @@
   <div class="avatar-studio-copy">
     <p class="eyebrow">LIVENZA AVATAR STUDIO</p>
     <h2 id="avatarStudioTitle">Make the mascot look like you</h2>
-    <p>Upload one clear front-facing photo. Livenza creates a refined professional avatar, applies it immediately, and keeps the original robot as a one-click fallback.</p>
+    <p>Use almost any photo you already have — front-facing, angled, side-profile, candid, full-body, off-centre or slightly unclear. Livenza builds multiple identity references before creating the refined avatar, then applies it immediately across the workspace.</p>
     <div class="avatar-trust-row"><span>✓ Identity-preserving</span><span>✓ Clean professional style</span><span>✓ Mobile-safe</span></div>
     <form id="avatarForm" method="post" action="{{url_for('account_avatar')}}" enctype="multipart/form-data" class="avatar-upload-form">
       <input type="hidden" name="use_ai_avatar" value="1">
-      <label class="avatar-file-control" for="avatarPhotoInput"><span>Choose profile photo</span><small>JPG, PNG or WebP · maximum 12 MB</small><input id="avatarPhotoInput" type="file" name="avatar_photo" accept="image/jpeg,image/png,image/webp" required></label>
+      <label class="avatar-file-control" for="avatarPhotoInput"><span>Choose profile photo</span><small>JPG, PNG, WebP or HEIC/HEIF · maximum 12 MB</small><input id="avatarPhotoInput" type="file" name="avatar_photo" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" required></label>
+      <div class="avatar-source-actions"><button id="avatarCameraButton" class="secondary" type="button">Take Selfie / Camera</button><input id="avatarCameraFallback" type="file" accept="image/*" capture="user" hidden></div>
+      <div id="avatarCameraPanel" class="avatar-camera-panel" hidden><video id="avatarCameraVideo" autoplay muted playsinline></video><canvas id="avatarCameraCanvas" hidden></canvas><div><button id="avatarCaptureButton" class="primary" type="button">Capture Photo</button><button id="avatarCameraClose" class="secondary" type="button">Close Camera</button></div><small>Live camera stays on this device. Only the captured still is used for avatar creation.</small></div>
       <button id="avatarGenerateButton" type="submit" class="primary">Create My Live Avatar</button>
       <div id="avatarGenerationStatus" class="avatar-generation-status" role="status" aria-live="polite" hidden><span class="avatar-loader" aria-hidden="true"></span><div><b>Creating your polished avatar…</b><small>Preserving your identity and applying the Livenza visual finish.</small></div></div>
       <p class="avatar-privacy-note">Your photo is used only for your profile and avatar. When the configured AI image service is available, the photo is securely processed to create the styled portrait.</p>

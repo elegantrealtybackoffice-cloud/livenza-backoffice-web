@@ -55,7 +55,7 @@ async function handleAadhaarExtract(btn){
   try{
     const fd=new FormData();fd.append('aadhaar_file',file);const r=await fetch('/agreements/aadhaar-extract',{method:'POST',body:fd,credentials:'same-origin',signal:controller.signal});
     const contentType=(r.headers.get('content-type')||'').toLowerCase();
-    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.5.13 and retry.`);
+    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.5.14 and retry.`);
     const d=await r.json();
     if(!r.ok||!d.ok)throw new Error([d.error,d.reader_status].filter(Boolean).join(' Reader status: '));
     const fields=d.fields||{};let filled=0;['tenant_name','tenant_father','tenant_dob','tenant_address','tenant_id_type','tenant_id_no'].forEach(k=>{if(fillAgreementField(k,fields[k]))filled++});
@@ -214,7 +214,7 @@ initPageFeatures(document);
 
   function updateFullscreenButton(){
     const active=isFullscreen();
-    if(fsBtn){const label=fsBtn.querySelector('.tool-label');if(label)label.textContent=active?'Exit Full Screen':'Full Screen';fsBtn.classList.toggle('active',active);fsBtn.setAttribute('aria-pressed',String(active))}
+    document.querySelectorAll('[data-fullscreen-toggle],#fullscreenToggle').forEach(button=>{const label=button.querySelector('.tool-label');if(label)label.textContent=active?'Exit Full Screen':'Full Screen';button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));button.setAttribute('aria-label',active?'Exit full screen':'Enter full screen');button.title=active?'Exit Full Screen':'Full Screen'})
     root.classList.toggle('fullscreen-stable',active);document.body.classList.toggle('fullscreen-stable',active);
   }
 
@@ -371,7 +371,7 @@ initPageFeatures(document);
   };
 })();
 
-// ===== Web 1.5.13 • personal live-avatar studio =====
+// ===== Web 1.5.14 • adaptive avatar studio + camera capture =====
 (()=>{
   const form=document.getElementById('avatarForm');
   if(!form)return;
@@ -380,7 +380,15 @@ initPageFeatures(document);
   const status=document.getElementById('avatarGenerationStatus');
   const shell=document.getElementById('avatarPreviewShell');
   const modeLabel=document.getElementById('avatarModeLabel');
-  let busy=false,previewUrl='';
+  const cameraButton=document.getElementById('avatarCameraButton'),cameraPanel=document.getElementById('avatarCameraPanel'),cameraVideo=document.getElementById('avatarCameraVideo'),cameraCanvas=document.getElementById('avatarCameraCanvas'),captureButton=document.getElementById('avatarCaptureButton'),cameraClose=document.getElementById('avatarCameraClose'),cameraFallback=document.getElementById('avatarCameraFallback');
+  let busy=false,previewUrl='',cameraStream=null;
+
+  function assignAvatarFile(file){if(!file)return;const dt=new DataTransfer();dt.items.add(file);input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}))}
+  function stopCamera(){cameraStream?.getTracks?.().forEach(track=>track.stop());cameraStream=null;if(cameraVideo)cameraVideo.srcObject=null;if(cameraPanel)cameraPanel.hidden=true}
+  cameraButton?.addEventListener('click',async()=>{try{if(!navigator.mediaDevices?.getUserMedia)throw new Error('camera-picker');cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:1280}},audio:false});cameraVideo.srcObject=cameraStream;cameraPanel.hidden=false;await cameraVideo.play()}catch(error){stopCamera();cameraFallback?.click()}});
+  cameraClose?.addEventListener('click',stopCamera);
+  cameraFallback?.addEventListener('change',()=>assignAvatarFile(cameraFallback.files?.[0]));
+  captureButton?.addEventListener('click',()=>{if(!cameraVideo?.videoWidth||!cameraCanvas)return;const side=Math.min(cameraVideo.videoWidth,cameraVideo.videoHeight),sx=(cameraVideo.videoWidth-side)/2,sy=(cameraVideo.videoHeight-side)/2;cameraCanvas.width=1024;cameraCanvas.height=1024;cameraCanvas.getContext('2d').drawImage(cameraVideo,sx,sy,side,side,0,0,1024,1024);cameraCanvas.toBlob(blob=>{if(blob){assignAvatarFile(new File([blob],`livenza-selfie-${Date.now()}.jpg`,{type:'image/jpeg'}));stopCamera()}},'image/jpeg',.92)});
 
   function setPreview(source){
     let image=document.getElementById('avatarPreview');
@@ -404,8 +412,8 @@ initPageFeatures(document);
   form.addEventListener('submit',async event=>{
     if(!window.fetch||busy)return;
     event.preventDefault();
-    if(!input.files?.length){showState('error','Choose a profile photo','A clear front-facing JPG, PNG or WebP works best.');return}
-    setBusy(true);showState('loading','Creating your polished avatar…','Preserving your identity and applying the Livenza visual finish.');
+    if(!input.files?.length){showState('error','Choose a profile photo','Use a JPG, PNG, WebP or HEIC/HEIF — angled and candid photos are supported.');return}
+    setBusy(true);showState('loading','Building your identity references…','Analysing the whole photo and multiple crops before applying the Livenza visual finish.');
     try{
       const response=await fetch(form.action,{method:'POST',body:new FormData(form),credentials:'same-origin',headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'}});
       const data=await response.json().catch(()=>({}));
@@ -447,7 +455,7 @@ initPageFeatures(document);
     agreement:{match:/agreement/,eyebrow:'DOCUMENT EXPERIENCE',title:'Clear agreements. Confident decisions.',alt:'Business agreement being reviewed',image:'https://images.unsplash.com/photo-1758518731462-d091b0b4ed0d?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/business-people-signing-a-contract-at-a-table-iPheGw7_UaI'},
     rooms:{match:/room|tenant/,eyebrow:'STAY OPERATIONS',title:'Every room, visibly under control.',alt:'Bright modern shared accommodation room',image:'https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/clean-well-lit-room-with-several-neatly-made-beds-0xJJ2k72AQs'},
     food:{match:/food/,eyebrow:'FOOD EXPERIENCE',title:'Orders, kitchens and settlements in motion.',alt:'Restaurant staff preparing food in a professional kitchen',image:'https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/restaurant-staff-preparing-food-in-a-professional-kitchen-Ew2PDNZB4qA'},
-    hospitality:{match:/video-wall|billing|rentok/,eyebrow:'HOSPITALITY EXPERIENCE',title:'A polished guest journey on every screen.',alt:'Modern hotel room interior',image:'https://images.unsplash.com/photo-1784720845648-a79a9ba6d16d?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/modern-hotel-room-with-a-king-size-bed-and-wooden-interior-fTiPYH7rN2A'},
+    hospitality:{match:/video-wall|billing|rentok/,eyebrow:'LIVENZA 360° ECOSYSTEM',title:'Living, work, food and experiences — connected.',alt:'Futuristic Livenza lifestyle ecosystem',image:'/static/livenza_360_lifestyle_bg.jpg',credit:''},
     office:{match:/quer|review|whatsapp|email|drive|admin|setting|account/,eyebrow:'CONNECTED WORKSPACE',title:'One calm command centre for every operation.',alt:'Modern connected office workspace',image:'https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/modern-office-space-with-city-view-and-desks-56U797Gamac'}
   };
 
@@ -456,12 +464,13 @@ initPageFeatures(document);
     if(root.querySelector?.('.module-visual-ribbon,.experience-gallery,.agreement-brand-banner'))return;
     const pageHead=root.querySelector?.('.page-head');if(!pageHead)return;
     const visual=visualForPath();if(!visual)return;
-    const ribbon=document.createElement('a');ribbon.className='module-visual-ribbon';ribbon.href=visual.credit;ribbon.target='_blank';ribbon.rel='noopener';ribbon.setAttribute('aria-label',`${visual.title} Photography source`);
+    const ribbon=document.createElement(visual.credit?'a':'div');ribbon.className='module-visual-ribbon';
+    if(visual.credit){ribbon.href=visual.credit;ribbon.target='_blank';ribbon.rel='noopener';ribbon.setAttribute('aria-label',`${visual.title} Photography source`)}else ribbon.setAttribute('aria-label',visual.title);
     const img=document.createElement('img');img.src=livenzaMobilePerformance()?visual.image.replace('q=78','q=62').replace('w=1600','w=900'):visual.image;img.alt=visual.alt;img.loading='lazy';img.decoding='async';img.referrerPolicy='no-referrer';
     const wash=document.createElement('span');wash.className='module-visual-copy';
     const small=document.createElement('small');small.textContent=visual.eyebrow;
     const strong=document.createElement('strong');strong.textContent=visual.title;
-    const source=document.createElement('i');source.textContent='VIEW PHOTOGRAPHY ↗';
+    const source=document.createElement('i');source.textContent=visual.credit?'VIEW PHOTOGRAPHY ↗':'LIVENZA 360° LIFESTYLE';
     wash.append(small,strong,source);ribbon.append(img,wash);pageHead.insertAdjacentElement('afterend',ribbon);
   }
 
@@ -671,13 +680,17 @@ initPageFeatures(document);
   }
 
   document.addEventListener('click',async ev=>{
-    const a=ev.target.closest('a[data-app-nav]');
+    const a=ev.target.closest('a[href]');
     if(!a||ev.defaultPrevented||ev.button!==0||ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.altKey)return;
-    let u;try{u=new URL(a.href,location.href)}catch(e){return}if(u.origin!==location.origin)return;
+    if(a.hasAttribute('download')||a.target==='_blank'||a.dataset.fullscreenBypass==='1')return;
+    let u;try{u=new URL(a.href,location.href)}catch(e){return}
+    if(u.origin!==location.origin||u.hash&&u.pathname===location.pathname&&u.search===location.search)return;
+    if(/^\/(logout|api\/|static\/)/.test(u.pathname)||/\.(pdf|zip|csv|xlsx?|docx?|png|jpe?g|webp)$/i.test(u.pathname))return;
     if(window.LivenzaDisplay?.isFullscreen?.()){
       ev.preventDefault();window.LivenzaDisplay.closeViewMenu?.();
       if(transition&&!reduce){transition.classList.add('leaving');setTimeout(()=>transition.classList.remove('leaving'),280)}
-      const ok=await swapFullscreenPage(u.href,true);if(!ok)location.assign(u.href);
+      const ok=await swapFullscreenPage(u.href,true);if(!ok&&window.LivenzaDisplay?.isFullscreen?.()){console.warn('Keeping fullscreen active after in-place navigation failure.');}
+      else if(!ok)location.assign(u.href);
     }
   },true);
   window.addEventListener('popstate',async()=>{

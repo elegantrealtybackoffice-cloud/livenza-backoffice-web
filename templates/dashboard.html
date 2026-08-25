@@ -70,13 +70,13 @@
   {% set room_photo='https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&fit=crop&q=76&w=900' %}
   {% set agreement_photo='https://images.unsplash.com/photo-1758518731462-d091b0b4ed0d?auto=format&fit=crop&q=76&w=900' %}
   {% set food_photo='https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&fit=crop&q=76&w=900' %}
-  {% set hotel_photo='https://images.unsplash.com/photo-1784720845648-a79a9ba6d16d?auto=format&fit=crop&q=76&w=900' %}
+  {% set hotel_photo=url_for('static',filename='livenza_360_lifestyle_bg.jpg') %}
   {% set mods=[
     ('agreement_tile.png','Agreement Studio','Agreements, PDF and WhatsApp sharing.','agreements','agreements','✦',agreement_photo,'Business agreement workflow'),
     ('room_tile.png','Room Status & Tenants','Inventory, tenants and automated vacancy reports.','rooms','rooms','▦',room_photo,'Modern Livenza accommodation'),
     ('review_tile.png','Google Review Generator','AI drafts, Google review link and QR.','reviews','reviews','★',office_photo,'Professional review workspace'),
     ('','Live Queries Manager','Meta, Google, OTA and direct query command center.','queries','queries','queries',office_photo,'Live query operations workspace'),
-    ('','Video Wall Studio • LIVE','Control every TV, upload media, rotate screens and launch festive takeovers.','video_wall','video_wall','▶',hotel_photo,'Hospitality display experience'),
+    ('','Video Wall Studio • LIVE','Control every TV, upload media, rotate screens and launch festive takeovers.','video_wall','video_wall','▶',hotel_photo,'Livenza 360 lifestyle ecosystem'),
     ('food_tile.png','Food Delivery Hub','Live Swiggy/Zomato/Toing feeds, partner portals, orders and settlements.','food','food','food',food_photo,'Professional food operations'),
     ('rentok_tile.png','Livenza Billing Suite','Billing, collections and account operations portal.','billing','rentok','◈',office_photo,'Connected billing workspace'),
     ('','WhatsApp Workspace','Send and receive official Cloud API messages inside Livenza.','whatsapp_workspace','whatsapp','◍',office_photo,'Connected communications workspace'),
