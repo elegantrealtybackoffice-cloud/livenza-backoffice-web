@@ -55,7 +55,7 @@ async function handleAadhaarExtract(btn){
   try{
     const fd=new FormData();fd.append('aadhaar_file',file);const r=await fetch('/agreements/aadhaar-extract',{method:'POST',body:fd,credentials:'same-origin',signal:controller.signal});
     const contentType=(r.headers.get('content-type')||'').toLowerCase();
-    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.5.14 and retry.`);
+    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.6.0 and retry.`);
     const d=await r.json();
     if(!r.ok||!d.ok)throw new Error([d.error,d.reader_status].filter(Boolean).join(' Reader status: '));
     const fields=d.fields||{};let filled=0;['tenant_name','tenant_father','tenant_dob','tenant_address','tenant_id_type','tenant_id_no'].forEach(k=>{if(fillAgreementField(k,fields[k]))filled++});
@@ -371,59 +371,38 @@ initPageFeatures(document);
   };
 })();
 
-// ===== Web 1.5.14 • adaptive avatar studio + camera capture =====
+// ===== Web 1.6.0 • reliable avatar studio + laptop camera =====
 (()=>{
-  const form=document.getElementById('avatarForm');
-  if(!form)return;
-  const input=document.getElementById('avatarPhotoInput');
-  const button=document.getElementById('avatarGenerateButton');
-  const status=document.getElementById('avatarGenerationStatus');
-  const shell=document.getElementById('avatarPreviewShell');
-  const modeLabel=document.getElementById('avatarModeLabel');
-  const cameraButton=document.getElementById('avatarCameraButton'),cameraPanel=document.getElementById('avatarCameraPanel'),cameraVideo=document.getElementById('avatarCameraVideo'),cameraCanvas=document.getElementById('avatarCameraCanvas'),captureButton=document.getElementById('avatarCaptureButton'),cameraClose=document.getElementById('avatarCameraClose'),cameraFallback=document.getElementById('avatarCameraFallback');
-  let busy=false,previewUrl='',cameraStream=null;
-
-  function assignAvatarFile(file){if(!file)return;const dt=new DataTransfer();dt.items.add(file);input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}))}
-  function stopCamera(){cameraStream?.getTracks?.().forEach(track=>track.stop());cameraStream=null;if(cameraVideo)cameraVideo.srcObject=null;if(cameraPanel)cameraPanel.hidden=true}
-  cameraButton?.addEventListener('click',async()=>{try{if(!navigator.mediaDevices?.getUserMedia)throw new Error('camera-picker');cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:1280}},audio:false});cameraVideo.srcObject=cameraStream;cameraPanel.hidden=false;await cameraVideo.play()}catch(error){stopCamera();cameraFallback?.click()}});
-  cameraClose?.addEventListener('click',stopCamera);
-  cameraFallback?.addEventListener('change',()=>assignAvatarFile(cameraFallback.files?.[0]));
-  captureButton?.addEventListener('click',()=>{if(!cameraVideo?.videoWidth||!cameraCanvas)return;const side=Math.min(cameraVideo.videoWidth,cameraVideo.videoHeight),sx=(cameraVideo.videoWidth-side)/2,sy=(cameraVideo.videoHeight-side)/2;cameraCanvas.width=1024;cameraCanvas.height=1024;cameraCanvas.getContext('2d').drawImage(cameraVideo,sx,sy,side,side,0,0,1024,1024);cameraCanvas.toBlob(blob=>{if(blob){assignAvatarFile(new File([blob],`livenza-selfie-${Date.now()}.jpg`,{type:'image/jpeg'}));stopCamera()}},'image/jpeg',.92)});
-
-  function setPreview(source){
-    let image=document.getElementById('avatarPreview');
-    if(!image){image=document.createElement('img');image.id='avatarPreview';image.alt='Live avatar preview';document.getElementById('avatarPreviewFallback')?.replaceWith(image)}
-    image.src=source;shell?.classList.add('is-ready');
-  }
-  function showState(kind,title,detail=''){
-    if(!status)return;status.hidden=false;status.dataset.state=kind;
-    const strong=status.querySelector('b'),small=status.querySelector('small');if(strong)strong.textContent=title;if(small)small.textContent=detail;
-  }
-  function setBusy(value){busy=value;if(button){button.disabled=value;button.textContent=value?'Creating Avatar…':'Create My Live Avatar'}input.disabled=value;shell?.classList.toggle('is-generating',value)}
-
-  input?.addEventListener('change',()=>{
-    const file=input.files?.[0];if(!file)return;
-    if(file.size>12*1024*1024){showState('error','Photo is too large','Choose an image smaller than 12 MB.');input.value='';return}
-    if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl=URL.createObjectURL(file);setPreview(previewUrl);
-    showState('ready','Photo ready','Creating your personal avatar automatically…');
-    window.setTimeout(()=>{if(!busy&&input.files?.[0]===file)form.requestSubmit()},260);
-  });
-
-  form.addEventListener('submit',async event=>{
-    if(!window.fetch||busy)return;
-    event.preventDefault();
-    if(!input.files?.length){showState('error','Choose a profile photo','Use a JPG, PNG, WebP or HEIC/HEIF — angled and candid photos are supported.');return}
-    setBusy(true);showState('loading','Building your identity references…','Analysing the whole photo and multiple crops before applying the Livenza visual finish.');
+  const form=document.getElementById('avatarForm'); if(!form)return;
+  const input=document.getElementById('avatarPhotoInput'),button=document.getElementById('avatarGenerateButton'),status=document.getElementById('avatarGenerationStatus'),shell=document.getElementById('avatarPreviewShell'),modeLabel=document.getElementById('avatarModeLabel');
+  const cameraButton=document.getElementById('avatarCameraButton'),cameraPickerButton=document.getElementById('avatarCameraPickerButton'),cameraPanel=document.getElementById('avatarCameraPanel'),cameraVideo=document.getElementById('avatarCameraVideo'),cameraCanvas=document.getElementById('avatarCameraCanvas'),captureButton=document.getElementById('avatarCaptureButton'),cameraClose=document.getElementById('avatarCameraClose'),cameraFallback=document.getElementById('avatarCameraFallback'),cameraDevice=document.getElementById('avatarCameraDevice'),cameraRetry=document.getElementById('avatarCameraRetry'),cameraHelp=document.getElementById('avatarCameraHelp');
+  let busy=false,previewUrl='',cameraStream=null,cameraBlob=null,cameraFileName='';
+  function showState(kind,title,detail=''){if(!status)return;status.hidden=false;status.dataset.state=kind;const strong=status.querySelector('b'),small=status.querySelector('small');if(strong)strong.textContent=title;if(small)small.textContent=detail}
+  function setBusy(value){busy=value;if(button){button.disabled=value;button.textContent=value?'Creating Avatar…':'Create My Live Avatar'}if(input)input.disabled=value;shell?.classList.toggle('is-generating',value)}
+  function setPreview(source){let image=document.getElementById('avatarPreview');if(!image){image=document.createElement('img');image.id='avatarPreview';image.alt='Live avatar preview';document.getElementById('avatarPreviewFallback')?.replaceWith(image)}image.src=source;shell?.classList.add('is-ready')}
+  function previewFile(file){if(!file)return;if(file.size>12*1024*1024){showState('error','Photo is too large','Choose an image smaller than 12 MB.');return false}if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl=URL.createObjectURL(file);setPreview(previewUrl);showState('ready','Photo ready','Click Create My Live Avatar. Livenza will use AI when configured and a reliable polished portrait fallback otherwise.');return true}
+  function stopCamera(hide=true){cameraStream?.getTracks?.().forEach(track=>track.stop());cameraStream=null;if(cameraVideo)cameraVideo.srcObject=null;if(cameraPanel&&hide)cameraPanel.hidden=true}
+  async function populateCameras(){if(!navigator.mediaDevices?.enumerateDevices||!cameraDevice)return;try{const devices=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');const current=cameraDevice.value;cameraDevice.innerHTML='<option value="">Default camera</option>'+devices.map((d,i)=>`<option value="${d.deviceId}">${d.label||`Camera ${i+1}`}</option>`).join('');if([...cameraDevice.options].some(o=>o.value===current))cameraDevice.value=current}catch(e){}}
+  async function openCamera(){
+    stopCamera(false);cameraPanel.hidden=false;showState('loading','Opening camera…','Your browser may ask for camera permission.');
+    if(!window.isSecureContext && !['localhost','127.0.0.1'].includes(location.hostname)){showState('error','Camera needs a secure connection','Open Livenza over HTTPS. Browser webcam access is blocked on ordinary HTTP pages.');if(cameraHelp)cameraHelp.textContent='Camera blocked: use HTTPS or the Camera File Picker.';return}
+    if(!navigator.mediaDevices?.getUserMedia){showState('error','Live webcam is not available','Use Camera File Picker instead.');cameraFallback?.click();return}
     try{
-      const response=await fetch(form.action,{method:'POST',body:new FormData(form),credentials:'same-origin',headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'}});
-      const data=await response.json().catch(()=>({}));
-      if(!response.ok||!data.ok)throw new Error(data.error||'The avatar could not be created.');
-      setPreview(data.avatar_data_uri);showState('success','Your live avatar is ready',data.message||'Applied across the Livenza workspace.');
-      if(modeLabel)modeLabel.innerHTML=`Current finish: <b>${data.mode==='ai'?'AI styled':'Polished portrait'}</b>`;
-      const headerImage=document.querySelector('.profile-toggle img');if(headerImage)headerImage.src=data.avatar_data_uri;
-      window.setTimeout(()=>window.location.reload(),1150);
-    }catch(error){showState('error','Could not create the avatar',error.message||'Please try another clear photo.');setBusy(false)}
+      const deviceId=cameraDevice?.value||'';let constraints={video:{width:{ideal:1280},height:{ideal:960},frameRate:{ideal:30}} ,audio:false};if(deviceId)constraints.video.deviceId={exact:deviceId};
+      try{cameraStream=await navigator.mediaDevices.getUserMedia(constraints)}catch(first){cameraStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false})}
+      cameraVideo.srcObject=cameraStream;await cameraVideo.play();await populateCameras();showState('ready','Camera is live','Frame yourself naturally, then click Capture Photo.');if(cameraHelp)cameraHelp.textContent='Camera connected. You can switch devices above if your laptop has more than one camera.';
+    }catch(error){stopCamera(false);const name=error?.name||'CameraError';let detail='Allow camera access in the browser site permissions, then click Retry Camera.';if(name==='NotAllowedError')detail='Camera permission was denied. Allow Camera for this site in browser permissions, then Retry.';else if(name==='NotFoundError')detail='No webcam was detected. Connect/enable the camera or use Camera File Picker.';else if(name==='NotReadableError')detail='Another app may be using the webcam. Close Teams/Zoom/Camera and Retry.';showState('error','Could not open laptop camera',detail);if(cameraHelp)cameraHelp.textContent=`${name}: ${detail}`}
+  }
+  cameraButton?.addEventListener('click',openCamera);cameraRetry?.addEventListener('click',openCamera);cameraDevice?.addEventListener('change',()=>{if(cameraPanel&&!cameraPanel.hidden)openCamera()});cameraClose?.addEventListener('click',()=>stopCamera(true));cameraPickerButton?.addEventListener('click',()=>cameraFallback?.click());
+  cameraFallback?.addEventListener('change',()=>{const file=cameraFallback.files?.[0];if(file&&previewFile(file)){cameraBlob=file;cameraFileName=file.name||`livenza-camera-${Date.now()}.jpg`;if(input)input.value=''}});
+  captureButton?.addEventListener('click',()=>{if(!cameraVideo?.videoWidth||!cameraCanvas){showState('error','Camera frame is not ready','Wait until the camera preview appears, then capture again.');return}const vw=cameraVideo.videoWidth,vh=cameraVideo.videoHeight;const max=1600,scale=Math.min(1,max/Math.max(vw,vh));cameraCanvas.width=Math.round(vw*scale);cameraCanvas.height=Math.round(vh*scale);const ctx=cameraCanvas.getContext('2d');ctx.save();ctx.translate(cameraCanvas.width,0);ctx.scale(-1,1);ctx.drawImage(cameraVideo,0,0,vw,vh,0,0,cameraCanvas.width,cameraCanvas.height);ctx.restore();cameraCanvas.toBlob(blob=>{if(!blob){showState('error','Could not capture photo','Use Camera File Picker as a fallback.');return}cameraBlob=blob;cameraFileName=`livenza-selfie-${Date.now()}.jpg`;previewFile(new File([blob],cameraFileName,{type:'image/jpeg'}));if(input)input.value='';stopCamera(true)},'image/jpeg',.94)});
+  input?.addEventListener('change',()=>{const file=input.files?.[0];if(!file)return;cameraBlob=null;cameraFileName='';previewFile(file)});
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();if(busy)return;const selected=input.files?.[0];if(!selected&&!cameraBlob){showState('error','Choose or capture a photo','You can use almost any JPG/PNG/WebP/HEIC photo or take a laptop webcam photo.');return}
+    setBusy(true);showState('loading','Creating your live avatar…','Using the complete source image, multiple identity references and a dependable local fallback.');
+    try{const fd=new FormData(form);if(cameraBlob)fd.set('avatar_photo',cameraBlob,cameraFileName||'livenza-camera.jpg');const response=await fetch(form.action,{method:'POST',body:fd,credentials:'same-origin',headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'}});const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||`Avatar service returned ${response.status}.`);setPreview(data.avatar_data_uri);showState('success','Your live avatar is ready',data.message||'Applied across the Livenza workspace.');if(modeLabel)modeLabel.innerHTML=`Current finish: <b>${data.mode==='ai'?'AI styled':'Polished portrait'}</b>`;const headerImage=document.querySelector('.profile-toggle img');if(headerImage)headerImage.src=data.avatar_data_uri;setBusy(false);window.setTimeout(()=>window.location.reload(),850)}catch(error){showState('error','Could not create the avatar',error.message||'The source image could not be processed.');setBusy(false)}
   });
+  window.addEventListener('pagehide',()=>stopCamera(false));
 })();
 
 // ===== Web 1.5.2 • transparent scroll header + contextual visual storytelling =====

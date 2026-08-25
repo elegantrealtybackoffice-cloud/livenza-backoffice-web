@@ -1,11 +1,10 @@
-LIVENZA WEB 1.5.14 — DIRECT ROOT UPLOAD
+LIVENZA WEB 1.6.0 — DIRECT ROOT UPLOAD
 
-1. Extract this ZIP.
-2. Upload its contents directly to the root of the existing repository, preserving templates/, static/, migrations/ and windows-kiosk/.
-3. No new database migration is required for Web 1.5.14; keep the Web 1.5.12 migration applied.
-4. Keep OPENAI_API_KEY configured to enable AI-styled personal avatars. Optional: set OPENAI_AVATAR_MODEL and OPENAI_AVATAR_QUALITY.
-5. The avatar pipeline now supports HEIC/HEIF through the added pillow-heif dependency; redeploy dependencies from requirements.txt.
-6. Deploy with the supplied Dockerfile/render.yaml and confirm /version returns Web 1.5.14.
-7. Verify the Full Screen button, 360° lifestyle background, camera/selfie capture, and angled/candid avatar generation before production use.
-
-The Windows scripts are setup helpers. Full operating-system restriction requires Microsoft Assigned Access as described in windows-kiosk/README_WINDOWS_KIOSK.md.
+1. Upload the contents of the DIRECT_ROOT_FILES package to the application repository root.
+2. Keep the existing DATABASE_URL / Supabase or PostgreSQL connection and SECRET_KEY settings.
+3. Web 1.6.0 creates the new encrypted banking/reconciliation tables automatically through db.create_all() during startup; existing application data is retained.
+4. For generative Avatar Studio styling, set OPENAI_API_KEY on the deployed server. Avatar creation still has a local polished fallback without it.
+5. Keep INTEGRATION_ENCRYPTION_KEY stable across deployments so saved banking files and connected-provider secrets remain decryptable.
+6. Laptop webcam access requires HTTPS (or localhost) and browser Camera permission.
+7. Deploy with the supplied Dockerfile/render.yaml and confirm /version returns Web 1.6.0.
+8. Banking sites may block iframe embedding by design. Use the built-in verified Secure Bank Site launcher when that happens; never bypass bank CSP/X-Frame-Options.

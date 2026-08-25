@@ -51,6 +51,7 @@
           {% if can_access('video_wall') %}<a href="{{url_for('video_wall')}}" data-app-nav><i>▶</i><span><b>Video Wall</b><small>Screens and commercials</small></span></a>{% endif %}
           {% if can_access('food') %}<a href="{{url_for('food')}}" data-app-nav><i><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8m-3-8v5a3 3 0 0 0 6 0V3m-3 8v10m7-18v18m0-18c3 2 4 5 4 8h-4"></path></svg></i><span><b>Food</b><small>Delivery partner hub</small></span></a>{% endif %}
           {% if can_access('rentok') %}<a href="{{url_for('billing')}}" data-app-nav><i>◈</i><span><b>Billing</b><small>Collections and accounts</small></span></a>{% endif %}
+          {% if can_access('banking') %}<a href="{{url_for('banking_suite')}}" data-app-nav><i>₹</i><span><b>Banking</b><small>Portals, statements & reconciliation</small></span></a>{% endif %}
           {% if can_access('whatsapp') %}<a href="{{url_for('whatsapp_workspace')}}" data-app-nav><i>◍</i><span><b>WhatsApp</b><small>Cloud conversations</small></span></a>{% endif %}
           {% if can_access('email') %}<a href="{{url_for('email_workspace')}}" data-app-nav><i>✉</i><span><b>Email</b><small>Gmail workspace</small></span></a>{% endif %}
           {% if can_access('drive') %}<a href="{{url_for('drive_workspace')}}" data-app-nav><i>☁</i><span><b>Drive</b><small>Cloud files</small></span></a>{% endif %}

@@ -17,3 +17,4 @@ cryptography>=44,<48
 webauthn>=2.2,<3
 
 pillow-heif>=0.18,<2
+xlrd>=2.0,<3

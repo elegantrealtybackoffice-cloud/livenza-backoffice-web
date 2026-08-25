@@ -1,13 +1,11 @@
-LIVENZA WEB 1.5.14 — DEPLOYMENT VERIFICATION
+LIVENZA WEB 1.6.0 — DEPLOYMENT VERIFICATION
 
-1. Confirm /version returns Web 1.5.14 and X-Livenza-Build is Web 1.5.14.
-2. Confirm the dedicated Full Screen icon appears beside the Display control and toggles native fullscreen (or theatre fallback).
-3. While fullscreen is active, switch between normal internal Livenza modules and confirm the workspace remains fullscreen through in-place navigation.
-4. Confirm the sitewide background is the Livenza 360° lifestyle scene, including fullscreen/kiosk surfaces, with no hotel-room background remaining.
-5. Open My Account > Avatar Studio and verify JPG, PNG, WebP and HEIC/HEIF input is offered.
-6. Test an angled or candid source image and confirm avatar generation completes without requiring a centred front-facing crop.
-7. Test Take Selfie / Camera on HTTPS desktop and a mobile camera picker; only the captured still should enter the upload flow.
-8. Confirm the AI avatar request defaults to high quality and the polished local fallback still works if the AI image service is unavailable.
-9. Recheck Login progressive disclosure, Display rotation lock, Aadhaar extraction, Video Wall, Billing/Rentok, Query Sheet and integrations.
-
-No new database migration is required beyond migrations already shipped with Web 1.5.13.
+1. Confirm /version returns Web 1.6.0 and the new banking/avatar feature flags.
+2. Open My Account → test Choose Photo → Create My Live Avatar. Confirm a polished avatar is produced even without an external AI key.
+3. Test Open Laptop / Phone Camera over HTTPS. Allow Camera permission, capture a frame, then create the avatar.
+4. If multiple webcams exist, verify the Camera dropdown can switch devices.
+5. Open Banking → confirm SBI/Axis/HDFC/ICICI/Kotak/PNB and other official bank launchers open current domains.
+6. Upload a CSV/XLSX bank statement and a CSV/XLSX reconciliation template, then run Verify All Entries.
+7. Confirm matched/review/missing/extra counts display and reconciliation CSV export downloads.
+8. Download a saved statement from the encrypted vault and confirm it opens correctly.
+9. Restart/redeploy once and confirm previously saved banking files remain decryptable. Keep INTEGRATION_ENCRYPTION_KEY unchanged.

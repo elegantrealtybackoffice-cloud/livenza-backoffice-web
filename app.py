@@ -1,9 +1,11 @@
 import os, io, csv, json, hashlib, hmac, datetime, urllib.parse, html, base64, re, secrets, uuid, shutil, subprocess, threading, time
+from pathlib import Path
 from email.message import EmailMessage
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.exceptions import RequestEntityTooLarge
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
@@ -23,7 +25,7 @@ except Exception:
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.5.14'
+APP_VERSION = 'Web 1.6.0'
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -192,6 +194,33 @@ class FoodOrder(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
 
+class BankDocument(db.Model):
+    """Encrypted bank statements and reusable reconciliation templates."""
+    __tablename__ = 'bank_document'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    document_type = db.Column(db.String(24), nullable=False, default='statement')
+    bank_name = db.Column(db.String(160), default='')
+    account_label = db.Column(db.String(160), default='')
+    title = db.Column(db.String(180), default='')
+    file_name = db.Column(db.String(255), nullable=False)
+    mime_type = db.Column(db.String(120), default='application/octet-stream')
+    encrypted_blob = db.Column(db.LargeBinary, nullable=False)
+    parsed_ciphertext = db.Column(db.Text, default='')
+    row_count = db.Column(db.Integer, default=0)
+    parse_status = db.Column(db.String(80), default='')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+class BankReconciliationRun(db.Model):
+    __tablename__ = 'bank_reconciliation_run'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    statement_id = db.Column(db.Integer, db.ForeignKey('bank_document.id'), nullable=False)
+    template_id = db.Column(db.Integer, db.ForeignKey('bank_document.id'), nullable=False)
+    summary_json = db.Column(db.Text, default='{}')
+    result_ciphertext = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
 class FoodIntegration(db.Model):
     __tablename__ = 'food_integration'
     id = db.Column(db.Integer, primary_key=True)
@@ -212,6 +241,295 @@ class FoodIntegration(db.Model):
     last_sync_count = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+BANK_PORTALS = [
+    # Public sector banks — current official corporate domains; .bank.in is preferred where live.
+    {'key':'sbi','name':'State Bank of India','category':'Public Sector','url':'https://sbi.bank.in/'},
+    {'key':'bob','name':'Bank of Baroda','category':'Public Sector','url':'https://bankofbaroda.bank.in/'},
+    {'key':'boi','name':'Bank of India','category':'Public Sector','url':'https://bankofindia.co.in/'},
+    {'key':'bom','name':'Bank of Maharashtra','category':'Public Sector','url':'https://bankofmaharashtra.in/'},
+    {'key':'canara','name':'Canara Bank','category':'Public Sector','url':'https://www.canarabank.bank.in/'},
+    {'key':'central','name':'Central Bank of India','category':'Public Sector','url':'https://www.centralbankofindia.co.in/'},
+    {'key':'indian','name':'Indian Bank','category':'Public Sector','url':'https://www.indianbank.in/'},
+    {'key':'iob','name':'Indian Overseas Bank','category':'Public Sector','url':'https://www.iob.in/'},
+    {'key':'pnb','name':'Punjab National Bank','category':'Public Sector','url':'https://pnb.bank.in/'},
+    {'key':'psb','name':'Punjab & Sind Bank','category':'Public Sector','url':'https://punjabandsindbank.co.in/'},
+    {'key':'uco','name':'UCO Bank','category':'Public Sector','url':'https://www.ucobank.com/'},
+    {'key':'union','name':'Union Bank of India','category':'Public Sector','url':'https://www.unionbankofindia.co.in/'},
+    # Private sector banks.
+    {'key':'axis','name':'Axis Bank','category':'Private Sector','url':'https://www.axis.bank.in/'},
+    {'key':'bandhan','name':'Bandhan Bank','category':'Private Sector','url':'https://bandhanbank.com/'},
+    {'key':'csb','name':'CSB Bank','category':'Private Sector','url':'https://www.csb.co.in/'},
+    {'key':'cityunion','name':'City Union Bank','category':'Private Sector','url':'https://www.cityunionbank.com/'},
+    {'key':'dcb','name':'DCB Bank','category':'Private Sector','url':'https://www.dcbbank.com/'},
+    {'key':'dhanlaxmi','name':'Dhanlaxmi Bank','category':'Private Sector','url':'https://www.dhanbank.com/'},
+    {'key':'federal','name':'Federal Bank','category':'Private Sector','url':'https://www.federal.bank.in/'},
+    {'key':'hdfc','name':'HDFC Bank','category':'Private Sector','url':'https://www.hdfc.bank.in/'},
+    {'key':'icici','name':'ICICI Bank','category':'Private Sector','url':'https://www.icici.bank.in/'},
+    {'key':'indusind','name':'IndusInd Bank','category':'Private Sector','url':'https://www.indusind.com/'},
+    {'key':'idfc','name':'IDFC FIRST Bank','category':'Private Sector','url':'https://www.idfcfirst.bank.in/'},
+    {'key':'jk','name':'Jammu & Kashmir Bank','category':'Private Sector','url':'https://www.jkbank.com/'},
+    {'key':'karnataka','name':'Karnataka Bank','category':'Private Sector','url':'https://karnatakabank.com/'},
+    {'key':'kvb','name':'Karur Vysya Bank','category':'Private Sector','url':'https://www.kvb.co.in/'},
+    {'key':'kotak','name':'Kotak Mahindra Bank','category':'Private Sector','url':'https://www.kotak.bank.in/'},
+    {'key':'nainital','name':'Nainital Bank','category':'Private Sector','url':'https://www.nainitalbank.co.in/'},
+    {'key':'rbl','name':'RBL Bank','category':'Private Sector','url':'https://www.rblbank.com/'},
+    {'key':'sib','name':'South Indian Bank','category':'Private Sector','url':'https://www.southindianbank.com/'},
+    {'key':'tmb','name':'Tamilnad Mercantile Bank','category':'Private Sector','url':'https://www.tmb.in/'},
+    {'key':'yes','name':'YES BANK','category':'Private Sector','url':'https://www.yes.bank.in/'},
+    {'key':'idbi','name':'IDBI Bank','category':'Private Sector','url':'https://www.idbibank.in/'},
+    {'key':'dbs','name':'DBS Bank India','category':'Private / Foreign Subsidiary','url':'https://www.dbs.com/in/'},
+    # Small finance banks from the RBI banking list.
+    {'key':'au','name':'AU Small Finance Bank','category':'Small Finance','url':'https://www.au.bank.in/'},
+    {'key':'capital','name':'Capital Small Finance Bank','category':'Small Finance','url':'https://www.capitalbank.co.in/'},
+    {'key':'equitas','name':'Equitas Small Finance Bank','category':'Small Finance','url':'https://www.equitasbank.com/'},
+    {'key':'esaf','name':'ESAF Small Finance Bank','category':'Small Finance','url':'https://www.esafbank.com/'},
+    {'key':'jana','name':'Jana Small Finance Bank','category':'Small Finance','url':'https://www.janabank.com/'},
+    {'key':'shivalik','name':'Shivalik Small Finance Bank','category':'Small Finance','url':'https://shivalikbank.com/'},
+    {'key':'suryoday','name':'Suryoday Small Finance Bank','category':'Small Finance','url':'https://www.suryodaybank.com/'},
+    {'key':'ujjivan','name':'Ujjivan Small Finance Bank','category':'Small Finance','url':'https://www.ujjivansfb.in/'},
+    {'key':'unity','name':'Unity Small Finance Bank','category':'Small Finance','url':'https://theunitybank.com/'},
+    {'key':'utkarsh','name':'Utkarsh Small Finance Bank','category':'Small Finance','url':'https://www.utkarsh.bank/'},
+    {'key':'slice','name':'slice Small Finance Bank','category':'Small Finance','url':'https://slice.bank.in/'},
+    # Payments banks.
+    {'key':'airtel','name':'Airtel Payments Bank','category':'Payments Bank','url':'https://www.airtel.in/bank/'},
+    {'key':'ippb','name':'India Post Payments Bank','category':'Payments Bank','url':'https://www.ippbonline.com/'},
+    {'key':'fino','name':'Fino Payments Bank','category':'Payments Bank','url':'https://www.finobank.com/'},
+    {'key':'jio','name':'Jio Payments Bank','category':'Payments Bank','url':'https://www.jiopaymentsbank.com/'},
+    {'key':'paytm','name':'Paytm Payments Bank','category':'Payments Bank','url':'https://www.paytmbank.com/'},
+]
+
+BANK_ALLOWED_EXTENSIONS={'.csv','.xlsx','.xls','.pdf'}
+BANK_MAX_FILE_BYTES=16*1024*1024
+
+
+def _bank_encrypt_bytes(raw):
+    return _integration_cipher().encrypt(raw)
+
+
+def _bank_decrypt_bytes(raw):
+    try: return _integration_cipher().decrypt(bytes(raw or b''))
+    except Exception: return b''
+
+
+def _bank_encrypt_json(value):
+    packed=json.dumps(value,ensure_ascii=False,separators=(',',':')).encode('utf-8')
+    return _integration_cipher().encrypt(packed).decode('ascii')
+
+
+def _bank_decrypt_json(value):
+    try:
+        raw=_integration_cipher().decrypt((value or '').encode('ascii')).decode('utf-8')
+        data=json.loads(raw); return data if isinstance(data,(list,dict)) else []
+    except Exception: return []
+
+
+def _bank_clean_name(name):
+    clean=secure_filename(name or 'bank-document') or 'bank-document'
+    return clean[:240]
+
+
+def _bank_cell(value):
+    if value is None: return ''
+    if isinstance(value,(datetime.datetime,datetime.date)): return value.strftime('%Y-%m-%d')
+    return str(value).strip()
+
+
+def _bank_rows_from_matrix(matrix):
+    rows=[[ _bank_cell(v) for v in row ] for row in matrix if any(_bank_cell(v) for v in row)]
+    if not rows: return []
+    header_index=0
+    # Bank exports often place account metadata above the real transaction header.
+    hints=('date','narration','description','particular','debit','credit','withdraw','deposit','amount','balance','reference','ref','utr')
+    best=(-1,0)
+    for i,row in enumerate(rows[:30]):
+        joined=' '.join(x.lower() for x in row)
+        score=sum(1 for h in hints if h in joined)
+        if score>best[0]: best=(score,i)
+    if best[0]>=2: header_index=best[1]
+    headers=[]; seen={}
+    for idx,val in enumerate(rows[header_index]):
+        h=(val or f'Column {idx+1}').strip() or f'Column {idx+1}'
+        key=h; n=seen.get(h.lower(),0)+1; seen[h.lower()]=n
+        if n>1: key=f'{h} {n}'
+        headers.append(key)
+    output=[]
+    for row in rows[header_index+1:]:
+        if not any(str(x).strip() for x in row): continue
+        if len(row)<len(headers): row=row+['']*(len(headers)-len(row))
+        output.append({headers[i]:_bank_cell(row[i]) for i in range(len(headers))})
+        if len(output)>=15000: break
+    return output
+
+
+def _bank_parse_pdf(raw):
+    try:
+        import fitz
+        doc=fitz.open(stream=raw,filetype='pdf'); lines=[]
+        for page_index in range(min(80,doc.page_count)):
+            page=doc.load_page(page_index)
+            lines.extend([x.strip() for x in (page.get_text('text') or '').splitlines() if x.strip()])
+        date_re=re.compile(r'\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[- ](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[- ]\d{2,4})\b',re.I)
+        money_re=re.compile(r'(?<!\d)(?:₹\s*)?-?\d[\d,]*\.\d{2}(?:\s*(?:CR|DR))?',re.I)
+        out=[]
+        for line in lines:
+            dm=date_re.search(line); amounts=money_re.findall(line)
+            if not dm or not amounts: continue
+            rest=(line[:dm.start()]+' '+line[dm.end():]).strip()
+            for a in amounts: rest=rest.replace(a,' ',1)
+            rest=re.sub(r'\s+',' ',rest).strip(' -|')
+            item={'Date':dm.group(0),'Narration':rest,'Amount':'','Debit':'','Credit':'','Balance':''}
+            clean_amounts=[a.replace('₹','').strip() for a in amounts]
+            if len(clean_amounts)>=2: item['Amount']=clean_amounts[-2]; item['Balance']=clean_amounts[-1]
+            else: item['Amount']=clean_amounts[0]
+            token=' '.join(amounts).upper()
+            if 'DR' in token: item['Debit']=item['Amount']
+            elif 'CR' in token: item['Credit']=item['Amount']
+            out.append(item)
+        return out
+    except Exception:
+        return []
+
+
+def _bank_parse_rows(raw, filename):
+    ext=Path(filename or '').suffix.lower()
+    try:
+        if ext=='.csv':
+            text=''
+            for enc in ('utf-8-sig','utf-8','cp1252','latin-1'):
+                try: text=raw.decode(enc); break
+                except Exception: pass
+            sample=text[:5000]
+            try: dialect=csv.Sniffer().sniff(sample,delimiters=',;\t|')
+            except Exception: dialect=csv.excel
+            return _bank_rows_from_matrix(list(csv.reader(io.StringIO(text),dialect))[:16000])
+        if ext=='.xlsx':
+            from openpyxl import load_workbook
+            wb=load_workbook(io.BytesIO(raw),read_only=True,data_only=True)
+            ws=wb[wb.sheetnames[0]]
+            return _bank_rows_from_matrix([list(row) for row in ws.iter_rows(values_only=True)])
+        if ext=='.xls':
+            try:
+                import xlrd
+                book=xlrd.open_workbook(file_contents=raw,on_demand=True); sheet=book.sheet_by_index(0)
+                return _bank_rows_from_matrix([sheet.row_values(i) for i in range(sheet.nrows)])
+            except Exception: return []
+        if ext=='.pdf': return _bank_parse_pdf(raw)
+    except Exception as exc:
+        app.logger.warning('Bank statement parse failed for %s: %s',filename,str(exc)[:180])
+    return []
+
+
+def _bank_key(value):
+    return re.sub(r'[^a-z0-9]','',str(value or '').lower())
+
+
+def _bank_float(value):
+    raw=str(value or '').strip().upper().replace('₹','').replace('INR','').replace(',','')
+    negative=raw.startswith('(') and raw.endswith(')')
+    raw=raw.replace('CR','').replace('DR','').replace('(','').replace(')','').strip()
+    raw=re.sub(r'[^0-9.\-]','',raw)
+    try: n=float(raw or 0); return -abs(n) if negative else n
+    except Exception: return 0.0
+
+
+def _bank_date(value):
+    raw=str(value or '').strip()
+    if not raw: return None
+    raw=re.sub(r'\s+',' ',raw)
+    for fmt in ('%Y-%m-%d','%d/%m/%Y','%d-%m-%Y','%d.%m.%Y','%d/%m/%y','%d-%m-%y','%d %b %Y','%d-%b-%Y','%d %B %Y'):
+        try: return datetime.datetime.strptime(raw[:20],fmt).date()
+        except Exception: pass
+    return None
+
+
+def _bank_pick(row, synonyms):
+    keyed={_bank_key(k):v for k,v in (row or {}).items()}
+    for syn in synonyms:
+        sk=_bank_key(syn)
+        for k,v in keyed.items():
+            if k==sk or sk in k: return v
+    return ''
+
+
+def _bank_canonical(row):
+    date=_bank_pick(row,['transaction date','txn date','posting date','value date','date'])
+    debit=_bank_pick(row,['debit amount','withdrawal amount','withdrawals','debit','withdrawal'])
+    credit=_bank_pick(row,['credit amount','deposit amount','deposits','credit','deposit'])
+    generic=_bank_pick(row,['transaction amount','txn amount','amount'])
+    dtype=str(_bank_pick(row,['dr/cr','type','transaction type'])).upper()
+    debit_n=abs(_bank_float(debit)); credit_n=abs(_bank_float(credit)); amount=_bank_float(generic)
+    if debit_n: amount=-debit_n
+    elif credit_n: amount=credit_n
+    elif generic:
+        raw=str(generic).upper()
+        if 'DR' in raw or dtype.startswith('D'): amount=-abs(amount)
+        elif 'CR' in raw or dtype.startswith('C'): amount=abs(amount)
+    desc=_bank_pick(row,['narration','description','particulars','particular','remarks','details','transaction details'])
+    ref=_bank_pick(row,['utr number','utr','reference number','reference','ref no','transaction id','txn id','cheque number','chq no'])
+    balance=_bank_pick(row,['closing balance','running balance','balance'])
+    return {'date':_bank_date(date),'date_raw':str(date or ''),'amount':round(amount,2),'abs_amount':round(abs(amount),2),'description':str(desc or ''),'reference':str(ref or ''),'balance':_bank_float(balance),'source':row}
+
+
+def _bank_tokens(value):
+    stop={'the','and','for','from','to','in','of','by','a','an','upi','neft','imps','rtgs','transfer','payment','txn'}
+    return {x for x in re.findall(r'[a-z0-9]{3,}',str(value or '').lower()) if x not in stop}
+
+
+def _bank_match_score(expected, actual):
+    score=0.0; weight=0.0; reasons=[]
+    if expected['abs_amount']>0:
+        weight+=.55
+        diff=abs(expected['abs_amount']-actual['abs_amount'])
+        if diff<=.01: score+=.55; reasons.append('amount')
+        elif diff<=1: score+=.35
+    if expected['date']:
+        weight+=.22
+        if actual['date']:
+            days=abs((expected['date']-actual['date']).days)
+            if days==0: score+=.22; reasons.append('date')
+            elif days<=1: score+=.16
+            elif days<=3: score+=.08
+    er=_bank_key(expected['reference'])
+    if er:
+        weight+=.18; ar=_bank_key(actual['reference'])
+        if ar and (er==ar or er in ar or ar in er): score+=.18; reasons.append('reference')
+    et=_bank_tokens(expected['description'])
+    if et:
+        weight+=.15; at=_bank_tokens(actual['description'])
+        overlap=len(et & at)/max(1,len(et))
+        score+=.15*min(1,overlap)
+        if overlap>=.5: reasons.append('description')
+    if weight<=0: return 0.0,[]
+    return min(1.0,score/weight),reasons
+
+
+def _bank_reconcile(statement_rows, template_rows):
+    statement=[_bank_canonical(r) for r in statement_rows]
+    expected=[_bank_canonical(r) for r in template_rows]
+    used=set(); matches=[]
+    for idx,e in enumerate(expected):
+        best_score=0; best_i=None; best_reasons=[]
+        for j,a in enumerate(statement):
+            if j in used: continue
+            sc,reasons=_bank_match_score(e,a)
+            if sc>best_score: best_score,best_i,best_reasons=sc,j,reasons
+        status='missing'; actual=None
+        if best_i is not None and best_score>=.72:
+            status='matched'; used.add(best_i); actual=statement[best_i]
+        elif best_i is not None and best_score>=.50:
+            status='review'; used.add(best_i); actual=statement[best_i]
+        matches.append({'index':idx+1,'status':status,'score':round(best_score*100),'reasons':best_reasons,'expected':_bank_serializable(e),'actual':_bank_serializable(actual) if actual else None})
+    extras=[_bank_serializable(statement[i]) for i in range(len(statement)) if i not in used]
+    summary={'expected':len(expected),'statement':len(statement),'matched':sum(1 for x in matches if x['status']=='matched'),'review':sum(1 for x in matches if x['status']=='review'),'missing':sum(1 for x in matches if x['status']=='missing'),'extra':len(extras)}
+    summary['match_rate']=round((summary['matched']/max(1,summary['expected']))*100)
+    return {'summary':summary,'matches':matches,'extras':extras}
+
+
+def _bank_serializable(row):
+    if not row: return {}
+    return {'date':row['date'].isoformat() if row.get('date') else row.get('date_raw',''),'amount':row.get('amount',0),'description':row.get('description',''),'reference':row.get('reference',''),'balance':row.get('balance',0),'source':row.get('source',{})}
 
 
 OFFICIAL_FOOD_PORTALS = {
@@ -763,6 +1081,7 @@ MODULES = {
     'reviews': 'Google Review Generator',
     'food': 'Food Delivery Hub',
     'rentok': 'Livenza Billing Suite',
+    'banking': 'Banking & Reconciliation Suite',
     'queries': 'Live Queries Manager',
     'video_wall': 'Video Wall Studio',
     'whatsapp': 'WhatsApp Workspace',
@@ -867,7 +1186,7 @@ def share_serializer():
 
 def _upload_image_bytes(file_storage, max_bytes=12*1024*1024):
     if not file_storage or not getattr(file_storage, 'filename', ''):
-        return b'', 'Choose a JPG, PNG, WebP or HEIC/HEIF profile photo.'
+        return b'', 'Choose a JPG, PNG, WebP, HEIC/HEIF, TIFF or BMP profile photo.'
     try:
         file_storage.stream.seek(0)
         raw=file_storage.stream.read(max_bytes+1)
@@ -881,7 +1200,7 @@ def _upload_image_bytes(file_storage, max_bytes=12*1024*1024):
     try:
         probe=PILImage.open(io.BytesIO(raw)); probe.verify()
     except Exception:
-        return b'', 'Use a valid JPG, PNG, WebP or HEIC/HEIF profile photo.'
+        return b'', 'Use a valid JPG, PNG, WebP, HEIC/HEIF, TIFF or BMP profile photo.'
     return raw, ''
 
 def _open_avatar_source(raw, max_side=1800):
@@ -974,7 +1293,7 @@ def _ai_avatar_data_uri(raw):
         source=_avatar_reference_board(raw,1024)
         source_buf=io.BytesIO(); source.save(source_buf,format='PNG',optimize=True); source_buf.seek(0)
         source_buf.name='livenza-avatar-reference-board.png'
-        result=OpenAI(api_key=key).images.edit(
+        result=OpenAI(api_key=key,timeout=45).images.edit(
             model=os.getenv('OPENAI_AVATAR_MODEL','gpt-image-2'),
             image=source_buf,
             prompt=(
@@ -1670,7 +1989,7 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture'])
+def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','applications-mega-menu','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture','avatar-camera-device-selector','avatar-direct-blob-submit','reliable-local-avatar-fallback','banking-suite','official-bank-launcher','encrypted-bank-statement-vault','reconciliation-template-library','bank-statement-reconciliation'])
 
 def version_v1513():
     return jsonify(version=APP_VERSION,features=[
@@ -1758,7 +2077,7 @@ def account():
         if last4: u.aadhaar_last4=last4
         if request.form.get('aadhaar_name') is not None: u.aadhaar_name=request.form.get('aadhaar_name','').strip()
         db.session.commit(); flash('Account updated.','success'); return redirect(url_for('account'))
-    return render_template('account.html', user=u)
+    return render_template('account.html', user=u, avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()))
 
 @app.route('/account/avatar',methods=['POST'])
 @login_required
@@ -1914,7 +2233,7 @@ def _agreement_aadhaar_extract_payload(upload):
             ai_error='AI enhancement could not complete.'
     if not any(data.get(k) for k in ('tenant_name','tenant_dob','tenant_address','tenant_id_no')):
         if local_error and not os.getenv('OPENAI_API_KEY','').strip():
-            message='The secure OCR reader is not ready on this deployment. Redeploy Web 1.5.14 with its updated system and Python dependencies, then try again.'
+            message='The secure OCR reader is not ready on this deployment. Redeploy Web 1.6.0 with its updated system and Python dependencies, then try again.'
         else:
             message='No reliable Aadhaar fields were detected. Use a clear, straight photo in good light or a PDF containing both sides, then try again.'
         return {'ok':False,'error':message,'reader_status':local_error or 'No readable identity fields detected.'},422
@@ -2692,6 +3011,120 @@ def wall_heartbeat(token):
     sc.last_seen_at=datetime.datetime.utcnow(); sc.last_ip=(request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:120]; db.session.commit()
     return jsonify(ok=True)
 
+@app.route('/banking')
+@permission_required('banking')
+def banking_suite():
+    user=current_user(); selected_key=(request.args.get('bank') or 'sbi').strip().lower()
+    selected=next((b for b in BANK_PORTALS if b['key']==selected_key),BANK_PORTALS[0])
+    statements=BankDocument.query.filter_by(user_id=user.id,document_type='statement').order_by(BankDocument.id.desc()).limit(100).all()
+    templates=BankDocument.query.filter_by(user_id=user.id,document_type='template').order_by(BankDocument.id.desc()).limit(100).all()
+    runs=BankReconciliationRun.query.filter_by(user_id=user.id).order_by(BankReconciliationRun.id.desc()).limit(30).all()
+    run_cards=[]
+    for run in runs:
+        try: summary=json.loads(run.summary_json or '{}')
+        except Exception: summary={}
+        run_cards.append({'run':run,'summary':summary,'statement':db.session.get(BankDocument,run.statement_id),'template':db.session.get(BankDocument,run.template_id)})
+    categories=[]
+    for row in BANK_PORTALS:
+        if row['category'] not in categories: categories.append(row['category'])
+    return render_template('banking.html',banks=BANK_PORTALS,categories=categories,selected=selected,statements=statements,templates=templates,runs=run_cards)
+
+
+@app.route('/banking/documents/upload',methods=['POST'])
+@permission_required('banking')
+def banking_document_upload():
+    user=current_user(); kind=(request.form.get('document_type') or 'statement').strip().lower()
+    if kind not in ('statement','template'): kind='statement'
+    upload=request.files.get('bank_file')
+    if not upload or not upload.filename:
+        flash('Choose a bank statement or reconciliation template file.','danger'); return redirect(url_for('banking_suite')+'#vault')
+    name=_bank_clean_name(upload.filename); ext=Path(name).suffix.lower()
+    if ext not in BANK_ALLOWED_EXTENSIONS:
+        flash('Use CSV, XLSX, XLS or PDF files for banking reconciliation.','danger'); return redirect(url_for('banking_suite')+'#vault')
+    raw=upload.read(BANK_MAX_FILE_BYTES+1)
+    if not raw or len(raw)>BANK_MAX_FILE_BYTES:
+        flash('Bank files must be smaller than 16 MB.','danger'); return redirect(url_for('banking_suite')+'#vault')
+    rows=_bank_parse_rows(raw,name)
+    status=(f'{len(rows)} entries extracted' if rows else ('Saved securely; PDF/table extraction needs review' if ext=='.pdf' else 'Saved securely; no transaction rows detected'))
+    doc=BankDocument(user_id=user.id,document_type=kind,bank_name=(request.form.get('bank_name') or '').strip()[:160],account_label=(request.form.get('account_label') or '').strip()[:160],title=(request.form.get('title') or '').strip()[:180],file_name=name,mime_type=(upload.mimetype or 'application/octet-stream')[:120],encrypted_blob=_bank_encrypt_bytes(raw),parsed_ciphertext=_bank_encrypt_json(rows),row_count=len(rows),parse_status=status)
+    db.session.add(doc); db.session.commit()
+    template_id=request.form.get('template_id','').strip()
+    if kind=='statement' and template_id.isdigit() and rows:
+        template=db.session.get(BankDocument,int(template_id))
+        if template and template.user_id==user.id and template.document_type=='template':
+            template_rows=_bank_decrypt_json(template.parsed_ciphertext)
+            if template_rows:
+                result=_bank_reconcile(rows,template_rows); summary=result['summary']
+                run=BankReconciliationRun(user_id=user.id,statement_id=doc.id,template_id=template.id,summary_json=json.dumps(summary,separators=(',',':')),result_ciphertext=_bank_encrypt_json(result))
+                db.session.add(run); db.session.commit()
+                flash(f"Statement saved and reconciled: {summary['matched']} matched, {summary['missing']} missing, {summary['review']} to review.",'success')
+                return redirect(url_for('banking_reconciliation',run_id=run.id))
+    flash(('Statement' if kind=='statement' else 'Template')+' saved securely. '+status+'.','success')
+    return redirect(url_for('banking_suite')+'#vault')
+
+
+@app.route('/banking/reconcile',methods=['POST'])
+@permission_required('banking')
+def banking_reconcile():
+    user=current_user(); sid=request.form.get('statement_id',''); tid=request.form.get('template_id','')
+    if not (sid.isdigit() and tid.isdigit()):
+        flash('Select both a bank statement and a reconciliation template.','danger'); return redirect(url_for('banking_suite')+'#reconcile')
+    statement=db.session.get(BankDocument,int(sid)); template=db.session.get(BankDocument,int(tid))
+    if not statement or not template or statement.user_id!=user.id or template.user_id!=user.id or statement.document_type!='statement' or template.document_type!='template': abort(404)
+    srows=_bank_decrypt_json(statement.parsed_ciphertext); trows=_bank_decrypt_json(template.parsed_ciphertext)
+    if not srows or not trows:
+        flash('Both files need readable transaction rows. CSV/XLSX gives the most reliable reconciliation.','danger'); return redirect(url_for('banking_suite')+'#reconcile')
+    result=_bank_reconcile(srows,trows); summary=result['summary']
+    run=BankReconciliationRun(user_id=user.id,statement_id=statement.id,template_id=template.id,summary_json=json.dumps(summary,separators=(',',':')),result_ciphertext=_bank_encrypt_json(result))
+    db.session.add(run); db.session.commit()
+    return redirect(url_for('banking_reconciliation',run_id=run.id))
+
+
+@app.route('/banking/reconciliation/<int:run_id>')
+@permission_required('banking')
+def banking_reconciliation(run_id):
+    user=current_user(); run=db.session.get(BankReconciliationRun,run_id) or abort(404)
+    if run.user_id!=user.id: abort(404)
+    statement=db.session.get(BankDocument,run.statement_id); template=db.session.get(BankDocument,run.template_id)
+    result=_bank_decrypt_json(run.result_ciphertext)
+    return render_template('bank_reconciliation.html',run=run,result=result,statement=statement,template=template)
+
+
+@app.route('/banking/reconciliation/<int:run_id>/csv')
+@permission_required('banking')
+def banking_reconciliation_csv(run_id):
+    user=current_user(); run=db.session.get(BankReconciliationRun,run_id) or abort(404)
+    if run.user_id!=user.id: abort(404)
+    result=_bank_decrypt_json(run.result_ciphertext); output=io.StringIO(); writer=csv.writer(output)
+    writer.writerow(['Status','Score','Expected Date','Expected Amount','Expected Reference','Expected Description','Statement Date','Statement Amount','Statement Reference','Statement Description'])
+    for item in result.get('matches',[]):
+        e=item.get('expected') or {}; a=item.get('actual') or {}
+        writer.writerow([item.get('status',''),item.get('score',''),e.get('date',''),e.get('amount',''),e.get('reference',''),e.get('description',''),a.get('date',''),a.get('amount',''),a.get('reference',''),a.get('description','')])
+    for a in result.get('extras',[]): writer.writerow(['extra','', '', '', '', '',a.get('date',''),a.get('amount',''),a.get('reference',''),a.get('description','')])
+    raw=output.getvalue().encode('utf-8-sig')
+    return send_file(io.BytesIO(raw),mimetype='text/csv',as_attachment=True,download_name=f'livenza-reconciliation-{run.id}.csv')
+
+
+@app.route('/banking/documents/<int:doc_id>/download')
+@permission_required('banking')
+def banking_document_download(doc_id):
+    user=current_user(); doc=db.session.get(BankDocument,doc_id) or abort(404)
+    if doc.user_id!=user.id: abort(404)
+    raw=_bank_decrypt_bytes(doc.encrypted_blob)
+    if not raw: abort(404)
+    return send_file(io.BytesIO(raw),mimetype=doc.mime_type or 'application/octet-stream',as_attachment=True,download_name=doc.file_name)
+
+
+@app.route('/banking/documents/<int:doc_id>/delete',methods=['POST'])
+@permission_required('banking')
+def banking_document_delete(doc_id):
+    user=current_user(); doc=db.session.get(BankDocument,doc_id) or abort(404)
+    if doc.user_id!=user.id: abort(404)
+    BankReconciliationRun.query.filter((BankReconciliationRun.statement_id==doc.id)|(BankReconciliationRun.template_id==doc.id)).delete(synchronize_session=False)
+    db.session.delete(doc); db.session.commit(); flash('Banking document removed from the encrypted vault.','success')
+    return redirect(url_for('banking_suite')+'#vault')
+
+
 @app.route('/billing')
 @permission_required('rentok')
 def billing(): return render_template('rentok.html',url='https://manager.rentok.com/')
@@ -2745,7 +3178,7 @@ def _local_help_answer(question):
     ]
     for words,key in aliases:
         if any(w in q for w in words):return HELP_FEATURES[key]
-    return 'I can guide you through Agreements, Rooms, Tenants, Reviews, Queries and Spreadsheet View, Video Wall, Billing, Fullscreen/Rotate, users/permissions and city setup. Ask a specific question about the feature you want to use.'
+    return 'I can guide you through Agreements, Rooms, Tenants, Reviews, Queries and Spreadsheet View, Video Wall, Billing, Banking & Reconciliation, Fullscreen/Rotate, users/permissions and city setup. Ask a specific question about the feature you want to use.'
 
 @app.route('/api/help',methods=['POST'])
 @login_required
