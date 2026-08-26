@@ -44,6 +44,7 @@ def prepare(page, width, height, scenario, reduced=False):
         const width=Math.min(r.width,safe.right-safe.left),height=Math.min(r.height,safe.bottom-safe.top);
         Object.assign(w.style,{left:`${Math.max(safe.left,Math.min(r.left,safe.right-width))}px`,top:`${Math.max(safe.top,Math.min(r.top,safe.bottom-height))}px`,width:`${width}px`,height:`${height}px`});
       });
+      window.scrollTo(0,0);
     }""", scenario)
     page.wait_for_timeout(100)
 

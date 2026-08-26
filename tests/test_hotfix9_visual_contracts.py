@@ -78,7 +78,7 @@ class Hotfix9VisualContracts(unittest.TestCase):
 
     def test_default_appearance_is_light_for_new_users(self):
         self.assertIn("'appearance.mode':'light'", JS)
-        self.assertIn("prefs['appearance.mode']||'light'", BASE)
+        self.assertIn("prefs['appearance.mode']==='dark'?'dark':'light'", BASE)
 
     def test_personal_photo_is_not_builtin_wallpaper(self):
         self.assertNotIn('livenza_360_lifestyle_bg.jpg', WALL)

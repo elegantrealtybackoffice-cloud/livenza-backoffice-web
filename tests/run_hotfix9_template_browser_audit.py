@@ -41,7 +41,7 @@ env.globals.update(
     masked_aadhaar=lambda x:x,
 )
 USER=SimpleNamespace(avatar_data_uri='',photo_data_uri='',full_name='Admin',username='admin',role='admin',id=1)
-COMMON=dict(current_user=USER,app_version='27.0.1',os_name='Tesla OS 27',os_version='27.0.1',os_build='27A101',marquee_enabled=False,is_admin=True,companion_enabled=False,kiosk_mode_enabled=False,mascot_preferences=SimpleNamespace(position='right',size='medium',intensity='subtle'),companion_default_city='Gurugram',companion_weather_effects=False,dock_apps=[],module_labels={},cloud_whatsapp=False,google_connected=False,connected=False,configured=False)
+COMMON=dict(current_user=USER,app_version='27.0.1',os_name='Tesla OS 27',os_version='27.0.1',os_build='27A101',is_admin=True,companion_enabled=False,kiosk_mode_enabled=False,mascot_preferences=SimpleNamespace(position='right',size='medium',intensity='subtle'),companion_default_city='Gurugram',companion_weather_effects=False,dock_apps=[],module_labels={},cloud_whatsapp=False,google_connected=False,connected=False,configured=False)
 settings_item=SimpleNamespace(group='Appearance',key='appearance',label='Appearance',description='Colour and material',icon='settings')
 SCENARIOS={
     'agreements':('agreements.html',dict(items=[])),
@@ -132,6 +132,7 @@ def main():
                 if name=='letterhead': page.add_style_tag(content=LETTERHEAD)
                 page.add_style_tag(content=SYSTEM)
                 page.add_script_tag(content=SHELL)
+                page.evaluate("window.scrollTo(0,0)")
                 page.wait_for_timeout(80)
                 failures,data=audit_page(page,name,width,height)
                 results.append({'scenario':name,'viewport':f'{width}x{height}','failures':failures,'data':data})

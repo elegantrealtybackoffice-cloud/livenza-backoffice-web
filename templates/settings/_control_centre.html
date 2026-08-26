@@ -2,7 +2,7 @@
   <article class="settings-card">
     <div class="settings-section-title"><div><h2>Control Centre</h2><p>Choose which working controls remain visible in the application toolbar.</p></div></div>
     <div class="settings-toggle-list">
-      {% for key,label,desc in [('control.search','Search','Command search and ⌘K'),('control.companion','Companion','Livenza assistant affordance'),('control.display','Display','Orientation controls'),('control.fullscreen','Fullscreen','Browser fullscreen control'),('control.marquee','Live status','Operational status strip')] %}
+      {% for key,label,desc in [('control.search','Search','Command search and ⌘K'),('control.companion','Companion','Livenza assistant affordance'),('control.display','Display','Orientation controls'),('control.fullscreen','Fullscreen','Browser fullscreen control')] %}
       <label class="settings-toggle-row"><span><b>{{label}}</b><small>{{desc}}</small></span><span class="mac-switch"><input type="checkbox" data-pref="{{key}}" checked><i></i></span></label>
       {% endfor %}
     </div>
