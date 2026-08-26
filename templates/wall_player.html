@@ -7,5 +7,12 @@ function showCurrent(force=false){clearSlide();if(!state||!state.screen.enabled|
 vid.addEventListener('ended',()=>{if(state&&state.playlist&&state.playlist.length>1)advance()});
 async function sync(){try{const r=await fetch(`/api/wall/${token}/state`,{cache:'no-store'});if(!r.ok)return;const s=await r.json();mode.textContent=s.festive?`FESTIVE • ${s.festive.name}`:'INDIVIDUAL';mode.className='chip '+(s.festive?'festive':'');const nk=JSON.stringify({ids:(s.playlist||[]).map(x=>x.id),rot:s.rotation,fit:s.fit,loop:s.loop,muted:s.muted,festive:s.festive?s.festive.id:0,enabled:s.screen.enabled,dur:s.slide_duration});state=s;if(nk!==playlistKey){playlistKey=nk;idx=0;showCurrent(true)}else if(state.playlist&&state.playlist[idx]){layout(state.playlist[idx].type==='image'?img:vid,state.rotation,state.fit)}}catch(e){}}
 async function beat(){try{await fetch(`/api/wall/${token}/heartbeat`,{method:'POST'})}catch(e){}}
-sync();beat();setInterval(sync,2500);setInterval(beat,30000);document.addEventListener('click',()=>vid.play().catch(()=>{}));
+let wallSyncTimer=null,wallBeatTimer=null;
+function clearWallTimers(){clearTimeout(wallSyncTimer);clearTimeout(wallBeatTimer);wallSyncTimer=null;wallBeatTimer=null}
+function scheduleWallSync(delay=2500){clearTimeout(wallSyncTimer);wallSyncTimer=null;if(document.hidden)return;wallSyncTimer=setTimeout(async()=>{await sync();scheduleWallSync(2500)},Math.max(1000,delay))}
+function scheduleWallBeat(delay=30000){clearTimeout(wallBeatTimer);wallBeatTimer=null;if(document.hidden)return;wallBeatTimer=setTimeout(async()=>{await beat();scheduleWallBeat(30000)},Math.max(5000,delay))}
+async function startWallLoops(){clearWallTimers();if(document.hidden)return;await sync();await beat();scheduleWallSync();scheduleWallBeat()}
+document.addEventListener('visibilitychange',()=>{if(document.hidden){clearWallTimers();clearSlide();vid.pause()}else{startWallLoops();if(state)showCurrent(false)}});
+window.addEventListener('pagehide',()=>{clearWallTimers();clearSlide()},{once:true});
+startWallLoops();document.addEventListener('click',()=>vid.play().catch(()=>{}));
 </script></body></html>
