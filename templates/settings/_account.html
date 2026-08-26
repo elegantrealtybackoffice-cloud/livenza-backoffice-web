@@ -1,0 +1,10 @@
+<section class="settings-panel settings-account-panel">
+  <div class="settings-user-summary liquid-card">
+    {% if user.avatar_data_uri or user.photo_data_uri %}<img src="{{user.avatar_data_uri or user.photo_data_uri}}" alt="{{user.full_name or user.username}} profile">{% else %}<span class="settings-avatar-fallback">{{(user.full_name or user.username)[:1]|upper}}</span>{% endif %}
+    <div><p class="eyebrow">LIVENZA IDENTITY</p><h2>{{user.full_name or user.username}}</h2><p>{{user.role|title}} · {{'Active' if user.active else 'Inactive'}}</p></div>
+  </div>
+  <div class="settings-detail-grid">
+    <article class="settings-card"><h3>Profile</h3><dl class="settings-kv"><div><dt>Login ID</dt><dd>{{user.username}}</dd></div><div><dt>Role</dt><dd>{{user.role|title}}</dd></div><div><dt>Aadhaar Name</dt><dd>{{user.aadhaar_name or 'Not set'}}</dd></div><div><dt>Masked Aadhaar</dt><dd>{{masked_aadhaar(user.aadhaar_last4) or 'Not set'}}</dd></div></dl></article>
+    <article class="settings-card"><h3>Access & Identity</h3><dl class="settings-kv"><div><dt>Account</dt><dd>{{'Active' if user.active else 'Inactive'}}</dd></div><div><dt>Passkey</dt><dd>{{'Allowed by Admin' if user.webauthn_enabled else 'Disabled by Admin'}}</dd></div><div><dt>Profile updated</dt><dd>{{user.avatar_updated_at.strftime('%d %b %Y %I:%M %p') if user.avatar_updated_at else 'Not set'}}</dd></div></dl><p class="settings-note">Passwords, login IDs, profile photos and permissions are Admin-managed under Users & Groups.</p></article>
+  </div>
+</section>

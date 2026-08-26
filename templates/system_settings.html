@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}System Settings · Livenza Life{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{url_for('static',filename='integrations.css')}}?v={{app_version|replace('Web ','')}}">{% endblock %}
+{% block content %}
+<div class="system-settings" data-system-settings>
+  <aside class="system-settings-sidebar" id="systemSettingsSidebar">
+    <div class="settings-profile-card">
+      {% if current_user.avatar_data_uri or current_user.photo_data_uri %}<img src="{{current_user.avatar_data_uri or current_user.photo_data_uri}}" alt="">{% else %}<span class="settings-avatar-fallback">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}
+      <span><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} · Livenza Life</small></span>
+    </div>
+    <label class="settings-search">{{icons.symbol('search')}}<input id="settingsSearch" type="search" placeholder="Search Settings" autocomplete="off"><kbd>⌘F</kbd></label>
+    <nav class="settings-nav" aria-label="Settings sections">
+      {% set ns=namespace(group='') %}
+      {% for pane in settings_panes %}
+        {% if pane.group != ns.group %}<p class="settings-nav-group">{{pane.group}}</p>{% set ns.group=pane.group %}{% endif %}
+        <a href="{{url_for('system_settings_pane',pane=pane.key)}}" class="settings-nav-row {% if pane.key==selected_settings_pane %}active{% endif %}" data-settings-search="{{pane.label}} {{pane.description}}" {% if pane.key==selected_settings_pane %}aria-current="page"{% endif %}>
+          <span class="settings-nav-icon">{{icons.symbol(pane.icon)}}</span><span><b>{{pane.label}}</b><small>{{pane.description}}</small></span><span class="settings-chevron">{{icons.symbol('chevron-right')}}</span>
+        </a>
+      {% endfor %}
+    </nav>
+  </aside>
+  <section class="system-settings-detail">
+    <button type="button" id="settingsNavToggle" class="settings-mobile-nav-toggle" aria-controls="systemSettingsSidebar" aria-expanded="false">{{icons.symbol('sidebar')}} Settings</button>
+    <header class="settings-detail-header"><span class="settings-detail-icon">{{icons.symbol(selected_settings.icon)}}</span><div><p class="eyebrow">SYSTEM SETTINGS</p><h1>{{selected_settings.label}}</h1><p>{{selected_settings.description}}</p></div></header>
+    {% set settings_partial='settings/_' ~ selected_settings_pane|replace('-','_') ~ '.html' %}
+    {% include settings_partial %}
+  </section>
+</div>
+{% endblock %}

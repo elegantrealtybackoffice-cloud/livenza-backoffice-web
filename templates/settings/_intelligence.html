@@ -1,0 +1,20 @@
+<section class="settings-panel" id="mascot-settings">
+  <div class="settings-companion-preview settings-card">
+    <img src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}" alt="Livenza Companion">
+    <div><p class="eyebrow">LIVENZA COMPANION</p><h2>Livenza Companion</h2><p>Live operational context, weather reactions and assistance with restrained macOS-style motion.</p></div>
+  </div>
+  <form method="post" action="{{url_for('account_mascot_settings')}}" class="settings-card settings-form-stack">
+    <h3>Visibility & Intelligence</h3>
+    <div class="settings-toggle-list">
+      {% for name,label,value in [('enabled','Show Livenza Companion',mascot_preferences.enabled),('operational_updates','Operational updates',mascot_preferences.operational_updates),('weather_reactions','Weather reactions',mascot_preferences.weather_reactions),('motivational_messages','Motivational messages',mascot_preferences.motivational_messages)] %}
+      <label class="settings-toggle-row"><span>{{label}}</span><span class="mac-switch"><input type="hidden" name="{{name}}" value="0"><input type="checkbox" name="{{name}}" value="1" {% if value %}checked{% endif %}><i></i></span></label>{% endfor %}
+    </div>
+    <div class="form-grid">
+      <label>Motion<select name="intensity"><option value="full" {% if mascot_preferences.requested_intensity=='full' %}selected{% endif %}>Responsive</option><option value="gentle" {% if mascot_preferences.requested_intensity=='gentle' %}selected{% endif %}>Gentle</option><option value="static" {% if mascot_preferences.requested_intensity=='static' %}selected{% endif %}>Static</option></select></label>
+      <label>Size<select name="size"><option value="small" {% if mascot_preferences.size=='small' %}selected{% endif %}>Small</option><option value="medium" {% if mascot_preferences.size=='medium' %}selected{% endif %}>Medium</option><option value="large" {% if mascot_preferences.size=='large' %}selected{% endif %}>Large</option></select></label>
+      <label>Position<select name="position"><option value="bottom-left" {% if mascot_preferences.position=='bottom-left' %}selected{% endif %}>Bottom Left</option><option value="bottom-right" {% if mascot_preferences.position=='bottom-right' %}selected{% endif %}>Bottom Right</option></select></label>
+      <label>Weather City<input name="weather_city" maxlength="120" value="{{mascot_preferences.weather_city}}"></label>
+    </div>
+    <div class="actions"><button class="primary" name="mascot_action" value="save">Save Companion Settings</button><button class="secondary" name="mascot_action" value="reset">Restore Defaults</button></div>
+  </form>
+</section>
