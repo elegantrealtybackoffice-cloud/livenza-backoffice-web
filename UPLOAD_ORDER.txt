@@ -1,8 +1,18 @@
-Tesla OS 27 — Version 27.0.1 — Build 27A101
-Complete cumulative deployment with macOS 27 UI Kit interface pass (Hotfix 5) merged over the prior runtime/login hotfixes.
+Tesla OS 27 — Version 27.0.1 — Build 27A101 — Hotfix 7 Browser-OS Clean Shell
 
-If using a complete ZIP, upload the full extracted tree and preserve paths.
-Overwrite existing application/static/template files when prompted.
-Do not delete persistent database/instance data, uploaded business files or environment variables.
-Restart/redeploy the service after the upload completes.
-Run the checks in VERIFY_DEPLOY.txt after restart.
+Preferred deployment:
+1. Back up the current application tree and persistent instance/database/uploads first.
+2. Extract the complete Hotfix 7 ZIP into the application root, preserving paths and overwriting matching application/static/template files.
+3. Do NOT delete persistent database/instance data, uploaded business files, secrets, environment variables or historical migration files.
+4. Restart/redeploy the service.
+5. Hard-refresh once after deployment so the browser receives the new versioned/static shell files.
+6. Run every check in VERIFY_DEPLOY.txt before treating the deployment as accepted.
+
+100-file upload workflow:
+1. Upload/extract PART_01_100_FILES into the same application root.
+2. Upload/extract PART_02_REMAINING_FILES into that exact same root.
+3. Preserve directory structure; do not create a second nested project folder.
+4. Restart/redeploy only after both parts are present.
+5. Run VERIFY_DEPLOY.txt.
+
+The split archives are file partitions of the same verified complete tree; neither part is a standalone application.

@@ -5,55 +5,66 @@
   <nav class="mac-desktop-menubar" aria-label="Desktop menu bar">
     <div class="desktop-menu-left">
       <a class="desktop-menu-logo" href="{{url_for('dashboard')}}" aria-label="Livenza Life Home"><img src="{{url_for('static',filename='livenza_logo_transparent.png')}}" alt=""></a>
-      <strong>Livenza Life</strong>
-      <button type="button" data-drawer-target="appsDrawer" data-suites-dock aria-controls="appsDrawer" aria-expanded="false">Suites</button>
-      <button type="button" data-mac-command-open>File</button>
-      <button type="button" data-mac-command-open>Edit</button>
-      <button type="button" data-mac-command-open>View</button>
-      <button type="button" data-mac-command-open>Go</button>
-      <button type="button" data-mac-command-open>Window</button>
-      <button type="button" data-home-companion-open>Help</button>
+      <strong id="desktopActiveApp" class="desktop-active-app">Livenza Life</strong>
+      <button type="button" class="desktop-menu-command" data-drawer-target="appsDrawer" data-suites-dock aria-controls="appsDrawer" aria-expanded="false">Suites</button>
+      <button type="button" class="desktop-menu-command" data-active-window-only data-active-window-menu="file" data-window-menu-trigger="file" aria-expanded="false" hidden>File</button>
+      <button type="button" class="desktop-menu-command" data-window-menu-trigger="view" aria-expanded="false">View</button>
+      <button type="button" class="desktop-menu-command" data-window-menu-trigger="window" aria-expanded="false">Window</button>
+      <button type="button" class="desktop-menu-command" data-home-companion-open>Help</button>
     </div>
     <div class="desktop-menu-right">
-      <span class="desktop-status-icon" aria-label="Network">{{icons.symbol('wifi')}}</span>
-      <span class="desktop-status-icon" aria-label="Focus">{{icons.symbol('focus')}}</span>
-      <button type="button" class="desktop-status-button" data-mac-command-open aria-label="Search">{{icons.symbol('search')}}</button>
-      <a class="desktop-status-button" href="{{url_for('settings_page')}}" aria-label="System Settings">{{icons.symbol('control-centre')}}</a>
+      <button type="button" class="desktop-status-button" data-mac-command-open aria-label="Search Livenza" title="Search">{{icons.symbol('search')}}</button>
+      <a class="desktop-status-button" href="{{url_for('settings_page')}}" data-app-nav aria-label="Open System Settings" title="System Settings">{{icons.symbol('control-centre')}}</a>
       <time id="homeCurrentDate" class="desktop-menu-date">—</time>
       <time id="homeCurrentTime" class="desktop-menu-time">—</time>
     </div>
   </nav>
+  <div class="desktop-menu-popover" data-window-menu="file" role="menu" hidden>
+    <button type="button" role="menuitem" data-window-menu-command="open-full-page">Open in Full Page</button>
+    <button type="button" role="menuitem" data-window-menu-command="close-active">Close Window</button>
+  </div>
+  <div class="desktop-menu-popover" data-window-menu="view" role="menu" hidden>
+    <button type="button" role="menuitem" data-active-window-only data-window-menu-command="reload-active" hidden>Reload App</button>
+    <button type="button" role="menuitem" data-window-menu-command="toggle-widgets">Toggle Widgets</button>
+    <button type="button" role="menuitem" data-window-menu-command="show-desktop">Show Desktop</button>
+  </div>
+  <div class="desktop-menu-popover" data-window-menu="window" role="menu" hidden>
+    <button type="button" role="menuitem" data-window-menu-command="minimize-active">Minimise</button>
+    <button type="button" role="menuitem" data-window-menu-command="zoom-active">Zoom</button>
+    <button type="button" role="menuitem" data-window-menu-command="bring-all-front">Bring All to Front</button>
+    <button type="button" role="menuitem" data-window-menu-command="close-active">Close</button>
+  </div>
 
+  <div id="wallpaperTransitionLayer" class="wallpaper-transition-layer" aria-hidden="true"></div>
   <div class="home-wallpaper-sheen" aria-hidden="true"></div>
+  <div id="desktopWindowLayer" class="desktop-window-layer" data-desktop-window-host aria-label="Open Livenza applications"></div>
 
   <aside class="home-widget-stack" aria-label="Desktop widgets">
-    <section class="home-widget home-today-widget" aria-label="Today">
-      <header class="home-widget-heading"><span><small id="homeDayName">Today</small><strong id="homeDateNumber">—</strong></span><span class="home-widget-badge">LIVE</span></header>
+    <section class="home-widget home-today-widget" data-home-widget="occupancy" aria-label="Today">
+      <header class="home-widget-heading">
+        <span><small id="homeDayName">Today</small><strong id="homeDateNumber">—</strong></span>
+        <span class="home-widget-badge">LIVE</span>
+      </header>
       <div class="home-today-content">
         <div class="home-agenda-row"><i class="agenda-accent accent-blue"></i><span><b id="homeOperationPrimary">Livenza operations</b><small id="homeOperationPrimaryValue">Syncing live status…</small></span></div>
         <div class="home-agenda-row"><i class="agenda-accent accent-violet"></i><span><b id="homeOperationSecondary">Workspace</b><small id="homeOperationSecondaryValue">Ready for today</small></span></div>
       </div>
     </section>
 
-    <section class="home-widget home-weather-widget" aria-label="Weather">
-      <div class="home-weather-copy"><small id="homeWeatherCity">{{companion_default_city or 'Gurugram'}}</small><strong id="homeWeatherTemperature" class="home-weather-temperature">—°</strong><span id="homeWeatherCondition">Loading live weather…</span></div>
+    <section class="home-widget home-weather-widget" data-home-widget="weather" aria-label="Weather">
+      <div class="home-weather-copy"><small id="homeWeatherCity">{{companion_default_city or 'Gurugram'}}</small><strong id="homeWeatherTemperature" class="home-weather-temperature">—°</strong><span id="homeWeatherCondition">Connecting to live weather…</span></div>
       <div class="home-weather-side"><span class="home-weather-symbol">{{icons.symbol('brightness')}}</span><small id="homeWeatherRange">H:—° L:—°</small></div>
     </section>
 
-    <section class="home-widget home-suggestions-widget" aria-label="Livenza suggestions">
-      <header><small>Livenza Suggestions</small></header>
+    <section class="home-widget home-suggestions-widget" data-home-widget="tasks" aria-label="Livenza suggestions">
+      <header class="home-suggestions-head"><small>Livenza Suggestions</small></header>
       <div class="home-suggestion-list">
         {% if can_access('agreements') %}<a href="{{url_for('agreements')}}" data-app-nav><span class="suggestion-icon tone-blue">{{icons.symbol('agreement')}}</span><span><b>Create an agreement</b><small>Open Agreement Studio</small></span></a>{% endif %}
         {% if can_access('queries') %}<a href="{{url_for('queries')}}" data-app-nav><span class="suggestion-icon tone-violet">{{icons.symbol('queries')}}</span><span><b>Review live queries</b><small>See follow-ups and leads</small></span></a>{% endif %}
-        {% if can_access('letterhead') %}<a href="{{url_for('letterhead_studio')}}" data-app-nav><span class="suggestion-icon tone-red">{{icons.symbol('letterhead')}}</span><span><b>Create a new document</b><small>Open Letterhead Studio</small></span></a>{% endif %}
+        {% if can_access('letterhead') %}<a href="{{url_for('letterhead_studio')}}" data-app-nav><span class="suggestion-icon tone-red">{{icons.symbol('letterhead')}}</span><span><b>Create a document</b><small>Open Letterhead Studio</small></span></a>{% endif %}
         <button type="button" data-home-companion-open><span class="suggestion-icon tone-indigo">{{icons.symbol('intelligence')}}</span><span><b>Ask Livenza</b><small>Get help with this workspace</small></span></button>
       </div>
     </section>
   </aside>
-
-  <div class="home-desktop-signature" aria-label="Tesla OS 27">
-    <img src="{{url_for('static',filename='livenza_logo_transparent.png')}}" alt="">
-    <span><b>Livenza Life</b><small>Tesla OS 27 · 27.0.1</small></span>
-  </div>
 </section>
 {% endblock %}

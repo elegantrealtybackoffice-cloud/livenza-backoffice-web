@@ -1,11 +1,18 @@
-TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101
+TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 7 BROWSER-OS CLEAN SHELL
 
-1. Upload the contents of the DIRECT_ROOT_FILES package to the application repository root.
-2. Preserve the existing DATABASE_URL / PostgreSQL connection, SECRET_KEY, LIVENZA_VAULT_MASTER_KEY and INTEGRATION_ENCRYPTION_KEY values so existing encrypted data remains readable.
-3. Keep the supplied historical migration files. Their filenames are retained only for database compatibility and do not represent the current OS version.
-4. Deploy with the supplied Dockerfile/render.yaml and confirm `/version` reports Tesla OS 27, Version 27.0.1 and Build 27A101.
-5. Confirm Home contains only the Livenza AI identity workspace and the persistent bottom Dock.
-6. Confirm the Dock contains one Suites icon and opens the permission-aware Suites launcher.
-7. Confirm Account, Admin, Users, Integrations, appearance, widgets, security and organisation configuration are available through System Settings.
-8. Keep HTTPS enabled for camera, passkey/WebAuthn and other browser security features.
-9. Banking or partner sites may refuse iframe embedding by design. Use their verified external-site launcher when that occurs; do not bypass CSP or X-Frame-Options.
+1. Back up the current application tree plus persistent database/instance/uploads before replacing application files.
+2. Upload/extract the COMPLETE Hotfix 7 package into the application repository root, preserving paths and overwriting matching application/static/template files.
+3. For a 100-file upload limit, upload PART_01_100_FILES first and PART_02_57_FILES second into the exact same application root. Neither part is a standalone application.
+4. Preserve DATABASE_URL / PostgreSQL data, SECRET_KEY, LIVENZA_VAULT_MASTER_KEY, INTEGRATION_ENCRYPTION_KEY and all other production environment variables so existing encrypted/business data remains readable.
+5. Preserve historical migration files, persistent instance/database data and uploaded business files. Do not delete or reset production data as part of this UI shell deployment.
+6. Deploy with the supplied Dockerfile/render.yaml and confirm `/version` reports Tesla OS 27, Version 27.0.1 and Build 27A101.
+7. Hard-refresh once after deployment so the browser receives the new clean-shell static assets.
+8. Confirm Home loads as the macOS-style desktop host: quiet 34 px menu bar, vibrant wallpaper, right-side widgets and a persistent 58 px functional-app Dock.
+9. Confirm the Dock contains only applications genuinely available for the signed-in user. Provider-dependent apps must remain hidden when their capability is unavailable.
+10. Open at least two Dock apps and verify managed window focus, drag, resize, minimise, restore, Zoom/maximise and Close. File should appear only when an application window is active.
+11. Open System Settings → Wallpaper and verify built-in previews, custom image selection, Reset, instant transition and persistence after reload without a default-wallpaper flash.
+12. Confirm menu items, Dock entries and widgets perform real actions; decorative/dummy File/Edit/Go-style controls must not reappear.
+13. Confirm representative forms, tables, cards, popovers and buttons have neat baseline alignment, readable text and no clipping/legacy streak effects.
+14. Keep HTTPS enabled for camera, passkey/WebAuthn and other browser security features.
+15. Banking or partner sites may refuse iframe embedding by design. Use their verified external-site launcher when that occurs; do not bypass CSP or X-Frame-Options.
+16. Run every acceptance check in VERIFY_DEPLOY.txt before treating the deployment as accepted. Server-backed writes/integrations must be re-tested against production because the packaging sandbox cannot certify live database/provider behaviour.

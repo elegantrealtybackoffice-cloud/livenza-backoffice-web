@@ -1,7 +1,7 @@
 {% import '_livenza_symbols.html' as icons with context %}
 
 {% macro app_item(surface,title,desc,endpoint,perm='',symbol_name='home',media='livenza_360_lifestyle_bg.jpg') -%}
-  {% if (not perm) or can_access(perm) %}
+  {% if ((not perm) or can_access(perm)) and ui_app_available(endpoint) %}
     {% if surface == 'drawer' %}
       <a class="grouped-app-item lg-app-tile lg-control {% if request.endpoint==endpoint %}active is-active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav><i>{{icons.symbol(symbol_name)}}</i><span><b>{{title}}</b><small>{{desc}}</small></span><em aria-hidden="true">›</em></a>
     {% else %}
@@ -69,39 +69,22 @@
 {%- endmacro %}
 
 
-{% macro dock_app(title,endpoint,perm='',symbol_name='home',tone='blue') -%}
-  {% if (not perm) or can_access(perm) %}
-  <a class="mac-dock-item mac-dock-app {% if request.endpoint==endpoint %}is-active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav data-dock-app data-dock-tone="{{tone}}" aria-label="{{title}}" title="{{title}}">
+{% macro dock_app(title,endpoint,symbol_name='home',tone='blue') -%}
+  <a class="mac-dock-item mac-dock-app {% if request.endpoint==endpoint %}is-active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav data-dock-app data-app-endpoint="{{endpoint}}" data-app-url="{{url_for(endpoint)}}" data-app-title="{{title}}" data-app-tone="{{tone}}" data-dock-tone="{{tone}}" aria-label="{{title}}" title="{{title}}">
     <span class="mac-dock-icon"><span class="dock-app-glyph">{{icons.symbol(symbol_name)}}</span></span>
     <span class="mac-dock-tooltip" role="tooltip">{{title}}</span><i class="mac-dock-running" aria-hidden="true"></i>
   </a>
-  {% endif %}
 {%- endmacro %}
 
 {% macro render_dock_apps() -%}
-  {{dock_app('Home','dashboard','','home','finder')}}
-  {{dock_app('Agreement Studio','agreements','agreements','agreement','blue')}}
-  {{dock_app('Landlord Master','landlord_masters','agreements','property','indigo')}}
-  {{dock_app('Tenant Master','tenant_masters','agreements','resident','purple')}}
-  {{dock_app('Rooms','rooms','rooms','room','cyan')}}
-  {{dock_app('Residents','tenants','rooms','resident','teal')}}
-  {{dock_app('Queries','queries','queries','queries','orange')}}
-  {{dock_app('Reviews','reviews','reviews','review','yellow')}}
-  {{dock_app('Video Wall','video_wall','video_wall','video','pink')}}
-  {{dock_app('Food','food','food','food','green')}}
-  {{dock_app('Billing','billing','rentok','billing','mint')}}
-  {{dock_app('Banking','banking_suite','banking','banking','navy')}}
-  {{dock_app('Electricity','electricity_studio','electricity','electricity','amber')}}
-  {{dock_app('WhatsApp','whatsapp_workspace','whatsapp','whatsapp','green')}}
-  {{dock_app('Email','email_workspace','email','email','blue')}}
-  {{dock_app('Drive','drive_workspace','drive','drive','cyan')}}
-  {{dock_app('Letterhead Studio','letterhead_studio','letterhead','letterhead','red')}}
-  {{dock_app('System Settings','settings_page','','settings','settings')}}
+  {% for app_item in dock_apps %}
+    {{dock_app(app_item.title,app_item.endpoint,app_item.icon,app_item.tone)}}
+  {% endfor %}
 {%- endmacro %}
 
 
 {% macro command_item(title,desc,endpoint,perm='',icon='home',keywords='') -%}
-  {% if (not perm) or can_access(perm) %}<a class="mac-command-item" href="{{url_for(endpoint)}}" data-command-item data-command-label="{{title}}" data-command-keywords="{{title}} {{desc}} {{keywords}}"><span>{{icons.symbol(icon)}}</span><span><b>{{title}}</b><small>{{desc}}</small></span><kbd>↵</kbd></a>{% endif %}
+  {% if ((not perm) or can_access(perm)) and ui_app_available(endpoint) %}<a class="mac-command-item" href="{{url_for(endpoint)}}" data-command-item data-command-label="{{title}}" data-command-keywords="{{title}} {{desc}} {{keywords}}"><span>{{icons.symbol(icon)}}</span><span><b>{{title}}</b><small>{{desc}}</small></span><kbd>↵</kbd></a>{% endif %}
 {%- endmacro %}
 
 {% macro render_command_items() -%}

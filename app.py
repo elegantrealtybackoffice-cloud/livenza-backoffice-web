@@ -1538,16 +1538,13 @@ MODULES = {
 SYSTEM_SETTINGS_PANES = [
     {'key':'account','label':'Account','group':'Personal','icon':'account','description':'Your Livenza identity, sign-in status and personal workspace preferences.'},
     {'key':'network','label':'Network','group':'Connectivity','icon':'wifi','description':'Livenza connectivity, backend reachability and integration health.'},
-    {'key':'notifications','label':'Notifications','group':'Personal','icon':'bell','description':'Choose which Livenza alerts, badges and operational notices can interrupt you.'},
-    {'key':'sound','label':'Sound','group':'Personal','icon':'sound','description':'Control Livenza interface and notification audio.'},
     {'key':'focus','label':'Focus','group':'Personal','icon':'focus','description':'Reduce non-critical alerts, mascot interruptions and live-status distractions.'},
     {'key':'general','label':'General','group':'System','icon':'general','description':'Version, region, language and core Livenza defaults.'},
-    {'key':'appearance','label':'Appearance','group':'System','icon':'appearance','description':'Warm neutral Liquid Glass appearance, transparency, contrast and interface density.'},
+    {'key':'appearance','label':'Appearance','group':'System','icon':'appearance','description':'macOS 27 application material, light/dark appearance, contrast and transparency.'},
     {'key':'accessibility','label':'Accessibility','group':'System','icon':'accessibility','description':'Motion, transparency, text and interaction accessibility preferences.'},
     {'key':'control-centre','label':'Control Centre','group':'System','icon':'control-centre','description':'Choose the quick controls available in the Livenza toolbar.'},
-    {'key':'desktop-dock','label':'Desktop & Dock','group':'System','icon':'desktop-dock','description':'Dock, workspace, Suites launcher and inspector behavior.'},
-    {'key':'displays','label':'Displays','group':'System','icon':'display','description':'Interface luminance, scaling, fullscreen and video-wall presentation.'},
-    {'key':'wallpaper','label':'Wallpaper','group':'System','icon':'wallpaper','description':'Choose the warm neutral environment behind Tesla OS Liquid Glass.'},
+    {'key':'desktop-dock','label':'Desktop & Dock','group':'System','icon':'desktop-dock','description':'Dock size, magnification and automatic hiding.'},
+    {'key':'wallpaper','label':'Wallpaper','group':'System','icon':'wallpaper','description':'Choose a vibrant Tesla OS desktop wallpaper or use your own image.'},
     {'key':'widgets','label':'Widgets','group':'System','icon':'widgets','description':'Manage operational widgets from System Settings without adding clutter to Home.'},
     {'key':'privacy-security','label':'Privacy & Security','group':'Security','icon':'privacy','description':'Passkeys, kiosk controls, secure sessions and sensitive-data visibility.'},
     {'key':'users-groups','label':'Users & Groups','group':'Administration','icon':'users','description':'Users, roles, permissions, profile identity and access controls.','admin_only':True},
@@ -2514,6 +2511,51 @@ def all_form_data(preset_name=None):
     return d
 
 
+LIVENZA_APP_REGISTRY = [
+    {'title':'Home','endpoint':'dashboard','permission':'','icon':'home','tone':'finder','availability':'internal'},
+    {'title':'Agreement Studio','endpoint':'agreements','permission':'agreements','icon':'agreement','tone':'blue','availability':'internal'},
+    {'title':'Rooms','endpoint':'rooms','permission':'rooms','icon':'room','tone':'cyan','availability':'internal'},
+    {'title':'Residents','endpoint':'tenants','permission':'rooms','icon':'resident','tone':'teal','availability':'internal'},
+    {'title':'Queries','endpoint':'queries','permission':'queries','icon':'queries','tone':'orange','availability':'internal'},
+    {'title':'Reviews','endpoint':'reviews','permission':'reviews','icon':'review','tone':'yellow','availability':'internal'},
+    {'title':'Video Wall','endpoint':'video_wall','permission':'video_wall','icon':'video','tone':'pink','availability':'internal'},
+    {'title':'Food','endpoint':'food','permission':'food','icon':'food','tone':'green','availability':'internal'},
+    {'title':'Billing','endpoint':'billing','permission':'rentok','icon':'billing','tone':'mint','availability':'internal'},
+    {'title':'Banking','endpoint':'banking_suite','permission':'banking','icon':'banking','tone':'navy','availability':'internal'},
+    {'title':'Electricity','endpoint':'electricity_studio','permission':'electricity','icon':'electricity','tone':'amber','availability':'internal'},
+    {'title':'WhatsApp','endpoint':'whatsapp_workspace','permission':'whatsapp','icon':'whatsapp','tone':'green','availability':'whatsapp'},
+    {'title':'Email','endpoint':'email_workspace','permission':'email','icon':'email','tone':'blue','availability':'google'},
+    {'title':'Drive','endpoint':'drive_workspace','permission':'drive','icon':'drive','tone':'cyan','availability':'google'},
+    {'title':'Letterhead Studio','endpoint':'letterhead_studio','permission':'letterhead','icon':'letterhead','tone':'red','availability':'internal'},
+    {'title':'System Settings','endpoint':'settings_page','permission':'','icon':'settings','tone':'settings','availability':'internal'},
+]
+
+
+def ui_app_available(endpoint, user=None):
+    """Return True only when a visible app route is real, authorized and usable."""
+    item=next((row for row in LIVENZA_APP_REGISTRY if row['endpoint']==endpoint),None)
+    route_names={rule.endpoint for rule in app.url_map.iter_rules()}
+    if endpoint not in route_names:
+        return False
+    if not item:
+        return True
+    user=user or current_user()
+    permission=item.get('permission') or ''
+    if permission and not can_access(permission,user):
+        return False
+    availability=item.get('availability') or 'internal'
+    if availability=='whatsapp':
+        return whatsapp_cloud_configured()
+    if availability=='google':
+        return google_oauth_configured() and google_connected()
+    return True
+
+
+def visible_dock_apps(user=None):
+    user=user or current_user()
+    return [dict(item) for item in LIVENZA_APP_REGISTRY if ui_app_available(item['endpoint'],user)]
+
+
 @app.context_processor
 def inject_common():
     # Public authentication screens must render without any database-backed
@@ -2524,7 +2566,7 @@ def inject_common():
             current_user=None, app_version=APP_VERSION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
             can_access=can_access, module_labels=MODULES, is_admin=False, masked_aadhaar=masked_aadhaar,
             kiosk_mode_enabled=False, marquee_enabled=False, companion_enabled=False,
-            companion_default_city='Gurugram', companion_weather_effects=False, mascot_preferences={}
+            companion_default_city='Gurugram', companion_weather_effects=False, mascot_preferences={}, dock_apps=[], ui_app_available=lambda endpoint: False
         )
     user=current_user()
     mascot_preferences=mascot_preferences_for(user) if user else {}
@@ -2536,7 +2578,7 @@ def inject_common():
         companion_enabled=setting('companion_enabled','1')=='1' and bool(mascot_preferences.get('enabled',True)),
         companion_default_city=mascot_preferences.get('weather_city') or setting('companion_default_city','Gurugram'),
         companion_weather_effects=setting('companion_weather_effects','1')=='1' and bool(mascot_preferences.get('weather_reactions',True)),
-        mascot_preferences=mascot_preferences
+        mascot_preferences=mascot_preferences, dock_apps=visible_dock_apps(user), ui_app_available=ui_app_available
     )
 
 @app.before_request
@@ -2589,13 +2631,14 @@ def kiosk_relock():
 def health(): return jsonify(status='ok', service='livenza-back-office-web', version=APP_VERSION)
 
 @app.after_request
-def livenza_no_cache(response):
-    # Back Office is an operational web app. During active deployment cycles we
-    # deliberately prevent stale HTML/CSS/JS from masking a successful release.
-    if request.path.startswith('/static/') or response.mimetype in ('text/html','text/css','application/javascript','text/javascript'):
-        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+def livenza_cache_policy(response):
+    # Versioned static assets may be cached aggressively; HTML must revalidate so
+    # deploys become visible without forcing every CSS/JS/image request to reload.
+    if request.path.startswith('/static/'):
+        response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+    elif response.mimetype == 'text/html':
+        response.headers['Cache-Control'] = 'no-cache, max-age=0, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
     response.headers['X-Livenza-Build'] = APP_VERSION
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
@@ -2717,7 +2760,7 @@ def version():
     return jsonify(
         name=OS_NAME, version=OS_VERSION, build=OS_BUILD,
         features=[
-            'tesla-os-27','vibrant-macos27-desktop','persistent-suites-dock','individual-suite-dock',
+            'tesla-os-27','macos27-clean-shell','wallpaper-picker','functional-app-registry','raf-dock-motion',
             'unified-system-settings','livenza-symbol-system','ai-logo-identity','reduced-motion',
             'agreements','rooms','queries','billing','banking','electricity','food','video-wall',
             'whatsapp','email','drive','letterhead-studio','livenza-vault','role-permissions',

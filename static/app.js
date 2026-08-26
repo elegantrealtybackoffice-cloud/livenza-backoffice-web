@@ -167,7 +167,7 @@ document.addEventListener('click',async e=>{
 });
 
 function updateFooterClock(){const el=document.getElementById('footerClock');if(el)el.textContent=new Date().toLocaleString(undefined,{weekday:'short',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})}
-updateFooterClock();setInterval(updateFooterClock,1000);const footerYear=document.getElementById('footerYear');if(footerYear)footerYear.textContent=new Date().getFullYear();
+const footerClock=document.getElementById('footerClock');if(footerClock){updateFooterClock();window.setInterval(updateFooterClock,1000)}const footerYear=document.getElementById('footerYear');if(footerYear)footerYear.textContent=new Date().getFullYear();
 initPageFeatures(document);
 
 // ===== Tesla OS 27 • restored header rotation and display menu =====
@@ -817,6 +817,7 @@ initPageFeatures(document);
 
 // ===== Tesla OS 27 • persistent live mascot, forecast and weather scenes =====
 (()=>{
+  const desktopHome=document.body.dataset.page==='dashboard';
   const companion=document.getElementById('mascotCompanion');
   if(!companion)return;
   const button=document.getElementById('mascotCompanionButton');
@@ -899,7 +900,7 @@ initPageFeatures(document);
     if(!nudge||!panel?.hidden)return;const lines=nudgeLines();if(!lines.length)return;
     const text=nudge.querySelector('span');if(text)text.textContent=lines[nudgeIndex++%lines.length];nudge.classList.add('show');window.setTimeout(()=>nudge.classList.remove('show'),4200);
   }
-  function restartNudges(){if(!nudge)return;clearInterval(nudgeTimer);window.setTimeout(showNextNudge,1800);nudgeTimer=window.setInterval(showNextNudge,15000)}
+  function restartNudges(){if(desktopHome||!nudge)return;clearInterval(nudgeTimer);window.setTimeout(showNextNudge,1800);nudgeTimer=window.setInterval(showNextNudge,15000)}
 
   function clearWeatherScene(){
     clearTimeout(sceneTimer);if(!weatherScene)return;weatherScene.classList.remove('is-active','is-leaving');weatherScene.replaceChildren();weatherScene.removeAttribute('data-effect');document.body.classList.forEach(name=>{if(name.startsWith('weather-tone-'))document.body.classList.remove(name)});
@@ -956,7 +957,8 @@ initPageFeatures(document);
     const feels=document.getElementById('companionWeatherFeels'),humidity=document.getElementById('companionWeatherHumidity'),wind=document.getElementById('companionWeatherWind'),source=document.getElementById('companionWeatherSource');
     if(feels)feels.textContent=`Feels ${weather.feels_like??'—'}°`;if(humidity)humidity.textContent=`Humidity ${weather.humidity??'—'}%`;if(wind)wind.textContent=`Wind ${weather.wind??'—'} km/h`;if(source)source.textContent=weather.available?'Weather by Open-Meteo':'Weather reconnecting';
     renderLocations(data.locations||[]);renderForecast(weather);renderOperations(data.operations||[]);showQuote(0);restartNudges();
-    if(autoEffect&&data.weather_effects&&companion.dataset.weatherEffects!=='0'&&weather.available)playWeatherScene(weather.effect,data.effect_seconds,false);
+    window.LivenzaCompanionPulse=data;window.dispatchEvent(new CustomEvent('livenza:companion-pulse',{detail:data}));
+    if(autoEffect&&!desktopHome&&data.weather_effects&&companion.dataset.weatherEffects!=='0'&&weather.available)playWeatherScene(weather.effect,data.effect_seconds,false);
   }
   function scheduleCompanionPulse(delay=120000){clearTimeout(refreshTimer);refreshTimer=null;if(document.hidden)return;refreshTimer=window.setTimeout(()=>loadPulse(currentCity,false),Math.max(60000,delay))}
   function pauseCompanionPulse(){clearTimeout(refreshTimer);refreshTimer=null}
@@ -980,8 +982,8 @@ initPageFeatures(document);
     const action=choices[Math.floor(Math.random()*choices.length)];
     companion.classList.add(action);window.setTimeout(()=>companion.classList.remove(action),1500);
   }
-  if(!reduce){window.setTimeout(performMascotAmbientAction,mobilePerformance?14000:7000);window.setInterval(performMascotAmbientAction,mobilePerformance?45000:22000)}
-  loadPulse(currentCity,true);
+  if(!reduce&&!desktopHome){window.setTimeout(performMascotAmbientAction,mobilePerformance?14000:7000);window.setInterval(performMascotAmbientAction,mobilePerformance?45000:22000)}
+  loadPulse(currentCity,!desktopHome);
 })();
 
 // ===== Tesla OS 27 • Liquid Glass interaction state synchronization =====
