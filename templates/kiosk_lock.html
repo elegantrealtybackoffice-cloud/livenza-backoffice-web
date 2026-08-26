@@ -6,9 +6,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#071a2c">
   <title>Locked · Tesla OS 27</title>
-  <link rel="stylesheet" href="{{url_for('static',filename='style.css')}}?v={{app_version|replace('Web ','')}}">
+  <link rel="stylesheet" href="{{url_for('static',filename='legacy_modules.css')}}?v={{app_version|replace('Web ','')}}">
+  <link rel="stylesheet" href="{{url_for('static',filename='macos27_system.css')}}?v={{app_version|replace('Web ','')}}">
 </head>
-<body class="kiosk-lock-body">
+<body class="kiosk-lock-body macos27-clean" data-page="kiosk_lock">
   <main class="kiosk-lock-stage">
     <section class="kiosk-lock-card liquid-card">
       <img src="{{url_for('static',filename='livenza_logo.png')}}" alt="Livenza Life">

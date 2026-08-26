@@ -1,1 +1,18 @@
-<section class="settings-panel"><article class="settings-card"><h2>Wallpaper</h2><div class="wallpaper-grid">{% for key,label in [('warm','Warm Curves'),('sand','Sand Glass'),('champagne','Champagne Reflection')] %}<button type="button" class="wallpaper-choice" data-pref-button="wallpaper.variant" data-value="{{key}}"><span class="wallpaper-preview {{key}}"></span><b>{{label}}</b></button>{% endfor %}</div></article></section>
+<section class="settings-panel">
+  <article class="settings-card settings-wallpaper-card">
+    <div class="settings-section-title"><div><h2>Wallpaper</h2><p>Choose the desktop background used on Home. Your selection is applied before first paint and stays on this browser.</p></div></div>
+    <div class="wallpaper-grid" role="radiogroup" aria-label="Desktop wallpaper">
+      <button type="button" class="wallpaper-choice" data-wallpaper-value="aurora" role="radio" aria-checked="false"><span class="wallpaper-preview wallpaper-aurora" aria-hidden="true"></span><span class="wallpaper-choice-copy"><b>Aurora</b><small>Blue and violet liquid light</small></span></button>
+      <button type="button" class="wallpaper-choice" data-wallpaper-value="spectrum" role="radio" aria-checked="false"><span class="wallpaper-preview wallpaper-spectrum" aria-hidden="true"></span><span class="wallpaper-choice-copy"><b>Spectrum</b><small>Vivid violet, blue and coral</small></span></button>
+      <button type="button" class="wallpaper-choice" data-wallpaper-value="sequoia" role="radio" aria-checked="false"><span class="wallpaper-preview wallpaper-sequoia" aria-hidden="true"></span><span class="wallpaper-choice-copy"><b>Sequoia</b><small>Cool teal and indigo depth</small></span></button>
+      <button type="button" class="wallpaper-choice" data-wallpaper-value="midnight" role="radio" aria-checked="false"><span class="wallpaper-preview wallpaper-midnight" aria-hidden="true"></span><span class="wallpaper-choice-copy"><b>Midnight</b><small>Deep blue low-light desktop</small></span></button>
+      <button type="button" class="wallpaper-choice wallpaper-custom-choice" data-wallpaper-value="custom" role="radio" aria-checked="false"><span class="wallpaper-preview wallpaper-custom" aria-hidden="true"><span>+</span></span><span class="wallpaper-choice-copy"><b>Custom</b><small>Use your own image</small></span></button>
+    </div>
+    <div class="wallpaper-custom-controls">
+      <label class="wallpaper-upload-button" for="wallpaperCustomInput">Choose Photo</label>
+      <input id="wallpaperCustomInput" type="file" accept="image/jpeg,image/png,image/webp,image/avif" hidden>
+      <button type="button" class="secondary wallpaper-remove-button" data-wallpaper-remove-custom>Remove Custom</button>
+      <small id="wallpaperStatus" class="settings-note" aria-live="polite">Custom images are resized locally; nothing is uploaded to the server.</small>
+    </div>
+  </article>
+</section>
