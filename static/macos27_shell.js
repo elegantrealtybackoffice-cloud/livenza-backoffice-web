@@ -30,15 +30,13 @@
     'control.companion':true,
     'control.display':true,
     'control.fullscreen':true,
-    'control.marquee':true,
     'focus.enabled':false,
-    'focus.companion':true,
-    'focus.marquee':true
+    'focus.companion':true
   };
   let preferences = {...DEFAULT_PREFERENCES, ...readPreferences()};
 
   function setRootPreferenceClasses() {
-    const mode = ['auto', 'light', 'dark'].includes(preferences['appearance.mode']) ? preferences['appearance.mode'] : 'light';
+    const mode = ['light', 'dark'].includes(preferences['appearance.mode']) ? preferences['appearance.mode'] : 'light';
     root.dataset.appearance = mode;
     root.classList.toggle('settings-increase-contrast', Boolean(preferences['appearance.contrast']));
     root.classList.toggle('settings-reduce-transparency', Boolean(preferences['appearance.reduceTransparency'] || preferences['accessibility.reduceTransparency']));
@@ -47,12 +45,10 @@
     const focusEnabled = Boolean(preferences['focus.enabled']);
     body.classList.toggle('settings-focus-mode', focusEnabled);
     body.classList.toggle('focus-hide-companion', focusEnabled && preferences['focus.companion'] !== false);
-    body.classList.toggle('focus-hide-marquee', focusEnabled && preferences['focus.marquee'] !== false);
     body.classList.toggle('hide-control-search', preferences['control.search'] === false);
     body.classList.toggle('hide-control-companion', preferences['control.companion'] === false);
     body.classList.toggle('hide-control-display', preferences['control.display'] === false);
     body.classList.toggle('hide-control-fullscreen', preferences['control.fullscreen'] === false);
-    body.classList.toggle('hide-control-marquee', preferences['control.marquee'] === false);
     root.dataset.dockSize = ['small','regular','large'].includes(preferences['dock.size']) ? preferences['dock.size'] : 'regular';
     root.classList.toggle('dock-autohide', Boolean(preferences['dock.autohide']));
   }

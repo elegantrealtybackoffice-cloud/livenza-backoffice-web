@@ -1,10 +1,7 @@
-TESLA OS 27 · HOTFIX 9 UPLOAD ORDER
+Tesla OS 27 · 27.0.1 · Build 27A101 · Hotfix 9.1
 
-For hosts limited to 100 files per upload:
+100-file upload limit:
+1. Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX9_1_MARQUEE_FREE_VIBRANT_UI_PART_01_100_FILES.zip
+2. Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX9_1_MARQUEE_FREE_VIBRANT_UI_PART_02_61_FILES.zip
 
-1. Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX9_PRECISION_UI_PART_01_100_FILES.zip
-2. Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX9_PRECISION_UI_PART_02_59_FILES.zip
-
-Extract/upload both parts into the SAME application root and allow matching files from Part 2 to complete the same tree. Do not deploy either part by itself.
-
-After deployment, open /version, hard-refresh once, then run VERIFY_DEPLOY.txt.
+Extract both into the SAME project root, in order, overwriting matching files. Preserve production data and environment variables.

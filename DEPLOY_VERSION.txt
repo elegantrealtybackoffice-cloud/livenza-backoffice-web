@@ -1,4 +1,4 @@
 Tesla OS 27
 Version 27.0.1
 Build 27A101
-Hotfix 8 — macOS 27 Suite Polish
+Hotfix 9.1 — Marquee-Free Vibrant Suite Refinement

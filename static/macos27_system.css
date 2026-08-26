@@ -79,33 +79,17 @@
 
 html[data-appearance="dark"]{
   color-scheme:dark;
-  --mac-label:#fff;
-  --mac-secondary-label:rgba(255,255,255,.62);
-  --mac-tertiary-label:rgba(255,255,255,.32);
-  --mac-separator:rgba(255,255,255,.16);
-  --mac-window:#1e1e1e;
-  --mac-content:#151515;
-  --mac-surface:rgba(34,34,36,.92);
-  --mac-surface-strong:rgba(30,30,30,.97);
-  --mac-glass:rgba(44,44,44,.61);
-  --mac-glass-strong:rgba(44,44,44,.76);
-  --mac-glass-border:rgba(255,255,255,.18);
-}
-@media(prefers-color-scheme:dark){
-  html[data-appearance="auto"]{
-    color-scheme:dark;
-    --mac-label:#fff;
-    --mac-secondary-label:rgba(255,255,255,.62);
-    --mac-tertiary-label:rgba(255,255,255,.32);
-    --mac-separator:rgba(255,255,255,.16);
-    --mac-window:#1e1e1e;
-    --mac-content:#151515;
-    --mac-surface:rgba(34,34,36,.92);
-    --mac-surface-strong:rgba(30,30,30,.97);
-    --mac-glass:rgba(44,44,44,.61);
-    --mac-glass-strong:rgba(44,44,44,.76);
-    --mac-glass-border:rgba(255,255,255,.18);
-  }
+  --mac-label:#f7f8fc;
+  --mac-secondary-label:rgba(240,244,255,.68);
+  --mac-tertiary-label:rgba(226,232,247,.42);
+  --mac-separator:rgba(184,199,232,.18);
+  --mac-window:#292d38;
+  --mac-content:#232833;
+  --mac-surface:rgba(48,54,68,.92);
+  --mac-surface-strong:rgba(43,49,62,.97);
+  --mac-glass:rgba(52,59,75,.64);
+  --mac-glass-strong:rgba(47,54,70,.80);
+  --mac-glass-border:rgba(215,225,255,.20);
 }
 
 html[data-wallpaper="aurora"]{--wallpaper-image:url("livenza_liquid_wallpaper.webp")}
@@ -282,7 +266,6 @@ body[data-page="dashboard"] .mac-workspace,body[data-page="dashboard"] .app-cont
 .mac-window-content>.page-head:first-child,.mac-window-content>section:first-child,.mac-window-content>div:first-child{scroll-margin-top:8px}
 .mac-window-content .shell{width:100%;max-width:none;padding:18px 18px 26px}
 .mac-window-content .site-footer{display:none!important}
-.mac-window-content .operations-marquee{display:none!important}
 .mac-window-loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--mac-secondary-label);font-size:12px;line-height:16px;background:var(--mac-content)}
 .mac-app-window.is-loading .mac-window-content::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--mac-blue),transparent);background-size:40% 100%;animation:mac-window-loading 1s linear infinite;z-index:4}@keyframes mac-window-loading{from{background-position:-60% 0}to{background-position:160% 0}}
 .mac-window-resize-handle{position:absolute;z-index:5;display:block;background:transparent}.resize-n{left:10px;right:10px;top:-3px;height:7px;cursor:n-resize}.resize-s{left:10px;right:10px;bottom:-3px;height:7px;cursor:s-resize}.resize-e{top:10px;right:-3px;bottom:10px;width:7px;cursor:e-resize}.resize-w{top:10px;left:-3px;bottom:10px;width:7px;cursor:w-resize}.resize-ne,.resize-nw,.resize-se,.resize-sw{width:12px;height:12px}.resize-ne{right:-4px;top:-4px;cursor:ne-resize}.resize-nw{left:-4px;top:-4px;cursor:nw-resize}.resize-se{right:-4px;bottom:-4px;cursor:se-resize}.resize-sw{left:-4px;bottom:-4px;cursor:sw-resize}
@@ -474,7 +457,6 @@ body.macos27-clean .hero.compact,body.macos27-clean .module-card,body.macos27-cl
 body.macos27-clean .hero.compact:before,body.macos27-clean .module-card:after{display:none}
 body.macos27-clean .module-card:hover{border-color:rgba(0,136,255,.35);box-shadow:0 8px 20px rgba(0,0,0,.07);transform:none}
 body.macos27-clean .paper{border-radius:4px;box-shadow:0 14px 46px rgba(0,0,0,.14)}
-body.macos27-clean .operations-marquee{border-radius:0;background:var(--mac-surface);border-color:var(--mac-separator)}
 
 /* Responsive */
 @media(max-width:1100px){
@@ -516,9 +498,7 @@ body[data-page="dashboard"].hide-control-search .desktop-status-button[data-mac-
 body.hide-control-companion .mascot-companion{display:none!important}
 body.hide-control-display #viewMenuToggle{display:none!important}
 body.hide-control-fullscreen #fullscreenToggle{display:none!important}
-body.hide-control-marquee .operations-marquee{display:none!important}
 body.focus-hide-companion .mascot-companion{display:none!important}
-body.focus-hide-marquee .operations-marquee{display:none!important}
 
 /* Clean-shell normalization: retire decorative web-dashboard card treatments. */
 body.macos27-clean .page-head::after,
@@ -661,6 +641,7 @@ body.macos27-clean :is(.primary,.secondary,.btn) {
 body:not([data-page="dashboard"]) #appMain{
   --suite-accent:#248cff;
   --suite-accent-2:#6757e8;
+  --suite-accent-3:#34c7a2;
   --suite-soft:color-mix(in srgb,var(--suite-accent) 9%,transparent);
   --suite-soft-strong:color-mix(in srgb,var(--suite-accent) 15%,transparent);
   --suite-border:color-mix(in srgb,var(--suite-accent) 18%,rgba(90,98,118,.16));
@@ -692,7 +673,7 @@ body:not([data-page="dashboard"]) #appMain{color:var(--suite-label);background-c
 .mac-app-window[data-window-app="food"]{--suite-accent:#49cd72;--suite-accent-2:#ff9a3d;--suite-ink:#278442}
 .mac-app-window[data-window-app="billing"]{--suite-accent:#2ed5b5;--suite-accent-2:#1a9de0;--suite-ink:#168575}
 .mac-app-window[data-window-app="banking_suite"]{--suite-accent:#5575d9;--suite-accent-2:#283a8c;--suite-ink:#314d9e}
-.mac-app-window[data-window-app="electricity_studio"]{--suite-accent:#ffd24a;--suite-accent-2:#ff8a2d;--suite-ink:#9a6210}
+.mac-app-window[data-window-app="electricity_studio"]{--suite-accent:#f5b928;--suite-accent-2:#ff8a2d;--suite-accent-3:#4fcf9b;--suite-ink:#8a5a0b}
 .mac-app-window[data-window-app="whatsapp_workspace"]{--suite-accent:#48d06a;--suite-accent-2:#13a857;--suite-ink:#228a42}
 .mac-app-window[data-window-app="email_workspace"]{--suite-accent:#59b1ff;--suite-accent-2:#4d62e8;--suite-ink:#376fbe}
 .mac-app-window[data-window-app="drive_workspace"]{--suite-accent:#37d1e8;--suite-accent-2:#3478f6;--suite-ink:#237da6}
@@ -708,7 +689,7 @@ body:is([data-page="video_wall"],[data-page="wall_player"]) #appMain{--suite-acc
 body:is([data-page="food"],[data-page="food_integrations"],[data-page="food_portals"]) #appMain{--suite-accent:#49cd72;--suite-accent-2:#ff9a3d;--suite-ink:#278442}
 body[data-page="billing"] #appMain{--suite-accent:#2ed5b5;--suite-accent-2:#1a9de0;--suite-ink:#168575}
 body:is([data-page="banking_suite"],[data-page="bank_reconciliation"]) #appMain{--suite-accent:#5575d9;--suite-accent-2:#283a8c;--suite-ink:#314d9e}
-body:is([data-page="electricity_studio"],[data-page="electricity_portal"],[data-page="electricity_register"]) #appMain{--suite-accent:#ffd24a;--suite-accent-2:#ff8a2d;--suite-ink:#9a6210}
+body:is([data-page="electricity_studio"],[data-page="electricity_portal"],[data-page="electricity_register"]) #appMain{--suite-accent:#f5b928;--suite-accent-2:#ff8a2d;--suite-accent-3:#4fcf9b;--suite-ink:#8a5a0b}
 body:is([data-page="whatsapp_workspace"],[data-page="email_workspace"],[data-page="email_message"],[data-page="drive_workspace"]) #appMain{--suite-accent:#59b1ff;--suite-accent-2:#4d62e8;--suite-ink:#376fbe}
 body:is([data-page="letterhead_studio"],[data-page="letterhead_editor"],[data-page="letterhead_final_review"],[data-page="letterhead_template_editor"],[data-page="letterhead_templates"],[data-page="letterhead_vault"]) #appMain{--suite-accent:#ff5b6c;--suite-accent-2:#8b57ff;--suite-ink:#b43f62}
 body:is([data-page="settings_page"],[data-page="system_settings_pane"],[data-page="integrations"],[data-page="admin"],[data-page="admin_vault"]) #appMain{--suite-accent:#7c86f8;--suite-accent-2:#67707e;--suite-ink:#5660bb}
@@ -1024,3 +1005,76 @@ body.macos27-clean:not([data-page="dashboard"]) .mac-dock{display:none}
 body.macos27-clean:not([data-page="dashboard"]) .livenza-easter-egg{display:none}
 body.macos27-clean:not([data-page="dashboard"]) #appMain{padding-bottom:24px}
 @media(max-width:700px){.mac-toolbar.mac-route-toolbar{grid-template-columns:72px minmax(0,1fr) 60px}.mac-toolbar.mac-route-toolbar .mac-route-window-actions a{display:none}}
+
+
+/* Hotfix 9.1 · vibrant suite refinement */
+body.macos27-clean:not([data-page="dashboard"]) #appMain{
+  --suite-card-vibrance:10%;
+  --suite-accent-3:var(--mac-teal);
+  background:
+    radial-gradient(circle at 8% 2%,color-mix(in srgb,var(--suite-accent) 10%,transparent),transparent 27%),
+    radial-gradient(circle at 94% 8%,color-mix(in srgb,var(--suite-accent-2) 8%,transparent),transparent 25%),
+    linear-gradient(155deg,color-mix(in srgb,var(--suite-accent) 4.5%,#f7f9fd),#f5f8fc 52%,color-mix(in srgb,var(--suite-accent-3) 3%,#eef4fa));
+  background-color:#f5f8fc;
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(.liquid-card,.form-card,.table-card,.banking-panel,.query-card,.master-card,.review-card,.screen-card,.portal-card,.connection-card,.settings-card,.stats>div){
+  background:
+    linear-gradient(145deg,color-mix(in srgb,var(--suite-accent) var(--suite-card-vibrance),rgba(255,255,255,.98)),color-mix(in srgb,var(--suite-accent-2) 4%,rgba(255,255,255,.92)) 62%,rgba(255,255,255,.92));
+  border-color:color-mix(in srgb,var(--suite-accent) 18%,rgba(72,80,98,.15));
+  box-shadow:0 1px 2px rgba(24,31,49,.04),0 10px 28px color-mix(in srgb,var(--suite-accent) 7%,rgba(28,40,72,.05));
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(.liquid-card,.form-card,.banking-panel,.query-card,.master-card,.review-card,.screen-card,.portal-card,.connection-card):hover{
+  border-color:color-mix(in srgb,var(--suite-accent) 28%,rgba(72,80,98,.18));
+  box-shadow:0 14px 34px color-mix(in srgb,var(--suite-accent) 10%,rgba(28,40,72,.07));
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(input,select,textarea){
+  background:color-mix(in srgb,var(--suite-accent) 2.5%,rgba(255,255,255,.94));
+  border-color:color-mix(in srgb,var(--suite-accent) 15%,rgba(78,87,105,.18));
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(.primary,.query-sheet-btn){
+  color:#fff;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--suite-accent) 84%,#fff),var(--suite-accent));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.36),0 4px 12px color-mix(in srgb,var(--suite-accent) 22%,transparent);
+}
+body:is([data-page="electricity_studio"],[data-page="electricity_portal"],[data-page="electricity_register"]) #appMain{
+  --suite-accent:#f5b928;
+  --suite-accent-2:#ff8a2d;
+  --suite-accent-3:#4fcf9b;
+  --suite-card-vibrance:13%;
+}
+body:is([data-page="banking_suite"],[data-page="bank_reconciliation"]) #appMain{--suite-accent-3:#37c99a;--suite-card-vibrance:9%}
+body:is([data-page="rooms"],[data-page="tenants"]) #appMain{--suite-accent-3:#37d2bd;--suite-card-vibrance:10%}
+body:is([data-page="queries"],[data-page="query_sheet"]) #appMain{--suite-accent-3:#8c62f5;--suite-card-vibrance:10%}
+body:is([data-page="whatsapp_workspace"],[data-page="email_workspace"],[data-page="email_message"],[data-page="drive_workspace"]) #appMain{--suite-accent-3:#d85ed7;--suite-card-vibrance:9%}
+body:is([data-page="letterhead_studio"],[data-page="letterhead_editor"],[data-page="letterhead_final_review"],[data-page="letterhead_template_editor"],[data-page="letterhead_templates"],[data-page="letterhead_vault"]) #appMain{--suite-accent-3:#4aa9ff;--suite-card-vibrance:10%}
+html[data-appearance="dark"] body.macos27-clean:not([data-page="dashboard"]),
+html[data-appearance="dark"] body.macos27-clean:not([data-page="dashboard"]) .mac-shell,
+html[data-appearance="dark"] body.macos27-clean:not([data-page="dashboard"]) .mac-shell-body{
+  background:#252b37;
+}
+html[data-appearance="dark"] body.macos27-clean:not([data-page="dashboard"]) #appMain{
+  color:#f7f8fc;
+  background:
+    radial-gradient(circle at 8% 0,color-mix(in srgb,var(--suite-accent) 18%,transparent),transparent 30%),
+    radial-gradient(circle at 96% 6%,color-mix(in srgb,var(--suite-accent-2) 14%,transparent),transparent 27%),
+    linear-gradient(155deg,#2b3240,#252b37 58%,#29313d);
+}
+html[data-appearance="dark"] body.macos27-clean:not([data-page="dashboard"]) #appMain :is(.liquid-card,.form-card,.table-card,.banking-panel,.query-card,.master-card,.review-card,.screen-card,.portal-card,.connection-card,.settings-card,.stats>div){
+  color:#f7f8fc;
+  background:linear-gradient(150deg,color-mix(in srgb,var(--suite-accent) 13%,#343b4a),color-mix(in srgb,var(--suite-accent-2) 7%,#2e3542));
+  border-color:color-mix(in srgb,var(--suite-accent) 28%,rgba(214,224,250,.16));
+}
+html[data-appearance="dark"] body.macos27-clean:not([data-page="dashboard"]) #appMain :is(h1,h2,h3,h4,b,strong){color:#f7f8fc}
+html[data-appearance="dark"] body.macos27-clean:not([data-page="dashboard"]) #appMain :is(p,small,.muted,.hint,.subtle){color:#c4ccdc}
+html[data-appearance="dark"] body.macos27-clean:not([data-page="dashboard"]) #appMain :is(input,select,textarea){color:#f7f8fc;background:color-mix(in srgb,var(--suite-accent) 5%,#343b48);border-color:color-mix(in srgb,var(--suite-accent) 25%,rgba(218,226,247,.18))}
+
+/* Hotfix 9.1 utility colour polish: vivid accents without sacrificing readability. */
+body[data-page="electricity_studio"] #appMain .utility-stat{position:relative;overflow:hidden}
+body[data-page="electricity_studio"] #appMain .utility-stat::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--utility-accent,var(--suite-accent)),color-mix(in srgb,var(--utility-accent,var(--suite-accent)) 55%,#fff))}
+body[data-page="electricity_studio"] #appMain .utility-stat:nth-child(1){--utility-accent:#f5b928;background:linear-gradient(150deg,#fff7d7,#fffdf5 68%)}
+body[data-page="electricity_studio"] #appMain .utility-stat:nth-child(2){--utility-accent:#36bff4;background:linear-gradient(150deg,#e9f9ff,#fbfeff 68%)}
+body[data-page="electricity_studio"] #appMain .utility-stat:nth-child(3){--utility-accent:#ff875c;background:linear-gradient(150deg,#fff0e9,#fffaf7 68%)}
+body[data-page="electricity_studio"] #appMain .utility-stat:nth-child(4){--utility-accent:#4fcf9b;background:linear-gradient(150deg,#eafbf4,#fbfffd 68%)}
+body[data-page="electricity_studio"] #appMain .utility-stat b{color:color-mix(in srgb,var(--utility-accent,var(--suite-accent)) 76%,#263041);font-weight:700}
+body[data-page="electricity_studio"] #appMain .electricity-admin-grid>.form-card{position:relative;overflow:hidden}
+body[data-page="electricity_studio"] #appMain .electricity-admin-grid>.form-card::after{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:linear-gradient(180deg,var(--suite-accent),var(--suite-accent-3));opacity:.86}

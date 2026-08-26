@@ -762,45 +762,6 @@ initPageFeatures(document);
   });
 })();
 
-// ===== Tesla OS 27 • reference-style apps menu + configurable live marquee =====
-(()=>{
-  // Core Applications/Account drawer behavior is owned by the ES5 tv_compat bundle.
-  // Compatibility marker: apps-drawer-open state is owned by tv_compat.js.
-
-  const ticker=document.getElementById('liveMarqueeTrack');
-  function tickerNode(item){
-    const span=document.createElement('span');span.className=`marquee-item tone-${item.tone||'neutral'}`;
-    span.dataset.label=String(item.label||'live').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-    const label=document.createElement('b');label.textContent=item.label||'Live';span.appendChild(label);span.append(' '+(item.value||'—'));
-    if(item.source){const source=document.createElement('small');source.textContent=` · ${item.source}`;span.appendChild(source)}
-    if(item.url){const link=document.createElement('a');link.href=item.url;link.target='_blank';link.rel='noopener';link.title='Open source';link.appendChild(span);return link}
-    return span;
-  }
-  function buildMarqueeGroup(items){
-    const group=document.createElement('span');group.className='marquee-loop-group';group.setAttribute('aria-hidden','false');
-    items.forEach(item=>{group.appendChild(tickerNode(item));const gem=document.createElement('i');gem.textContent='◆';group.appendChild(gem)});
-    return group;
-  }
-  function restartMarqueeAnimation(){
-    if(!ticker)return;const first=ticker.querySelector('.marquee-loop-group');if(!first)return;
-    const shift=Math.ceil(first.getBoundingClientRect().width);if(shift>0)ticker.style.setProperty('--marquee-shift',`${shift}px`);
-    ticker.style.setProperty('animation','none','important');void ticker.offsetWidth;ticker.style.removeProperty('animation');
-  }
-  function renderTicker(items){
-    if(!ticker||!items?.length)return;ticker.replaceChildren();
-    const first=buildMarqueeGroup(items),second=buildMarqueeGroup(items);second.setAttribute('aria-hidden','true');ticker.append(first,second);
-    requestAnimationFrame(()=>restartMarqueeAnimation());
-  }
-  let marqueeResizeFrame=0;
-  window.addEventListener('resize',()=>{if(!ticker||marqueeResizeFrame)return;marqueeResizeFrame=requestAnimationFrame(()=>{marqueeResizeFrame=0;restartMarqueeAnimation()})},{passive:true});
-  async function refreshTicker(){
-    if(!ticker)return;let delay=60000;
-    try{const r=await fetch('/api/marquee',{credentials:'same-origin',headers:{Accept:'application/json'}}),d=await r.json();if(r.ok&&d.ok){renderTicker(d.items);delay=Math.max(30000,Math.min(600000,(d.refresh_seconds||60)*1000))}}catch(e){console.warn('Live marquee refresh failed',e)}
-    window.setTimeout(refreshTicker,delay);
-  }
-  refreshTicker();
-})();
-
 // ===== Tesla OS 27 • login-only mascot welcome, dance and automatic exit =====
 (()=>{
   const welcome=document.getElementById('loginMascotWelcome');

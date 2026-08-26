@@ -14,10 +14,8 @@
   }
   function drawerTop() {
     var header = document.querySelector('.showcase-header');
-    var marquee = byId('liveOperationsMarquee');
     var bottom = 0;
     if (header && header.getBoundingClientRect) bottom = Math.max(bottom, header.getBoundingClientRect().bottom || 0);
-    if (marquee && marquee.getBoundingClientRect) bottom = Math.max(bottom, marquee.getBoundingClientRect().bottom || 0);
     return Math.max(72, Math.ceil(bottom + 8));
   }
   function positionDrawers() {

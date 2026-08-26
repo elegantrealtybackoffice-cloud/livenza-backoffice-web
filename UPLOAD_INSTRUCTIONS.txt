@@ -1,22 +1,20 @@
-TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 9 PRECISION UI/UX + SINGLE WINDOW DESIGN SYSTEM
+TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 9.1 MARQUEE-FREE VIBRANT SUITE REFINEMENT
 
 1. Back up the current application tree plus persistent database/instance/uploads before replacing application files.
-2. Upload/extract the COMPLETE Hotfix 9 package into the application repository root, preserving paths and overwriting matching application/static/template files.
-3. For a 100-file upload limit, upload PART_01_100_FILES first and PART_02_59_FILES second into the exact same application root. Neither part is a standalone application.
+2. Upload/extract the COMPLETE Hotfix 9.1 package into the application repository root, preserving paths and overwriting matching application/static/template files.
+3. For a 100-file upload limit, upload PART_01_100_FILES first and PART_02_61_FILES second into the exact same application root. Neither part is a standalone application.
 4. Preserve DATABASE_URL / PostgreSQL data, SECRET_KEY, LIVENZA_VAULT_MASTER_KEY, INTEGRATION_ENCRYPTION_KEY and all other production environment variables so existing encrypted/business data remains readable.
-5. Preserve historical migration files, persistent instance/database data and uploaded business files. Do not delete or reset production data as part of this UI deployment.
+5. Preserve historical migration files, persistent instance/database data and uploaded business files. Do not reset production data as part of this UI deployment.
 6. Deploy with the supplied Dockerfile/render.yaml and confirm `/version` reports Tesla OS 27, Version 27.0.1 and Build 27A101.
-7. Hard-refresh once after deployment so the browser receives the Hotfix 9 system assets.
-8. Confirm Home retains the 34px menu bar, selectable wallpaper, right widgets and 58px functional Dock.
-9. Open Suites and confirm the launcher is light/readable, category tabs are aligned, app titles do not split inside words and every visible card is functional/authorized.
-10. Open Agreements, Banking, Rooms, Queries and Settings and confirm they use one shared window language: same titlebar, typography, header rhythm, buttons, tabs/cards/tables/forms and motion; only application accent/icon/content semantics should differ.
-11. Confirm direct application routes do not display a second Dock, desktop mascot or legacy utility footer.
-12. Verify Banking no longer uses the old Finance Command Center/oversized browser-style header and instead follows the same structural hierarchy as Agreements.
-13. Verify app canvases are readable and colourful/tinted rather than large black slabs; purposeful media surfaces may remain dark.
-14. Verify tables/actions, forms, tabs and buttons align cleanly, financial values do not wrap incorrectly, and no heading/card title breaks inside a normal word.
+7. Hard-refresh once after deployment so the browser receives the Hotfix 9.1 system assets.
+8. Confirm no operational marquee/status strip appears anywhere on Home, direct application routes, Suites or Settings.
+9. Confirm System Settings no longer contains marquee/live-status configuration in Automations, Control Centre or Focus.
+10. Confirm Windows/browser dark mode by itself does not turn suite canvases black. Light is the default application material; explicit Dark remains user-selectable.
+11. Open Electricity and confirm the utility workspace is light, aligned and colourful with amber/orange/mint accents and no status strip above the app header.
+12. Open Agreements, Banking, Rooms, Queries, WhatsApp/Email/Drive, Letterhead and Settings and confirm the shared Hotfix 9 window language remains consistent while each app keeps its own accent identity.
+13. Confirm direct application routes do not display a second Dock, desktop mascot or legacy utility footer.
+14. Verify forms, cards, tables, labels and actions remain readable and aligned at common desktop widths.
 15. Verify window focus, drag, resize, minimise, restore, Zoom/maximise and Close from the Home desktop window manager.
-16. Verify System Settings → Wallpaper including built-ins, custom wallpaper, reset and persistence after reload without a default-wallpaper flash.
-17. Enable Reduced Motion and verify Dock/window/spatial motion is appropriately reduced.
-18. Keep HTTPS enabled for passkey/WebAuthn, camera and browser security features.
-19. Re-test protected Admin, Vault, Agreement, Electricity, Billing, Banking, Letterhead and provider-backed write actions under the correct roles.
-20. Run every acceptance check in VERIFY_DEPLOY.txt before treating the deployment as accepted.
+16. Verify System Settings → Wallpaper persistence and Reduced Motion.
+17. Re-test protected Admin, Vault, Agreement, Electricity, Billing, Banking, Letterhead and provider-backed write actions under the correct roles.
+18. Run every acceptance check in VERIFY_DEPLOY.txt before treating the deployment as accepted.

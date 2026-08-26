@@ -187,3 +187,11 @@ Hotfix 9 standardizes the application suites around one shared Tesla OS window l
 The Suites launcher is redesigned as a light Liquid-Glass-style application browser with compact aligned category controls, meaningful app artwork, professional card widths and normal word wrapping. Direct application routes use a compact 52px window-style toolbar and no longer show a second desktop Dock or duplicate mascot/footer chrome.
 
 Hotfix 9 verification includes 27 dedicated source contracts, the 26 Hotfix 8 regression contracts, Python compilation, all 73 Jinja templates, 8 production JavaScript syntax checks, a 48-scenario multi-resolution Chromium shell audit and a 26-scenario Chromium audit rendering the actual Livenza suite templates. See `HOTFIX9_AUDIT.md` for the exact scope and environment limitation.
+
+## Hotfix 9.1 — Marquee-Free Vibrant Suite Refinement
+
+Hotfix 9.1 removes the legacy operational marquee/status strip completely from the browser UI, Settings, client polling and runtime route context. The removed strip no longer consumes hidden vertical space, influences drawer geometry or runs a periodic market/status request.
+
+The normal Tesla OS application experience is now explicitly bright and colourful by default rather than following a dark Windows/browser colour scheme. Dark appearance remains available only when deliberately selected and uses layered graphite surfaces instead of near-black slabs. Suite content retains the shared Hotfix 9 window, typography, cards, forms, tables and toolbar system while strengthening application colour identity. Electricity receives a dedicated amber/orange/mint utility treatment and the other suite families gain richer tertiary accent materials without changing their professional content hierarchy.
+
+Verification for this pass is recorded in `HOTFIX91_AUDIT.md`.

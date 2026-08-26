@@ -1349,7 +1349,6 @@ def _webauthn_context():
     origin=os.getenv('WEBAUTHN_ORIGIN','').strip() or request.host_url.rstrip('/')
     return rp_id,origin
 
-MARKET_QUOTE_CACHE = {}
 WEATHER_CACHE = {}
 
 COMPANION_LOCATIONS = {
@@ -1454,67 +1453,6 @@ def _companion_operations():
     except Exception:
         db.session.rollback();return []
 
-def _moneycontrol_quote(label, url):
-    """Small, cached, fail-soft reader for a user-selected official Moneycontrol quote page."""
-    parsed=urllib.parse.urlparse(url)
-    host=(parsed.hostname or '').lower()
-    if parsed.scheme!='https' or not (host=='moneycontrol.com' or host.endswith('.moneycontrol.com')):
-        return None
-    cached=MARKET_QUOTE_CACHE.get(url); now=datetime.datetime.utcnow().timestamp()
-    if cached and now-cached['at']<120: return cached['value']
-    try:
-        r=requests.get(url,headers={'User-Agent':'Mozilla/5.0 (compatible; LivenzaBackOffice/1.5; +https://www.moneycontrol.com/)'},timeout=12)
-        if not r.ok: return None
-        raw=r.text
-        price=''
-        for pattern in (
-            r'id=["\'](?:nsecp|bsecp)["\'][^>]*>\s*([0-9][0-9,.]*)',
-            r'class=["\'][^"\']*(?:inprice1|lastprice)[^"\']*["\'][^>]*>\s*([0-9][0-9,.]*)',
-            r'["\'](?:lastPrice|last_price|price)["\']\s*:\s*["\']?([0-9][0-9,.]*)',
-        ):
-            m=re.search(pattern,raw,re.I)
-            if m: price=m.group(1); break
-        if not price: return None
-        change=''
-        for pattern in (r'id=["\'](?:nsechange|bsechange)["\'][^>]*>\s*([^<]{1,40})',r'["\'](?:percentChange|pChange)["\']\s*:\s*["\']?([-+0-9.]+)'):
-            m=re.search(pattern,raw,re.I)
-            if m: change=re.sub(r'<[^>]+>','',m.group(1)).strip(); break
-        value={'label':label[:40],'value':price+((f' ({change}%)' if change and '%' not in change else f' ({change})') if change else ''),'url':url,'source':'Moneycontrol'}
-        MARKET_QUOTE_CACHE[url]={'at':now,'value':value}; return value
-    except Exception: return None
-
-def live_marquee_items(user=None):
-    user=user or current_user(); items=[]
-    if setting('marquee_show_username','1')=='1' and user:
-        items.append({'label':'Signed in','value':user.full_name or user.username,'tone':'neutral'})
-    if setting('marquee_show_tenants','1')=='1':
-        active=Tenant.query.filter(~Tenant.status.in_(['Vacated','Cancelled','Terminated'])).count()
-        items.append({'label':'Current tenants','value':str(active),'tone':'green'})
-    rooms=Room.query.all()
-    if setting('marquee_show_vacant_beds','1')=='1':
-        vacant=[r for r in rooms if room_status(r)=='Vacant']; beds=0
-        for r in vacant:
-            try: beds+=max(1,int(float(r.capacity or 1)))
-            except Exception: beds+=1
-        items.append({'label':'Vacant beds','value':str(beds),'tone':'gold'})
-    if setting('marquee_show_earnings','1')=='1':
-        earned=float(db.session.query(func.coalesce(func.sum(FoodOrder.net),0)).scalar() or 0)
-        manual=setting('marquee_manual_earnings','').strip()
-        items.append({'label':'Amount earned','value':manual or ('₹'+format(earned,',.0f')),'tone':'green'})
-    if setting('marquee_show_favorites','0')=='1' and setting('marquee_favorites','').strip():
-        items.append({'label':'Favourites','value':setting('marquee_favorites','').strip()[:180],'tone':'pink'})
-    if setting('marquee_custom_text','').strip():
-        items.append({'label':'Live update','value':setting('marquee_custom_text','').strip()[:240],'tone':'neutral'})
-    if setting('marquee_show_stocks','0')=='1':
-        configured=setting('marquee_stock_pages','').splitlines()
-        if not configured:
-            configured=['NIFTY 50|https://www.moneycontrol.com/indian-indices/nifty-50-9.html','SENSEX|https://www.moneycontrol.com/indian-indices/sensex-4.html']
-        for line in configured[:5]:
-            label,sep,url=line.partition('|')
-            quote=_moneycontrol_quote(label.strip() or 'Market',url.strip()) if sep else None
-            if quote: quote['tone']='market'; items.append(quote)
-    return items
-
 
 
 MODULES = {
@@ -1582,14 +1520,12 @@ def settings_pane_url(pane, **values):
 
 def _system_settings_server_keys():
     return ('food_webhook_token','whatsapp_recipient','empty_report_time','default_google_review_url','vacant_report_enabled','vacant_report_time','vacant_report_recipients','query_webhook_token',
-            'marquee_enabled','marquee_show_username','marquee_show_tenants','marquee_show_vacant_beds','marquee_show_earnings','marquee_show_favorites','marquee_show_stocks','marquee_favorites','marquee_custom_text','marquee_manual_earnings','marquee_stock_pages','marquee_refresh_seconds',
             'companion_enabled','companion_weather_enabled','companion_weather_effects','companion_quotes_enabled','companion_operations_enabled','companion_default_city','companion_effect_seconds',
             'host3d_default_intensity','host3d_max_intensity','host3d_default_city','host3d_operational_updates_default','host3d_weather_default','host3d_motivational_default')
 
 
 def _system_settings_server_values():
-    defaults={'marquee_enabled':'1','marquee_show_username':'1','marquee_show_tenants':'1','marquee_show_vacant_beds':'1','marquee_show_earnings':'1','marquee_refresh_seconds':'60',
-              'companion_enabled':'1','companion_weather_enabled':'1','companion_weather_effects':'1','companion_quotes_enabled':'1','companion_operations_enabled':'1','companion_default_city':'Gurugram','companion_effect_seconds':'11',
+    defaults={'companion_enabled':'1','companion_weather_enabled':'1','companion_weather_effects':'1','companion_quotes_enabled':'1','companion_operations_enabled':'1','companion_default_city':'Gurugram','companion_effect_seconds':'11',
               'host3d_default_intensity':'full','host3d_max_intensity':'full','host3d_default_city':'Gurugram','host3d_operational_updates_default':'1','host3d_weather_default':'1','host3d_motivational_default':'1'}
     return {k:setting(k,defaults.get(k,'')) for k in _system_settings_server_keys()}
 
@@ -2611,7 +2547,7 @@ def inject_common():
         return dict(
             current_user=None, app_version=APP_VERSION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
             can_access=can_access, module_labels=MODULES, is_admin=False, masked_aadhaar=masked_aadhaar,
-            kiosk_mode_enabled=False, marquee_enabled=False, companion_enabled=False,
+            kiosk_mode_enabled=False, companion_enabled=False,
             companion_default_city='Gurugram', companion_weather_effects=False, mascot_preferences={}, dock_apps=[], ui_app_available=lambda endpoint: False, ui_app_meta=ui_app_meta
         )
     user=current_user()
@@ -2620,7 +2556,7 @@ def inject_common():
         current_user=user, app_version=APP_VERSION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
         can_access=can_access, module_labels=MODULES,
         is_admin=bool(user and (user.role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar,
-        kiosk_mode_enabled=setting('kiosk_mode_enabled','0')=='1', marquee_enabled=setting('marquee_enabled','1')=='1',
+        kiosk_mode_enabled=setting('kiosk_mode_enabled','0')=='1',
         companion_enabled=setting('companion_enabled','1')=='1' and bool(mascot_preferences.get('enabled',True)),
         companion_default_city=mascot_preferences.get('weather_city') or setting('companion_default_city','Gurugram'),
         companion_weather_effects=setting('companion_weather_effects','1')=='1' and bool(mascot_preferences.get('weather_reactions',True)),
@@ -2810,7 +2746,7 @@ def version():
             'unified-system-settings','livenza-symbol-system','ai-logo-identity','reduced-motion',
             'agreements','rooms','queries','billing','banking','electricity','food','video-wall',
             'whatsapp','email','drive','letterhead-studio','livenza-vault','role-permissions',
-            'webauthn-passkeys','pattern-login','live-companion','responsive-5k-layout'
+            'webauthn-passkeys','pattern-login','live-companion','responsive-5k-layout','status-strip-removed','vibrant-suite-materials'
         ]
     )
 
@@ -2915,12 +2851,6 @@ def dashboard():
     show_login_welcome=bool(session.pop('show_login_welcome',False))
     return render_template('dashboard.html', show_login_welcome=show_login_welcome)
 
-@app.route('/api/marquee')
-@login_required
-def marquee_status():
-    try: refresh=max(30,min(600,int(setting('marquee_refresh_seconds','60') or 60)))
-    except Exception: refresh=60
-    return jsonify(ok=True,items=live_marquee_items(),refresh_seconds=refresh,updated_at=datetime.datetime.now(ZoneInfo('Asia/Kolkata')).isoformat())
 
 @app.route('/api/companion/pulse')
 @login_required
