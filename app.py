@@ -1213,8 +1213,21 @@ class Setting(db.Model):
 
 
 def setting(key, default=''):
-    row = db.session.get(Setting, key)
-    return row.value if row else default
+    try:
+        row = db.session.get(Setting, key)
+        return row.value if row else default
+    except Exception as exc:
+        # Settings are presentation/runtime preferences. A stale or temporarily
+        # unavailable settings table must never take down login or the shell.
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        try:
+            app.logger.warning('Setting lookup failed for %s: %s', key, str(exc)[:180])
+        except Exception:
+            pass
+        return default
 
 def set_setting(key, value):
     row = db.session.get(Setting, key)
@@ -2409,7 +2422,18 @@ def mascot_preferences_for(user):
     policy_max = setting('host3d_max_intensity', 'full').strip().lower()
     if policy_max not in HOST3D_INTENSITIES:
         policy_max = 'full'
-    row = MascotPreference.query.filter_by(user_id=user.id).first() if user else None
+    try:
+        row = MascotPreference.query.filter_by(user_id=user.id).first() if user else None
+    except Exception as exc:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        try:
+            app.logger.warning('Mascot preference lookup failed: %s', str(exc)[:180])
+        except Exception:
+            pass
+        row = None
     requested = (row.intensity if row and row.intensity in HOST3D_INTENSITIES else global_default)
     effective = requested if HOST3D_INTENSITIES[requested] <= HOST3D_INTENSITIES[policy_max] else policy_max
     size = row.size if row and row.size in HOST3D_SIZES else 'medium'
@@ -2492,6 +2516,16 @@ def all_form_data(preset_name=None):
 
 @app.context_processor
 def inject_common():
+    # Public authentication screens must render without any database-backed
+    # Settings or companion dependency. This keeps /login available even when
+    # a deployment is waiting on a settings/mascot schema migration.
+    if request.endpoint in {'login','logout','diagnostics_runtime'}:
+        return dict(
+            current_user=None, app_version=APP_VERSION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
+            can_access=can_access, module_labels=MODULES, is_admin=False, masked_aadhaar=masked_aadhaar,
+            kiosk_mode_enabled=False, marquee_enabled=False, companion_enabled=False,
+            companion_default_city='Gurugram', companion_weather_effects=False, mascot_preferences={}
+        )
     user=current_user()
     mascot_preferences=mascot_preferences_for(user) if user else {}
     return dict(

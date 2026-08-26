@@ -1,15 +1,7 @@
-Tesla OS 27 v27.0.1 Build 27A101 — Runtime Diagnostics Hotfix
+Tesla OS 27 v27.0.1 Build 27A101 — LOGIN 500 HOTFIX 3
 
-1. Upload app.py to the application root, replacing the existing app.py.
-2. Restart/redeploy the service.
-3. Open: https://backoffice.livenza.life/diagnostics/runtime
-4. Send the complete JSON response back to ChatGPT.
+1. Upload app.py to the project root and replace the existing app.py.
+2. Restart/redeploy the web service.
+3. Open /logout, then /login.
 
-This endpoint bypasses kiosk/settings pre-request checks and reports failures in:
-- setting table
-- user table
-- mascot_preference table
-- setting() helper
-- current_user()
-- Jinja context processor
-- login.html rendering
+This hotfix makes public login rendering independent of database-backed Settings/mascot preferences and makes optional settings/preferences fail-safe instead of returning HTTP 500.
