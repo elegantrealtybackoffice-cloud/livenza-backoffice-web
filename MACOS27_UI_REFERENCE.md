@@ -161,3 +161,9 @@ Home is treated as an operating-system desktop rather than a conventional dashbo
 - `tests/test_macos_desktop_ui.py`
 
 The existing backend routes, permissions, authentication, agreements, masters, billing, banking, electricity, communications, integrations and Letterhead workflows are intentionally left intact.
+
+## Hotfix 6 implementation lock
+
+The exact-kit implementation now uses these extracted values as CSS contracts: menu bar 34px; Dock 58px; app icon 36px; icon center stride 45px; running dot 4px; window radius 16px; unified toolbar 52px; compact toolbar 40px; expanded toolbar 77px; sidebar 256px; notification/widget width 344px; notification radius 20px; alert radius 26px; regular menu/control row 24px; body type 13/16.
+
+Focus is represented as the extracted two-ring treatment: a 1px inner ring using `rgba(0,136,255,.15)` plus a 3.5px outer ring using `rgba(0,136,255,.25)`. The web motion layer intentionally does not label its duration/easing values as exact Apple internals because the Sketch kit defines visual states, geometry, and material appearance rather than system runtime animation constants.

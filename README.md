@@ -119,3 +119,9 @@ After deployment:
 3. Open Suites and confirm the authorized operational modules above are available.
 4. Verify System Settings → About shows the OS name, version and build.
 5. Re-test protected Admin, Vault, Agreement, Electricity, Banking, Integration and Letterhead write actions before production use.
+
+## Hotfix 6 — macOS 27 Exact-Kit Pass
+
+This pass tightens the visual shell against the supplied Apple macOS 27 UI Kit rather than adding a separate theme layer. It locks the extracted 34px menu bar, 58px Dock, 36px Dock icons, 45px Dock stride, 4px running indicator, 16px windows, 52/40/77px toolbar variants, 256px sidebar, 344px notification/widget width, 20px notification radius, 26px alert radius, 24px regular controls/menu rows, 13/16 body typography, and two-ring focus treatment.
+
+Dock magnification now uses pointer distance so adjacent icons react smoothly. Transient UI uses brief scale/opacity materialization with a complete `prefers-reduced-motion` fallback. Motion durations are web implementation choices aligned with the HIG behavior; they are not represented as private Apple runtime timing constants.

@@ -7,12 +7,15 @@
   const setDockScale = (event) => {
     if (!dock || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const x = event.clientX;
+    const influenceRadius = 108;
+    const maxScale = 1.34;
     dock.querySelectorAll('.mac-dock-item').forEach((item) => {
       const rect = item.getBoundingClientRect();
       const center = rect.left + rect.width / 2;
       const distance = Math.abs(x - center);
-      const influence = Math.max(0, 1 - distance / 94);
-      item.style.setProperty('--dock-scale', (1 + influence * 0.26).toFixed(3));
+      const influence = Math.max(0, 1 - distance / influenceRadius);
+      const easedInfluence = influence * influence * (3 - 2 * influence);
+      item.style.setProperty('--dock-scale', (1 + easedInfluence * (maxScale - 1)).toFixed(3));
     });
   };
 
