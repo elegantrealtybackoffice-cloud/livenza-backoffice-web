@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#ede4d8">
+  <meta name="theme-color" content="#111a4d">
   <meta name="color-scheme" content="light">
   <meta name="application-name" content="Tesla OS 27">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Livenza Life">
-  <meta name="msapplication-TileColor" content="#ede4d8">
+  <meta name="msapplication-TileColor" content="#111a4d">
   <meta name="msapplication-TileImage" content="{{ url_for('static',filename='icon-192.png') }}">
   <link rel="icon" type="image/x-icon" href="{{ url_for('static',filename='favicon.ico') }}">
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static',filename='favicon-32x32.png') }}">
@@ -26,6 +26,7 @@
   <link rel="stylesheet" href="{{url_for('static',filename='settings_v190.css')}}?v={{app_version|replace('Web ','')}}">
   <link rel="stylesheet" href="{{url_for('static',filename='theme_v190_macos_light.css')}}?v={{app_version|replace('Web ','')}}">
   <link rel="stylesheet" href="{{url_for('static',filename='motion_v190.css')}}?v={{app_version|replace('Web ','')}}">
+  <link rel="stylesheet" href="{{url_for('static',filename='desktop_v2701.css')}}?v={{app_version|replace('Web ','')}}">
 </head>
 <body class="app-liquid-shell" data-page="{{request.endpoint or ''}}">
   {% import '_application_groups.html' as appgroups with context %}
@@ -80,9 +81,11 @@
       <div class="apps-drawer-foot"><span><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} session</small></span><a href="{{url_for('logout')}}">{{icons.symbol('logout')}} Logout</a></div>
     </nav>
     <nav id="macDock" class="mac-dock no-print" aria-label="Tesla OS Dock">
-      <button type="button" class="mac-dock-item" data-suites-dock data-drawer-target="appsDrawer" aria-label="Open Suites" aria-controls="appsDrawer" aria-expanded="false">
+      <button type="button" class="mac-dock-item mac-dock-launcher" data-suites-dock data-drawer-target="appsDrawer" aria-label="Open Suites" aria-controls="appsDrawer" aria-expanded="false" title="Suites">
         <span class="mac-dock-icon">{{icons.symbol('grid')}}</span><span class="mac-dock-tooltip" role="tooltip">Suites</span><i class="mac-dock-running" aria-hidden="true"></i>
       </button>
+      <span class="mac-dock-divider" aria-hidden="true"></span>
+      {{appgroups.render_dock_apps()}}
     </nav>
     <aside id="accountDrawer" class="apps-drawer side-drawer side-drawer-right account-side-drawer no-print" aria-label="Account" aria-hidden="true" hidden>
       <div class="apps-drawer-head account-drawer-head"><div class="account-drawer-identity">{% if current_user.avatar_data_uri or current_user.photo_data_uri %}<img src="{{current_user.avatar_data_uri or current_user.photo_data_uri}}" alt="">{% else %}<span class="profile-initial">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}<span><p class="eyebrow">LIVENZA ACCOUNT</p><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} · Personal workspace</small></span></div><button type="button" id="accountDrawerClose" data-drawer-close aria-label="Close account menu">{{icons.symbol('close')}}</button></div>
@@ -125,5 +128,6 @@
   {% block scripts %}{% endblock %}
   <script src="{{url_for('static',filename='shell_v190.js')}}?v={{app_version|replace('Web ','')}}"></script>
   <script src="{{url_for('static',filename='settings_v190.js')}}?v={{app_version|replace('Web ','')}}"></script>
+  <script src="{{url_for('static',filename='desktop_v2701.js')}}?v={{app_version|replace('Web ','')}}"></script>
 </body>
 </html>

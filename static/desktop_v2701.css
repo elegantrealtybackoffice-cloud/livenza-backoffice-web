@@ -1,0 +1,223 @@
+/* Tesla OS 27.0.1 — macOS 27 UI-kit translation layer.
+   Metrics are derived from the supplied Apple macOS 27 Sketch UI Kit.
+   Apple font/assets are not redistributed; the web shell uses system fonts and original Livenza artwork. */
+:root{
+  --mac-menu-bar-height:34px;
+  --mac-dock-height:58px;
+  --mac-sidebar-width:256px;
+  --mac-notification-width:344px;
+  --mac-notification-radius:20px;
+  --mac-window-radius:16px;
+  --mac-menu-width:160px;
+  --mac-notification-blur:15px;
+  --mac-menu-blur:20px;
+  --mac-regular-glass-blur:30px;
+  --mac-menu-item-height:24px;
+  --mac-body-size:13px;
+  --mac-body-leading:16px;
+  --mac-title1-size:22px;
+  --mac-title1-leading:26px;
+  --mac-large-title-size:26px;
+  --mac-large-title-leading:32px;
+  --mac-toolbar-control:36px;
+  --mac-toolbar-control-medium:24px;
+  --mac-blue:#0088ff;
+  --mac-green:#34c759;
+  --mac-orange:#ff8d28;
+  --mac-yellow:#ffcc00;
+  --mac-cyan:#00c0e8;
+  --mac-teal:#00c3d0;
+  --mac-indigo:#6155f5;
+  --mac-purple:#cb30e0;
+  --mac-pink:#ff2d55;
+  --mac-red:#ff383c;
+  --desktop-violet:#8b5cf6;
+  --desktop-blue:#2376ff;
+  --desktop-ink:#1d1d1f;
+  --desktop-muted:#6e6e73;
+  --desktop-line:rgba(60,60,67,.18);
+  --glass-light:rgba(248,249,255,.70);
+  --glass-light-strong:rgba(250,251,255,.86);
+  --glass-dark:rgba(36,39,62,.38);
+  --glass-border:rgba(255,255,255,.34);
+  --glass-shadow:0 18px 46px rgba(0,0,0,.25);
+  --widget-radius:var(--mac-notification-radius);
+  --macos-text:var(--desktop-ink);
+  --macos-muted:var(--desktop-muted);
+  --macos-soft:#8e8e93;
+  --macos-line:var(--desktop-line);
+  --macos-window:#f6f7fb;
+  --macos-window-strong:#fff;
+  --macos-sidebar:rgba(248,249,252,.80);
+  --macos-glass:rgba(255,255,255,.68);
+  --macos-glass-strong:rgba(255,255,255,.88);
+  --macos-card:rgba(255,255,255,.82);
+  --macos-card-strong:#fff;
+  --macos-selected:rgba(0,136,255,.12);
+}
+
+html,body{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue","Segoe UI",sans-serif!important;
+  font-size:var(--mac-body-size)!important;
+  color:var(--desktop-ink)!important;
+  background:#edf0f7!important;
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
+}
+body.app-liquid-shell{background:#edf0f7!important}
+
+/* Readability + typography hierarchy from the kit's shared text styles. */
+#appMain.app-content-shell :is(p,label,input,select,textarea,button,.btn,.primary,.secondary,td,th){
+  font-size:var(--mac-body-size)!important;line-height:var(--mac-body-leading)!important;color:var(--desktop-ink)!important;text-shadow:none!important;
+}
+#appMain.app-content-shell :is(small,.muted,.meta,.hint,.eyebrow,.form-note,.note-inline){font-size:11px!important;line-height:14px!important;color:var(--desktop-muted)!important;text-shadow:none!important}
+#appMain.app-content-shell :is(h1,.page-head h1){font-size:var(--mac-large-title-size)!important;line-height:var(--mac-large-title-leading)!important;letter-spacing:-.015em!important;color:var(--desktop-ink)!important;text-shadow:none!important;font-weight:700!important}
+#appMain.app-content-shell h2{font-size:var(--mac-title1-size)!important;line-height:var(--mac-title1-leading)!important;color:var(--desktop-ink)!important;text-shadow:none!important}
+#appMain.app-content-shell :is(h3,h4,.card-title){font-size:15px!important;line-height:20px!important;color:var(--desktop-ink)!important;text-shadow:none!important}
+#appMain.app-content-shell :is(b,strong,label,legend,summary,a,span,em,dd,dt){text-shadow:none!important}
+
+/* Rebuild the global window surfaces away from the previous warm-neutral skin. */
+.mac-workspace{background:rgba(247,248,252,.96)!important;border:1px solid rgba(60,60,67,.12)!important;border-radius:var(--mac-window-radius)!important;box-shadow:0 26px 80px rgba(36,39,62,.12)!important}
+.mac-toolbar,.mac-command-palette,.mac-inspector,.side-drawer,.mascot-companion-panel,.rotate-menu-global,.header-display-menu{
+  background:rgba(248,249,253,.78)!important;
+  color:var(--desktop-ink)!important;
+  border:1px solid rgba(255,255,255,.72)!important;
+  box-shadow:0 18px 46px rgba(26,30,54,.16),inset 0 1px 0 rgba(255,255,255,.92)!important;
+  backdrop-filter:blur(var(--mac-regular-glass-blur)) saturate(1.4)!important;
+  -webkit-backdrop-filter:blur(var(--mac-regular-glass-blur)) saturate(1.4)!important;
+}
+.mac-toolbar{border-radius:18px!important;padding:8px 10px!important;min-height:52px!important;background:rgba(248,249,253,.82)!important}
+.mac-toolbar-shelf,.mac-global-search,.view-controls{background:rgba(118,118,128,.08)!important;border:0!important;box-shadow:inset 0 0 0 .5px rgba(60,60,67,.12)!important}
+.mac-toolbar button,.mac-toolbar a{min-width:var(--mac-toolbar-control)!important;min-height:var(--mac-toolbar-control)!important;height:var(--mac-toolbar-control)!important;border-radius:10px!important;color:var(--desktop-ink)!important;background:transparent!important}
+.mac-toolbar button:hover,.mac-toolbar a:hover{background:rgba(118,118,128,.11)!important}
+.mac-toolbar .lz-symbol{width:16px!important;height:16px!important;stroke-width:1.7!important}
+.mac-page-identity b{font-size:13px!important;line-height:16px!important;color:var(--desktop-ink)!important;font-weight:700!important}
+.mac-page-identity small{font-size:10px!important;line-height:13px!important;color:var(--desktop-muted)!important;opacity:1!important}
+.mac-global-search{max-width:320px!important;height:36px!important;padding:0 11px!important;border-radius:11px!important;color:var(--desktop-muted)!important}
+.mac-global-search span{font-size:13px!important;color:var(--desktop-muted)!important}
+.mac-global-search kbd{color:var(--desktop-muted)!important;background:transparent!important}
+.mac-header-ai-brand{width:36px!important;height:36px!important;flex-basis:36px!important;box-shadow:none!important;background:rgba(255,255,255,.72)!important;border:1px solid rgba(60,60,67,.10)!important}
+.mac-header-ai-core{width:28px!important;height:28px!important;background:transparent!important}
+.mac-header-ai-core img{width:26px!important;height:26px!important;filter:none!important}
+.mac-header-ai-ring,.mac-header-ai-node{display:none!important}
+
+/* Content cards: true light content layer, glass only where navigation/transient UI needs it. */
+:is(.liquid-card,.form-card,.responsive-card,.settings-card,.settings-panel,.widget-settings-card,.admin-card,.integration-main,.query-sheet,.agreement-panel,.portal-panel,.food-card,.banking-card,.card,.master-card,.security-card){
+  background:#fff!important;color:var(--desktop-ink)!important;border:1px solid rgba(60,60,67,.10)!important;box-shadow:0 1px 1px rgba(0,0,0,.02),0 7px 22px rgba(30,34,55,.055)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+}
+#appMain.app-content-shell :is(input,select,textarea){background:#fff!important;color:var(--desktop-ink)!important;border:1px solid rgba(60,60,67,.22)!important;border-radius:8px!important;min-height:36px!important;box-shadow:inset 0 1px 1px rgba(0,0,0,.025)!important}
+#appMain.app-content-shell :is(input,select,textarea)::placeholder{color:#8e8e93!important}
+#appMain.app-content-shell :is(input,select,textarea):focus{border-color:var(--mac-blue)!important;box-shadow:0 0 0 3px rgba(0,136,255,.16)!important}
+#appMain.app-content-shell :is(.btn,.primary,.secondary,button:not(.icon-only)){min-height:36px!important;padding:7px 12px!important;border-radius:9px!important;line-height:16px!important}
+#appMain.app-content-shell :is(.primary,.btn-primary){background:var(--mac-blue)!important;color:#fff!important;border-color:transparent!important;box-shadow:none!important}
+#appMain.app-content-shell a:not(.btn):not(.home-app-card):not(.grouped-app-item){color:#006bd6!important}
+
+/* Sidebar metrics and selection language. */
+.system-settings-sidebar,.settings-sidebar{width:var(--mac-sidebar-width)!important;max-width:var(--mac-sidebar-width)!important;background:rgba(248,249,252,.80)!important;backdrop-filter:blur(100px) saturate(1.15)!important;-webkit-backdrop-filter:blur(100px) saturate(1.15)!important;border-color:rgba(60,60,67,.12)!important}
+.system-settings-nav a,.settings-nav a{min-height:32px!important;border-radius:8px!important;font-size:13px!important;color:var(--desktop-ink)!important}
+.system-settings-nav a.active,.settings-nav a.active{background:rgba(0,136,255,.13)!important;color:#005fc7!important}
+
+/* Menus/popovers follow the kit: compact 24px rows, stronger blur and shadow. */
+.rotate-menu-global,.header-display-menu,.mac-command-palette,.apps-drawer{
+  background:rgba(242,243,249,.80)!important;border-color:rgba(255,255,255,.56)!important;box-shadow:0 4px 24px rgba(0,0,0,.30),0 0 0 .5px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.48)!important;backdrop-filter:blur(var(--mac-menu-blur)) saturate(1.2)!important;-webkit-backdrop-filter:blur(var(--mac-menu-blur)) saturate(1.2)!important;
+}
+.rotate-menu-global,.header-display-menu{min-width:var(--mac-menu-width)!important}
+.rotate-menu-global>button,.header-display-menu>button{min-height:var(--mac-menu-item-height)!important;color:var(--desktop-ink)!important}
+.apps-drawer-head b,.apps-drawer-item b,.apps-drawer-foot b{color:var(--desktop-ink)!important}
+.apps-drawer-head small,.apps-drawer-item small,.apps-drawer-foot small{color:var(--desktop-muted)!important}
+.grouped-app-item{background:rgba(255,255,255,.54)!important;border:1px solid rgba(60,60,67,.09)!important;color:var(--desktop-ink)!important}
+.grouped-app-item:hover{background:rgba(255,255,255,.82)!important}
+
+/* Dock translated from the supplied kit: 58pt material with subtle edge-lighting. */
+.mac-dock{
+  position:fixed!important;left:50%!important;bottom:max(10px,env(safe-area-inset-bottom))!important;transform:translateX(-50%)!important;z-index:2147483000!important;
+  height:var(--mac-dock-height)!important;max-width:calc(100vw - 32px)!important;width:max-content!important;
+  display:flex!important;align-items:flex-end!important;justify-content:flex-start!important;gap:4px!important;
+  padding:5px 8px!important;border-radius:20px!important;overflow-x:auto!important;overflow-y:visible!important;scrollbar-width:none!important;
+  background:linear-gradient(180deg,rgba(112,116,145,.30),rgba(47,51,82,.26))!important;
+  border:.5px solid rgba(255,255,255,.42)!important;
+  box-shadow:0 14px 34px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.44),inset 0 -1px 0 rgba(20,23,43,.34)!important;
+  backdrop-filter:blur(24px) saturate(1.55)!important;-webkit-backdrop-filter:blur(24px) saturate(1.55)!important;
+}
+.mac-dock::-webkit-scrollbar{display:none!important}
+.mac-dock-divider{width:1px;height:38px;align-self:center;background:rgba(255,255,255,.28);margin:0 2px;flex:0 0 1px}
+.mac-dock-item{
+  --dock-scale:1;position:relative!important;flex:0 0 46px!important;width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important;padding:0!important;border:0!important;border-radius:12px!important;display:grid!important;place-items:center!important;background:transparent!important;color:#fff!important;box-shadow:none!important;transform:translateY(calc((var(--dock-scale) - 1) * -12px)) scale(var(--dock-scale))!important;transform-origin:center bottom!important;transition:transform 120ms cubic-bezier(.2,.72,.2,1),filter 120ms ease!important;overflow:visible!important;
+}
+.mac-dock-item:hover,.mac-dock-item:focus-visible{--dock-scale:1.18;filter:brightness(1.04)!important}
+.mac-dock-icon{width:42px!important;height:42px!important;border-radius:11px!important;display:grid!important;place-items:center!important;position:relative!important;overflow:hidden!important;background:linear-gradient(145deg,#6173ff,#2139d9)!important;border:.5px solid rgba(255,255,255,.42)!important;box-shadow:0 5px 11px rgba(5,10,36,.26),inset 0 1px 0 rgba(255,255,255,.38),inset 0 -1px 0 rgba(0,0,0,.16)!important}
+.mac-dock-icon::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.28),transparent 45%);pointer-events:none}
+.mac-dock-icon .lz-symbol,.dock-app-glyph .lz-symbol{width:23px!important;height:23px!important;stroke:currentColor!important;stroke-width:1.75!important;fill:none!important;position:relative;z-index:1}
+.mac-dock-launcher .mac-dock-icon{background:linear-gradient(145deg,#f7f8ff,#d8ddf8)!important;color:#263058!important}
+.mac-dock-app[data-dock-tone="finder"] .mac-dock-icon{background:linear-gradient(135deg,#a8ddff 0 50%,#1976d2 50% 100%)!important}
+.mac-dock-app[data-dock-tone="blue"] .mac-dock-icon{background:linear-gradient(145deg,#55b7ff,#0574e7)!important}
+.mac-dock-app[data-dock-tone="indigo"] .mac-dock-icon{background:linear-gradient(145deg,#818cf8,#4f46e5)!important}
+.mac-dock-app[data-dock-tone="purple"] .mac-dock-icon{background:linear-gradient(145deg,#d46ef0,#9333c5)!important}
+.mac-dock-app[data-dock-tone="cyan"] .mac-dock-icon{background:linear-gradient(145deg,#5fe2ff,#00a7cf)!important}
+.mac-dock-app[data-dock-tone="teal"] .mac-dock-icon{background:linear-gradient(145deg,#59e6d1,#00a990)!important}
+.mac-dock-app[data-dock-tone="orange"] .mac-dock-icon{background:linear-gradient(145deg,#ffb35b,#ff6a21)!important}
+.mac-dock-app[data-dock-tone="yellow"] .mac-dock-icon{background:linear-gradient(145deg,#ffe46b,#f0a800)!important;color:#5a4100!important}
+.mac-dock-app[data-dock-tone="pink"] .mac-dock-icon{background:linear-gradient(145deg,#ff79af,#e92169)!important}
+.mac-dock-app[data-dock-tone="green"] .mac-dock-icon{background:linear-gradient(145deg,#70e78a,#22a845)!important}
+.mac-dock-app[data-dock-tone="mint"] .mac-dock-icon{background:linear-gradient(145deg,#64ebcc,#13ad92)!important}
+.mac-dock-app[data-dock-tone="navy"] .mac-dock-icon{background:linear-gradient(145deg,#4f70bd,#233a78)!important}
+.mac-dock-app[data-dock-tone="amber"] .mac-dock-icon{background:linear-gradient(145deg,#ffd65c,#ef9d00)!important;color:#503700!important}
+.mac-dock-app[data-dock-tone="red"] .mac-dock-icon{background:linear-gradient(145deg,#ff6b6b,#e52f42)!important}
+.mac-dock-app[data-dock-tone="settings"] .mac-dock-icon{background:linear-gradient(145deg,#d8dce5,#7f8796)!important;color:#27303c!important}
+.mac-dock-tooltip{bottom:calc(100% + 12px)!important;padding:5px 9px!important;border-radius:7px!important;background:rgba(31,31,36,.82)!important;color:#fff!important;font-size:11px!important;line-height:14px!important;box-shadow:0 4px 16px rgba(0,0,0,.18)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important}
+.mac-dock-running{bottom:-3px!important;width:3px!important;height:3px!important;background:rgba(255,255,255,.92)!important;opacity:0!important}
+.mac-dock-app.is-active .mac-dock-running{opacity:1!important}
+
+/* Home is a desktop, not a dashboard card. */
+body[data-page="dashboard"]{overflow:hidden!important;background:#071536!important;color:#fff!important}
+body[data-page="dashboard"] #macToolbar{display:none!important}
+body[data-page="dashboard"] #macShell.mac-shell{width:100%!important;min-height:100vh!important;height:100vh!important;margin:0!important;padding:0!important;display:block!important;background:transparent!important}
+body[data-page="dashboard"] .mac-shell-body,body[data-page="dashboard"] .mac-workspace,body[data-page="dashboard"] #appMain.app-content-shell{width:100%!important;height:100vh!important;min-height:100vh!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:hidden!important}
+.mac-desktop-home{position:fixed;inset:0;z-index:1;overflow:hidden;background:#0a1541 url("livenza_liquid_wallpaper.webp") center/cover no-repeat;color:#fff!important}
+.home-wallpaper-sheen{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 72% 25%,rgba(180,119,255,.18),transparent 31%),radial-gradient(circle at 24% 72%,rgba(33,150,243,.12),transparent 34%),linear-gradient(180deg,rgba(3,8,32,.06),rgba(3,8,32,.18));}
+
+.mac-desktop-menubar{position:fixed;top:0;left:0;right:0;height:var(--mac-menu-bar-height);z-index:310;display:flex;align-items:center;justify-content:space-between;padding:0 13px 0 10px;color:#fff;background:linear-gradient(180deg,rgba(10,16,48,.20),rgba(10,16,48,.05));backdrop-filter:blur(16px) saturate(1.15);-webkit-backdrop-filter:blur(16px) saturate(1.15);text-shadow:0 1px 3px rgba(0,0,0,.28);font-size:12px;line-height:16px}
+.desktop-menu-left,.desktop-menu-right{display:flex;align-items:center;height:100%;gap:2px;min-width:0}.desktop-menu-left{overflow:hidden}.desktop-menu-right{flex:0 0 auto;gap:5px}.desktop-menu-logo{width:24px;height:24px;display:grid;place-items:center;border-radius:6px;margin-right:2px}.desktop-menu-logo img{width:19px;height:19px;object-fit:contain;filter:brightness(0) invert(1)}
+.desktop-menu-left strong{font-size:12px;line-height:16px;margin:0 5px 0 1px;white-space:nowrap}.desktop-menu-left button,.desktop-status-button{height:24px!important;min-height:24px!important;min-width:28px!important;border:0!important;border-radius:6px!important;padding:0 7px!important;background:transparent!important;color:#fff!important;font:inherit!important;line-height:24px!important;text-shadow:inherit!important;box-shadow:none!important;white-space:nowrap!important}.desktop-menu-left button:hover,.desktop-status-button:hover{background:rgba(255,255,255,.16)!important}.desktop-status-button{display:grid!important;place-items:center!important;padding:0 5px!important;text-decoration:none!important}.desktop-status-icon{width:24px;height:24px;display:grid;place-items:center}.desktop-status-icon .lz-symbol,.desktop-status-button .lz-symbol{width:15px;height:15px;stroke:#fff;stroke-width:1.9}.desktop-menu-date,.desktop-menu-time{font-style:normal;white-space:nowrap;color:#fff}.desktop-menu-date{margin-left:3px}.desktop-menu-time{font-weight:600}
+
+.home-widget-stack{position:fixed;top:60px;right:22px;z-index:20;width:min(var(--mac-notification-width),calc(100vw - 44px));display:grid;gap:14px}
+.home-widget{width:100%;border-radius:var(--mac-notification-radius);background:linear-gradient(145deg,rgba(237,240,255,.72),rgba(201,208,248,.54))!important;border:.5px solid rgba(255,255,255,.48)!important;box-shadow:0 4px 16px rgba(0,0,0,.10),inset 0 1px 0 rgba(255,255,255,.44),inset 0 -1px 0 rgba(30,35,72,.12)!important;backdrop-filter:blur(var(--mac-notification-blur)) saturate(1.3)!important;-webkit-backdrop-filter:blur(var(--mac-notification-blur)) saturate(1.3)!important;color:#101221!important;text-shadow:none!important;overflow:hidden}
+.home-widget :is(b,strong,span,small){text-shadow:none!important}.home-widget-heading{display:flex;align-items:flex-start;justify-content:space-between;padding:14px 16px 8px}.home-widget-heading>span:first-child{display:grid;gap:0}.home-widget-heading small{font-size:11px;line-height:14px;color:rgba(16,18,33,.58)!important;font-weight:600}.home-widget-heading strong{font-size:30px;line-height:32px;letter-spacing:-.04em;color:#101221!important;font-weight:500}.home-widget-badge{font-size:9px;line-height:16px;padding:0 7px;border-radius:8px;background:rgba(90,77,255,.12);color:#503fd6!important;font-weight:800;letter-spacing:.04em}.home-today-content{display:grid;padding:4px 16px 14px;gap:10px}.home-agenda-row{display:grid;grid-template-columns:4px minmax(0,1fr);gap:10px;align-items:stretch;min-height:36px}.agenda-accent{display:block;width:4px;border-radius:4px;background:var(--mac-blue)}.agenda-accent.accent-violet{background:var(--desktop-violet)}.home-agenda-row span{display:grid;align-content:center;gap:1px;min-width:0}.home-agenda-row b{font-size:12px;line-height:15px;color:#101221!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.home-agenda-row small{font-size:10px;line-height:13px;color:rgba(16,18,33,.62)!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.home-weather-widget{min-height:104px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;padding:13px 16px;background:linear-gradient(145deg,rgba(115,174,255,.72),rgba(120,117,235,.58))!important;color:#fff!important}.home-weather-copy{display:grid;gap:0}.home-weather-copy small{font-size:12px;line-height:15px;color:rgba(255,255,255,.90)!important}.home-weather-copy strong{font-size:44px;line-height:44px;letter-spacing:-.055em;font-weight:400;color:#fff!important}.home-weather-copy span{font-size:11px;line-height:14px;color:rgba(255,255,255,.88)!important}.home-weather-side{display:grid;justify-items:end;align-content:center;gap:5px}.home-weather-symbol{width:34px;height:34px;display:grid;place-items:center;color:#ffd84d}.home-weather-symbol .lz-symbol{width:29px;height:29px;stroke:currentColor;stroke-width:1.8}.home-weather-side small{font-size:10px;color:rgba(255,255,255,.86)!important}
+
+.home-suggestions-widget header{padding:13px 15px 7px}.home-suggestions-widget header small{font-size:11px;line-height:14px;color:rgba(16,18,33,.58)!important;font-weight:600}.home-suggestion-list{display:grid;padding:0 8px 8px}.home-suggestion-list>a,.home-suggestion-list>button{display:grid!important;grid-template-columns:34px minmax(0,1fr)!important;align-items:center!important;gap:9px!important;width:100%!important;min-height:49px!important;padding:6px 7px!important;margin:0!important;border:0!important;border-radius:12px!important;background:transparent!important;color:#101221!important;text-align:left!important;text-decoration:none!important;box-shadow:none!important}.home-suggestion-list>a:hover,.home-suggestion-list>button:hover{background:rgba(255,255,255,.36)!important}.home-suggestion-list>a>span:last-child,.home-suggestion-list>button>span:last-child{display:grid;gap:1px;min-width:0}.home-suggestion-list b{font-size:12px;line-height:15px;color:#101221!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.home-suggestion-list small{font-size:10px;line-height:13px;color:rgba(16,18,33,.58)!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.suggestion-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;color:#fff;background:var(--mac-blue);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}.suggestion-icon .lz-symbol{width:17px;height:17px;stroke:currentColor;stroke-width:1.8}.suggestion-icon.tone-violet{background:linear-gradient(145deg,#a66cff,#7551dd)}.suggestion-icon.tone-red{background:linear-gradient(145deg,#ff6e76,#e63143)}.suggestion-icon.tone-indigo{background:linear-gradient(145deg,#6fa0ff,#5d49df)}
+
+.home-desktop-signature{position:fixed;left:24px;bottom:83px;z-index:12;display:flex;align-items:center;gap:9px;color:rgba(255,255,255,.82);text-shadow:0 1px 4px rgba(0,0,0,.25);opacity:.78}.home-desktop-signature img{width:34px;height:34px;object-fit:contain;filter:brightness(0) invert(1);opacity:.88}.home-desktop-signature span{display:grid;gap:0}.home-desktop-signature b{font-size:12px;line-height:15px;color:#fff!important}.home-desktop-signature small{font-size:9px;line-height:12px;color:rgba(255,255,255,.72)!important}
+
+/* Home companion is secondary to widgets and Dock. */
+body[data-page="dashboard"] .mascot-companion{right:14px!important;bottom:76px!important;top:auto!important;width:92px!important;height:122px!important;filter:drop-shadow(0 14px 20px rgba(0,0,0,.28))!important;z-index:24!important;transform:scale(.82)!important;transform-origin:right bottom!important}
+body[data-page="dashboard"] .mascot-side-character img{filter:none!important}
+body[data-page="dashboard"] .mascot-weather-chip{display:none!important}
+body[data-page="dashboard"] .mascot-companion-panel{right:22px!important;bottom:82px!important;top:auto!important;width:min(375px,calc(100vw - 44px))!important;max-height:min(650px,calc(100vh - 130px))!important;background:rgba(239,241,251,.86)!important;color:var(--desktop-ink)!important}
+body[data-page="dashboard"] .livenza-easter-egg{display:none!important}
+
+/* Mascot and brand artwork retain their real colors across the site. */
+.mascot-side-character img,.mascot-settings-preview img,.settings-companion-preview img,.welcome-companion,.livenza-easter-egg img{filter:none!important}
+
+@media (max-width:1100px){
+  .desktop-menu-left button:nth-of-type(n+4){display:none!important}
+  .home-widget-stack{right:16px;top:52px;width:318px}
+  .home-desktop-signature{display:none}
+  .mac-dock{max-width:calc(100vw - 20px)!important}
+  .mac-dock-item{flex-basis:42px!important;width:42px!important;min-width:42px!important}.mac-dock-icon{width:39px!important;height:39px!important}
+}
+@media (max-width:760px){
+  .desktop-menu-left button:not(:first-of-type){display:none!important}.desktop-menu-date{display:none}.desktop-menu-right{gap:2px}.desktop-status-icon:nth-of-type(2){display:none}
+  .home-widget-stack{top:48px;left:12px;right:12px;width:auto;gap:10px}.home-today-widget{display:none}.home-suggestions-widget{max-height:190px;overflow:auto}.home-weather-widget{min-height:92px}.home-weather-copy strong{font-size:38px;line-height:38px}
+  body[data-page="dashboard"] .mascot-companion{display:none!important}
+  .mac-dock{height:54px!important;padding:5px 7px!important;bottom:max(6px,env(safe-area-inset-bottom))!important}.mac-dock-item{flex-basis:40px!important;width:40px!important;min-width:40px!important;height:42px!important;min-height:42px!important}.mac-dock-icon{width:37px!important;height:37px!important;border-radius:10px!important}.mac-dock-icon .lz-symbol,.dock-app-glyph .lz-symbol{width:20px!important;height:20px!important}
+}
+@media (max-width:520px){.desktop-menu-left strong{max-width:88px;overflow:hidden;text-overflow:ellipsis}.desktop-status-icon{display:none}.home-suggestions-widget{display:none}.home-widget-stack{top:auto;bottom:72px}.home-weather-widget{border-radius:20px}.desktop-menu-right .desktop-status-button:first-of-type{display:none!important}}
+@media (prefers-reduced-motion:reduce){.mac-dock-item{transition:none!important;transform:none!important}.mac-dock-item:hover,.mac-dock-item:focus-visible{transform:none!important}.home-wallpaper-sheen{display:none}}
+@media (prefers-contrast:more){.home-widget{background:rgba(244,246,255,.92)!important;border:1px solid rgba(255,255,255,.9)!important}.mac-dock{background:rgba(40,44,73,.82)!important}.mac-toolbar,.side-drawer,.mac-command-palette{background:#f7f8fc!important;border-color:rgba(60,60,67,.32)!important}}
+
+/* Dashboard desktop dock: explicit macOS 27 desktop placement contract. */
+body[data-page="dashboard"] .mac-dock {
+  bottom: max(10px, env(safe-area-inset-bottom)) !important;
+}

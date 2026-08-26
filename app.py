@@ -2717,7 +2717,7 @@ def version():
     return jsonify(
         name=OS_NAME, version=OS_VERSION, build=OS_BUILD,
         features=[
-            'tesla-os-27','warm-neutral-liquid-glass','persistent-suites-dock','single-suites-launcher',
+            'tesla-os-27','vibrant-macos27-desktop','persistent-suites-dock','individual-suite-dock',
             'unified-system-settings','livenza-symbol-system','ai-logo-identity','reduced-motion',
             'agreements','rooms','queries','billing','banking','electricity','food','video-wall',
             'whatsapp','email','drive','letterhead-studio','livenza-vault','role-permissions',
@@ -2820,8 +2820,8 @@ def account_avatar():
 @app.route('/')
 @login_required
 def dashboard():
-    # Tesla OS 27 Home is intentionally a lightweight identity workspace.
-    # Operational data is loaded only inside the suites that actually need it,
+    # Tesla OS 27 Home is a vibrant macOS 27-style desktop workspace.
+    # Operational data is still loaded only inside the suites that actually need it,
     # so a stale optional module/table cannot turn the Home route into a 500.
     show_login_welcome=bool(session.pop('show_login_welcome',False))
     return render_template('dashboard.html', show_login_welcome=show_login_welcome)

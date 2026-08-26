@@ -1,7 +1,8 @@
 Tesla OS 27 — Version 27.0.1 — Build 27A101
-Complete deployment with Login 500 Hotfix 3 merged.
+Complete cumulative deployment with macOS 27 UI Kit interface pass (Hotfix 5) merged over the prior runtime/login hotfixes.
 
-Upload every PART zip in numeric order and preserve paths.
-Overwrite existing files when prompted.
-Do not delete persistent database/instance data or environment variables.
-Restart/redeploy the service after the final part is uploaded.
+If using a complete ZIP, upload the full extracted tree and preserve paths.
+Overwrite existing application/static/template files when prompted.
+Do not delete persistent database/instance data, uploaded business files or environment variables.
+Restart/redeploy the service after the upload completes.
+Run the checks in VERIFY_DEPLOY.txt after restart.
