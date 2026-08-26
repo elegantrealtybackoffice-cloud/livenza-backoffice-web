@@ -70,7 +70,7 @@
     }
   }
   function classifyBase() {
-    // WebGL is now informational. The default Livenza blue mascot and core UI
+    // WebGL is now informational. The default Livenza companion and core UI
     // are lightweight DOM/CSS, so a missing GPU context must not downgrade the
     // entire site into low-capability mode.
     var severe = false;

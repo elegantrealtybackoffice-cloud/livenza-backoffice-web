@@ -1,12 +1,12 @@
 {
-  "name": "Livenza Back Office",
-  "short_name": "Livenza BO",
-  "description": "Livenza Life unified back office management platform",
+  "name": "Tesla OS 27",
+  "short_name": "Tesla OS 27",
+  "description": "Livenza Life operations workspace running Tesla OS 27 Version 27.0.1 Build 27A101",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f5f5f7",
-  "theme_color": "#f5f5f7",
+  "background_color": "#ede4d8",
+  "theme_color": "#ede4d8",
   "icons": [
     {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
     {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}

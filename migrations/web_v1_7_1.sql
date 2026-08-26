@@ -1,4 +1,4 @@
--- Livenza Web 1.7.1: separate encrypted Landlord/Tenant Masters and immutable master documents.
+-- Tesla OS 27 historical compatibility: separate encrypted Landlord/Tenant Masters and immutable master documents.
 CREATE TABLE IF NOT EXISTS landlord_master (
     id SERIAL PRIMARY KEY,
     master_code VARCHAR(32) NOT NULL UNIQUE,

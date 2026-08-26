@@ -1,79 +1,13 @@
 {% extends 'base.html' %}
-{% import '_application_groups.html' as appgroups with context %}
 {% block content %}
-{% if show_login_welcome %}
-<section id="loginMascotWelcome" class="login-mascot-welcome" role="status" aria-live="polite" aria-label="Welcome to Livenza Life">
-  <div class="mascot-welcome-shell">
-    <div class="mascot-speech liquid-card">
-      <button type="button" id="mascotWelcomeSkip" aria-label="Skip welcome animation" title="Skip welcome animation">×</button>
-      <small>WELCOME TO LIVENZA LIFE</small>
-      <strong>Welcome back, {{current_user.full_name or current_user.username}}!</strong>
-      <span>Your workspace is ready. Let’s make today exceptional.</span>
-    </div>
-    <div class="mascot-stage blue-mascot-welcome-stage" aria-hidden="true">
-      <i class="mascot-star star-one">✦</i><i class="mascot-star star-two">✦</i><i class="mascot-star star-three">•</i><i class="mascot-star star-four">✦</i>
-      <span class="mascot-spotlight"></span><img class="welcome-blue-mascot" src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}" alt=""><span class="welcome-blue-badge">LIVE COMPANION</span><span class="mascot-floor-shadow"></span>
-    </div>
-  </div>
-</section>
-{% endif %}
-<section class="hero compact lively-hero liquid-card safe-content-after-sticky" data-layout-contract="safe-tabs Live Ask Livenza">
-  <div>
-    <p class="eyebrow">SYSTEM ONLINE • LIVE CLOUD</p>
-    <h1>Livenza Life <span>Back Office</span></h1>
-    <p>One beautifully simple workspace for agreements, rooms, tenants, live queries, banking, electricity utilities, reminders, video walls, food and billing operations.</p>
-  </div>
-  <div class="core ai-core-wrap" aria-label="Livenza Operations Cloud live">
-    <div class="ai-logo-core">
+<section class="tesla-home-stage" aria-label="Tesla OS 27 Home">
+  <div class="tesla-home-identity">
+    <div class="ai-logo-core ai-logo-home" aria-label="Livenza AI">
+      <span class="ai-core-glow" aria-hidden="true"></span>
       <div class="ai-orbit orbit-one"><i></i></div><div class="ai-orbit orbit-two"><i></i></div>
       <div class="ai-border-run"></div>
       <div class="ai-logo-shell"><img src="{{url_for('static',filename='livenza_logo.png')}}" alt="Livenza Life"></div>
-      <span class="ai-spark s1">✦</span><span class="ai-spark s2">✦</span><span class="ai-spark s3">·</span>
     </div>
   </div>
 </section>
-
-<div class="stats">
-  <div><b>{{stats.agreements}}</b><span>Agreements</span></div><div><b>{{stats.tenants}}</b><span>Tenants</span></div>
-  <div><b>{{stats.rooms}}</b><span>Rooms</span></div><div><b>{{stats.vacant}}</b><span>Vacant</span></div>
-  <div><b>{{stats.queries}}</b><span>Queries</span></div><div><b>{{stats.screens_online}}/{{stats.screens}}</b><span>TVs Online</span></div>
-</div>
-
-{% if can_access('electricity') %}
-<section class="live-reminders liquid-card" id="live-reminders" data-electricity-summary='{{electricity_reminder_summary|tojson}}'>
-  <div class="section-head"><div><p class="eyebrow">LIVE REMINDERS</p><h2>Bills & Payments Needing Attention</h2></div><a class="secondary btn" href="{{url_for('electricity_studio')}}">Electricity Bill Studio</a></div>
-  <div class="reminder-grid">
-  {% for item in live_reminders %}{% set r=item.reminder %}{% set p=item.payload %}
-    <article class="reminder-card severity-{{r.severity}}"><div class="reminder-icon">⚡</div><div class="reminder-copy"><small>{{p.provider or 'Electricity Bill'}}</small><h3>{{p.property or r.title}}</h3><p>{{p.identifier}} · {{p.bill_status|replace('_',' ')|title}}</p></div><div class="reminder-money"><b>₹{{p.amount}}</b><span>Due {{p.due_date or '—'}}</span></div><div class="reminder-actions safe-actions"><a class="primary btn" href="{{url_for('electricity_studio')}}">View / Pay</a>{% if is_admin %}<form method="post" action="{{url_for('electricity_reminder_snooze',rid=r.id)}}"><input type="hidden" name="days" value="1"><button class="secondary">Snooze 1 Day</button></form>{% endif %}</div></article>
-  {% else %}<div class="reminder-empty"><span>✓</span><div><b>All clear</b><small>No electricity bills need immediate attention.</small></div></div>{% endfor %}
-  </div>
-</section>
-{% endif %}
-
-<section class="experience-gallery" aria-label="Livenza visual operations">
-  <figure class="experience-shot experience-wide" aria-label="Stay Experience">
-    <img src="https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&amp;fit=crop&amp;q=76&amp;w=1200" srcset="https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&amp;fit=crop&amp;q=62&amp;w=640 640w, https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&amp;fit=crop&amp;q=76&amp;w=1200 1200w" sizes="(max-width:700px) 94vw, 54vw" alt="Bright modern shared accommodation room" loading="lazy" decoding="async" referrerpolicy="no-referrer">
-    <span><small>STAY EXPERIENCE</small><b>Rooms that feel ready</b></span>
-  </figure>
-  <figure class="experience-shot" aria-label="Food Operations">
-    <img src="https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&amp;fit=crop&amp;q=74&amp;w=900" srcset="https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&amp;fit=crop&amp;q=62&amp;w=560 560w, https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&amp;fit=crop&amp;q=74&amp;w=900 900w" sizes="(max-width:700px) 94vw, 24vw" alt="Hospitality team preparing food in a professional kitchen" loading="lazy" decoding="async" referrerpolicy="no-referrer">
-    <span><small>FOOD OPERATIONS</small><b>Service in motion</b></span>
-  </figure>
-  <figure class="experience-shot" aria-label="Connected Workspace">
-    <img src="https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&amp;fit=crop&amp;q=74&amp;w=900" srcset="https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&amp;fit=crop&amp;q=62&amp;w=560 560w, https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&amp;fit=crop&amp;q=74&amp;w=900 900w" sizes="(max-width:700px) 94vw, 24vw" alt="Modern operations workspace" loading="lazy" decoding="async" referrerpolicy="no-referrer">
-    <span><small>ONE WORKSPACE</small><b>Everything connected</b></span>
-  </figure>
-</section>
-
-<div class="section-head">
-  <div><p class="eyebrow">CITY OPERATIONS</p><h2 class="section-title">Cities</h2></div>
-  {% if is_admin %}<a class="secondary btn" href="{{url_for('admin_panel')}}#cities">+ Manage Cities</a>{% endif %}
-</div>
-<div class="city-grid">
-  {% for c in cities %}<div class="city-card liquid-card"><div class="city-orb">{{c.code or c.name[:2]|upper}}</div><div><h3>{{c.name}}</h3><p><b>{{c.rooms}}</b> rooms • <b>{{c.tenants}}</b> tenants • <b>{{c.agreements}}</b> agreements</p></div></div>
-  {% else %}<div class="placeholder compact-placeholder liquid-card">No cities added yet.{% if is_admin %} Add cities from Admin.{% endif %}</div>{% endfor %}
-</div>
-
-<div class="section-head safe-toolbar" id="applications"><div><p class="eyebrow">LIVENZA WORKSPACE</p><h2 class="section-title">Applications</h2></div><span class="section-kicker">Grouped for faster access</span></div>
-<div class="dashboard-liquid-applications" data-component="lg-app-tile">{{ appgroups.render_application_groups('home') }}</div>
 {% endblock %}

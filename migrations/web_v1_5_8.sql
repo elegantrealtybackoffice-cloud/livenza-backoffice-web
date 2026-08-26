@@ -1,4 +1,4 @@
--- Livenza Back Office Web 1.5.8
+-- Tesla OS 27 historical compatibility
 -- Reusable landlord and tenant profiles are encrypted by the application
 -- before their payload is written to this table.
 

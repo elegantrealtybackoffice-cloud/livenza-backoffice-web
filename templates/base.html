@@ -3,154 +3,127 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#211f1d">
-  <meta name="color-scheme" content="dark light">
-  <meta name="application-name" content="Livenza Back Office">
+  <meta name="theme-color" content="#ede4d8">
+  <meta name="color-scheme" content="light">
+  <meta name="application-name" content="Tesla OS 27">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Livenza Back Office">
-  <meta name="msapplication-TileColor" content="#f5f5f7">
+  <meta name="apple-mobile-web-app-title" content="Livenza Life">
+  <meta name="msapplication-TileColor" content="#ede4d8">
   <meta name="msapplication-TileImage" content="{{ url_for('static',filename='icon-192.png') }}">
   <link rel="icon" type="image/x-icon" href="{{ url_for('static',filename='favicon.ico') }}">
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static',filename='favicon-32x32.png') }}">
   <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static',filename='icon-192.png') }}">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static',filename='apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static',filename='site.webmanifest') }}">
-  <title>{% block title %}Livenza Back Office{% endblock %}</title>
-  <script>
-    (()=>{const small=matchMedia('(max-width:820px)').matches,lowMemory=Number(navigator.deviceMemory||8)<=4,lowCpu=Number(navigator.hardwareConcurrency||8)<=4,saveData=Boolean(navigator.connection?.saveData);if(small||lowMemory||lowCpu||saveData)document.documentElement.classList.add('mobile-performance')})();
-  </script>
+  <title>{% block title %}Tesla OS 27 · Livenza Life{% endblock %}</title>
+  <script>(()=>{const small=matchMedia('(max-width:820px)').matches,lowMemory=Number(navigator.deviceMemory||8)<=4,lowCpu=Number(navigator.hardwareConcurrency||8)<=4,saveData=Boolean(navigator.connection?.saveData);if(small||lowMemory||lowCpu||saveData)document.documentElement.classList.add('mobile-performance')})();</script>
   <script src="{{url_for('static',filename='tv_capability.js')}}?v={{app_version|replace('Web ','')}}"></script>
-  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}?v={{app_version|replace('Web ','')}}">
+  <link rel="stylesheet" href="{{url_for('static',filename='style.css')}}?v={{app_version|replace('Web ','')}}">
   {% if current_user and can_access('letterhead') %}<link rel="stylesheet" href="{{url_for('static',filename='letterhead.css')}}?v={{app_version|replace('Web ','')}}">{% endif %}
   {% block page_styles %}{% endblock %}
-  <link rel="stylesheet" href="{{url_for('static',filename='theme_v190.css')}}?v={{app_version|replace('Web ','')}}">
-  <link rel="stylesheet" href="{{url_for('static',filename='theme_v190_refractive.css')}}?v={{app_version|replace('Web ','')}}">
-  <link rel="stylesheet" href="{{url_for('static',filename='theme_v190_golden.css')}}?v={{app_version|replace('Web ','')}}">
+  <link rel="stylesheet" href="{{url_for('static',filename='shell_v190.css')}}?v={{app_version|replace('Web ','')}}">
+  <link rel="stylesheet" href="{{url_for('static',filename='settings_v190.css')}}?v={{app_version|replace('Web ','')}}">
+  <link rel="stylesheet" href="{{url_for('static',filename='theme_v190_macos_light.css')}}?v={{app_version|replace('Web ','')}}">
+  <link rel="stylesheet" href="{{url_for('static',filename='motion_v190.css')}}?v={{app_version|replace('Web ','')}}">
 </head>
-<body class="app-liquid-shell" data-page="{{ request.endpoint or '' }}">
+<body class="app-liquid-shell" data-page="{{request.endpoint or ''}}">
   {% import '_application_groups.html' as appgroups with context %}
-  <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div><div class="liquid-noise"></div>
-  <div id="liveMotionLayer" class="live-motion-layer" aria-hidden="true"></div>
-  <div id="pageTransition" class="page-transition" aria-hidden="true"><span></span></div>
+  {% import '_livenza_symbols.html' as icons with context %}
 
   <div id="appViewport" class="app-viewport view-auto">
-    {% if current_user %}
-    <header class="topbar liquid-nav reference-header showcase-header lg-surface">
-      <button type="button" id="appsDrawerToggle" class="hamburger-button lg-control" data-drawer-target="appsDrawer" aria-label="Open applications menu" aria-controls="appsDrawer" aria-expanded="false"><span></span><span></span><span></span></button>
-      <div class="view-controls header-rotation-control no-print">
-        <button type="button" id="viewMenuToggle" class="top-tool header-rotate-toggle lg-control" aria-label="Open display orientation controls" aria-controls="viewMenu" aria-expanded="false" title="Display orientation">
-          <svg class="ui-icon tool-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 21h8m-4-4v4"></path></svg><span class="tool-label">Display</span><svg class="ui-icon tool-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"></path></svg>
-        </button>
-        <button type="button" id="fullscreenToggle" class="top-tool header-fullscreen-toggle lg-control" data-fullscreen-toggle aria-label="Enter full screen" aria-pressed="false" title="Full Screen">
-          <svg class="ui-icon tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5m13 5h5v-5"></path></svg><span class="tool-label">Full Screen</span>
-        </button>
-      </div>
-      <a class="hanging-brand compact-header-brand" href="{{url_for('dashboard')}}" aria-label="Livenza Life home"><span class="hanging-ai-core"><img src="{{url_for('static',filename='livenza_logo_transparent.png')}}" alt="Livenza Life"></span></a>
-      <div class="header-actions icon-header-actions no-print">
-        <a class="header-icon-link lg-icon-button lg-control" href="{{url_for('dashboard')}}#applications" title="Favourite applications" aria-label="Favourite applications"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.4 5.4 0 0 0-7.7 0L12 5.7l-1.1-1.1a5.4 5.4 0 0 0-7.7 7.7L12 21l8.8-8.7a5.4 5.4 0 0 0 0-7.7Z"></path></svg></a>
-        {% if can_access('rooms') %}<a class="header-icon-link lg-icon-button lg-control" href="{{url_for('rooms')}}" data-app-nav title="Locations and rooms" aria-label="Locations and rooms"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z"></path><circle cx="12" cy="10" r="2.2"></circle></svg></a>{% endif %}
-        {% if is_admin %}<a class="header-icon-link lg-icon-button lg-control" href="{{url_for('settings_page')}}" data-app-nav title="Settings" aria-label="Settings"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path></svg></a>{% endif %}
-        <button type="button" id="accountDrawerToggle" class="profile-toggle account-drawer-toggle lg-control" data-drawer-target="accountDrawer" aria-label="Open account menu" aria-controls="accountDrawer" aria-expanded="false">{% if current_user.avatar_data_uri or current_user.photo_data_uri %}<img src="{{current_user.avatar_data_uri or current_user.photo_data_uri}}" alt="{{current_user.full_name or current_user.username}} profile avatar">{% else %}<span class="profile-initial">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}<span class="profile-name"><small>{{current_user.role|title}}</small>{{current_user.full_name or current_user.username}}</span><span class="nav-caret">⌄</span></button>
-      </div>
-    </header>
-    <div id="appsMenuBackdrop" class="apps-drawer-backdrop side-drawer-backdrop no-print" hidden></div>
-    <nav id="appsDrawer" class="apps-drawer side-drawer side-drawer-left no-print grouped-apps-drawer lg-surface" aria-label="Applications" aria-hidden="true" hidden>
-      <div class="apps-drawer-head"><div><p class="eyebrow">LIVENZA APPLICATIONS</p><b>Everything in one workspace</b><small>Choose a category, then open an application.</small></div><button type="button" id="appsDrawerClose" data-drawer-close aria-label="Close applications menu">×</button></div>
-      <div class="apps-drawer-scroll grouped-apps-scroll">{{ appgroups.render_application_groups('drawer') }}</div>
-      <div class="apps-drawer-foot"><span><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} session</small></span><a href="{{url_for('logout')}}"><i>↗</i> Logout</a></div>
-    </nav>
-    <aside id="accountDrawer" class="apps-drawer side-drawer side-drawer-right account-side-drawer no-print lg-surface" aria-label="Account" aria-hidden="true" hidden>
-      <div class="apps-drawer-head account-drawer-head"><div class="account-drawer-identity">{% if current_user.avatar_data_uri or current_user.photo_data_uri %}<img src="{{current_user.avatar_data_uri or current_user.photo_data_uri}}" alt="">{% else %}<span class="profile-initial">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}<span><p class="eyebrow">LIVENZA ACCOUNT</p><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} · Personal workspace</small></span></div><button type="button" id="accountDrawerClose" data-drawer-close aria-label="Close account menu">×</button></div>
-      <div class="apps-drawer-scroll">
-        <section class="apps-drawer-section"><p>Personal</p><div class="apps-drawer-items">
-          <a class="apps-drawer-item" href="{{url_for('account')}}" data-app-nav><i>◉</i><span><b>My Account</b><small>Profile and sign-in security</small></span></a>
-          <a class="apps-drawer-item" href="{{url_for('account')}}#mascot-settings" data-app-nav><i>✦</i><span><b>Mascot Settings</b><small>Blue robot behavior and preferences</small></span></a>
-        </div></section>
-        {% if is_admin %}<section class="apps-drawer-section"><p>Administration</p><div class="apps-drawer-items">
-          <a class="apps-drawer-item" href="{{url_for('admin_panel')}}" data-app-nav><i>⌘</i><span><b>Admin</b><small>Users, permissions and policies</small></span></a>
-          <a class="apps-drawer-item" href="{{url_for('vault_page')}}" data-app-nav><i>◇</i><span><b>Livenza Vault</b><small>Protected operational credentials</small></span></a>
-          <a class="apps-drawer-item" href="{{url_for('settings_page')}}" data-app-nav><i>⚙</i><span><b>Settings</b><small>System configuration</small></span></a>
-        </div></section>{% endif %}
-        {% if kiosk_mode_enabled %}<section class="apps-drawer-section"><p>Security</p><div class="apps-drawer-items"><form method="post" action="{{url_for('kiosk_relock')}}" class="account-drawer-form"><button type="submit" class="apps-drawer-item account-drawer-action"><i>▣</i><span><b>Lock Screen</b><small>Require PIN or password</small></span></button></form></div></section>{% endif %}
-      </div>
-      <div class="apps-drawer-foot"><span><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} session</small></span><a href="{{url_for('logout')}}"><i>↗</i> Logout</a></div>
-    </aside>
-
-    {% if marquee_enabled %}<div class="operations-marquee live-operations-marquee lg-surface" id="liveOperationsMarquee" aria-label="Live Livenza operational status"><div class="marquee-live-label"><i></i> LIVE</div><div class="operations-marquee-track" id="liveMarqueeTrack"><span><b>Livenza</b> Loading live operations…</span><i>◆</i></div>{% if is_admin %}<a href="{{url_for('settings_page')}}#marquee-settings" class="marquee-settings-link" title="Configure marquee" aria-label="Configure marquee"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63 1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path></svg></a>{% endif %}</div>{% endif %}
-    {% endif %}
-
-    <main id="appMain" class="shell app-content-shell {% if not current_user %}login-shell{% endif %}">
-      {% with msgs=get_flashed_messages(with_categories=true) %}
-        {% for cat,msg in msgs %}<div class="flash liquid-card {{cat}}">{{msg}}</div>{% endfor %}
-      {% endwith %}
-      {% block content %}{% endblock %}
-    </main>
-
-    {% if current_user %}
-    {% if companion_enabled %}
-    <section id="mascotCompanionPanel" class="mascot-companion-panel liquid-card lg-surface" aria-label="Live weather, operations and inspiration" aria-hidden="true" hidden>
-        <header class="companion-panel-head">
-          <div><span class="companion-ai-star">✦</span><span><b>Livenza Mascot</b><small>Blue robot · Live updates · Help</small></span></div>
-          <button type="button" id="mascotCompanionClose" aria-label="Close Livenza companion">×</button>
-        </header>
-        <nav class="companion-mode-tabs safe-tabs safe-scroll-tabs" role="tablist" aria-label="Companion mode"><button type="button" class="safe-tab active" role="tab" aria-selected="true" data-tv-tab="companion-live" data-tv-group="companion" data-tv-target="companion-live" data-companion-tab="live"><span>◉</span> Live</button><button type="button" class="safe-tab" role="tab" aria-selected="false" data-tv-tab="companion-chat" data-tv-group="companion" data-tv-target="companion-chat" data-companion-tab="chat"><span>✦</span> Ask Livenza</button></nav>
-        <div class="companion-mode-view active" data-tv-panel="companion-live" data-tv-group="companion" data-companion-view="live">
-          <div class="companion-weather-hero">
-            <span id="companionWeatherIcon" class="companion-weather-icon">✦</span>
-            <div><small id="companionWeatherCity">{{companion_default_city}}</small><strong id="companionWeatherTemperature">—°</strong><span id="companionWeatherCondition">Loading live weather…</span></div>
-            <div class="companion-weather-meta"><span id="companionWeatherFeels">Feels —°</span><span id="companionWeatherHumidity">Humidity —%</span><span id="companionWeatherWind">Wind — km/h</span></div>
+  {% if current_user %}
+    <div id="macShell" class="mac-shell">
+      <header id="macToolbar" class="mac-toolbar topbar" aria-label="Application toolbar">
+        <div class="mac-toolbar-group mac-toolbar-left">
+          <a class="mac-header-ai-brand" href="{{url_for('dashboard')}}" aria-label="Livenza Home" title="Livenza Life">
+            <span class="mac-header-ai-ring ring-one" aria-hidden="true"></span><span class="mac-header-ai-ring ring-two" aria-hidden="true"></span>
+            <span class="mac-header-ai-core"><img src="{{url_for('static',filename='livenza_logo_transparent.png')}}" alt=""></span>
+            <span class="mac-header-ai-node node-one" aria-hidden="true"></span><span class="mac-header-ai-node node-two" aria-hidden="true"></span>
+          </a>
+          <div class="mac-toolbar-shelf">
+            <button type="button" id="macHistoryBack" aria-label="Go back" title="Back">{{icons.symbol('back')}}</button>
+            <button type="button" id="macHistoryForward" aria-label="Go forward" title="Forward">{{icons.symbol('forward')}}</button>
           </div>
-          <div id="companionCityTabs" class="companion-city-tabs" aria-label="Forecast city"></div>
-          <div id="companionForecast" class="companion-forecast" aria-label="Four day forecast"></div>
-          <div class="companion-section-label"><span>LIVE OPERATIONS</span><i></i></div>
-          <div id="companionOperations" class="companion-operations"><div class="companion-loading">Syncing Livenza status…</div></div>
-          <div class="companion-quote-card"><span>✦</span><div><small>TODAY’S THOUGHT</small><blockquote id="companionQuote">Small improvements become remarkable systems.</blockquote></div><button type="button" id="companionNextQuote" aria-label="Show another motivational quote">↻</button></div>
-          <footer class="companion-panel-footer"><small id="companionWeatherSource">Live forecast</small><button type="button" id="companionReplayWeather">Replay weather scene</button></footer>
+          <div class="mac-page-identity"><b id="macPageTitle">{{(request.endpoint or 'home')|replace('_',' ')|title}}</b><small>{{os_name}} · {{os_version}}</small></div>
         </div>
-        <div class="companion-mode-view companion-chat-view" data-tv-panel="companion-chat" data-tv-group="companion" data-companion-view="chat" hidden>
-          <div class="companion-chat-intro"><span>✦</span><div><b>How can I help?</b><small>Ask the mascot about any Livenza feature or workflow.</small></div></div>
-          <div id="assistantMessages" class="assistant-messages companion-chat-messages" aria-live="polite"><div class="assistant-message bot">Hi. I can explain Agreements, Rooms, Queries, Billing, Video Wall, access controls and the rest of your workspace.</div></div>
-          <div class="assistant-suggestions companion-chat-suggestions"><button type="button" data-help-prompt="How do I create an agreement?">Agreements</button><button type="button" data-help-prompt="How does the Query Manager work?">Queries</button><button type="button" data-help-prompt="How do I use Video Wall Studio?">Video Wall</button></div>
-          <form id="assistantForm" class="assistant-form companion-chat-form"><label class="sr-only" for="assistantInput">Ask Livenza</label><input id="assistantInput" autocomplete="off" placeholder="Ask the mascot about any feature…"><button class="primary" type="submit">Send</button></form>
+        <div class="mac-toolbar-group mac-toolbar-center">
+          <button type="button" class="mac-global-search" data-mac-command-open aria-label="Search Livenza applications"><span aria-hidden="true">{{icons.symbol('search')}}</span><span>Search Livenza</span><kbd>⌘ K</kbd></button>
         </div>
-    </section>
-    <aside id="mascotCompanion" class="mascot-companion no-print is-live mascot-pos-{{mascot_preferences.position}} mascot-size-{{mascot_preferences.size}} mascot-motion-{{mascot_preferences.intensity}}" data-default-city="{{companion_default_city}}" data-weather-effects="{{'1' if companion_weather_effects else '0'}}" aria-label="Livenza blue robot mascot and assistant">
-      <button type="button" id="mascotCompanionButton" class="mascot-companion-button" aria-expanded="false" aria-controls="mascotCompanionPanel" title="Open Livenza Companion and help">
-        <span class="companion-float-icon companion-float-one" aria-hidden="true">✦</span><span class="companion-float-icon companion-float-two" aria-hidden="true">✧</span>
-        <span class="mascot-side-glow" aria-hidden="true"></span><span class="mascot-side-character"><img src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}" alt=""></span><span class="mascot-side-shadow" aria-hidden="true"></span>
-        <span id="mascotWeatherChip" class="mascot-weather-chip" aria-live="polite">LIVE</span><span class="mascot-mini-bubble" aria-hidden="true">✦</span>
+        <div class="mac-toolbar-group mac-toolbar-right">
+          <div class="mac-toolbar-shelf view-controls header-rotation-control no-print">
+            <button type="button" id="viewMenuToggle" class="top-tool header-rotate-toggle" aria-label="Open display controls" aria-controls="viewMenu" aria-expanded="false" title="Display">{{icons.symbol('display')}}<span class="tool-label">Display</span></button>
+            <button type="button" id="fullscreenToggle" class="top-tool header-fullscreen-toggle" data-fullscreen-toggle aria-label="Enter full screen" aria-pressed="false" title="Full Screen">{{icons.symbol('fullscreen')}}<span class="tool-label">Full Screen</span></button>
+          </div>
+          <a class="mac-desktop-only" href="{{url_for('settings_page')}}" data-app-nav title="System Settings" aria-label="System Settings">{{icons.symbol('settings')}}</a>
+          <button type="button" id="accountDrawerToggle" class="profile-toggle account-drawer-toggle mac-profile-button" data-drawer-target="accountDrawer" aria-label="Open account menu" aria-controls="accountDrawer" aria-expanded="false">{% if current_user.avatar_data_uri or current_user.photo_data_uri %}<img src="{{current_user.avatar_data_uri or current_user.photo_data_uri}}" alt="{{current_user.full_name or current_user.username}} profile avatar">{% else %}<span class="profile-initial">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}<span class="profile-name"><small>{{current_user.role|title}}</small>{{current_user.full_name or current_user.username}}</span></button>
+        </div>
+      </header>
+
+      <div class="mac-shell-body">
+        <section id="macWorkspace" class="mac-workspace" aria-label="Livenza workspace">
+          {% if marquee_enabled and request.endpoint != 'dashboard' %}<div class="operations-marquee live-operations-marquee" id="liveOperationsMarquee" aria-label="Live Livenza operational status"><div class="marquee-live-label"><i></i> LIVE</div><div class="operations-marquee-track" id="liveMarqueeTrack"><span><b>Livenza</b> Loading live operations…</span><i>◆</i></div>{% if is_admin %}<a href="{{url_for('system_settings_pane',pane='automations')}}#marquee-settings" class="marquee-settings-link" title="Configure live status" aria-label="Configure live status">{{icons.symbol('settings')}}</a>{% endif %}</div>{% endif %}
+          <main id="appMain" class="shell app-content-shell">
+            {% with msgs=get_flashed_messages(with_categories=true) %}{% for cat,msg in msgs %}<div class="flash liquid-card {{cat}}">{{msg}}</div>{% endfor %}{% endwith %}
+            {% block content %}{% endblock %}
+          </main>
+        </section>
+        <aside id="macInspector" class="mac-inspector" aria-label="Inspector" aria-hidden="true" hidden><div class="mac-inspector-title"><b>Inspector</b><button type="button" id="macInspectorClose" class="mac-inspector-close" aria-label="Close inspector">{{icons.symbol('close')}}</button></div><div class="mac-inspector-inner"></div></aside>
+      </div>
+      <template id="macInspectorTemplate" class="mac-inspector-template">{% block shell_inspector %}{% endblock %}</template>
+    </div>
+
+    <div id="appsMenuBackdrop" class="apps-drawer-backdrop side-drawer-backdrop no-print" hidden></div>
+    <nav id="appsDrawer" class="apps-drawer no-print grouped-apps-drawer suites-launcher" aria-label="Suites" aria-hidden="true" hidden>
+      <div class="apps-drawer-head"><div><p class="eyebrow">TESLA OS 27</p><b>Suites</b><small>Open a Livenza suite or System Settings.</small></div><button type="button" id="appsDrawerClose" data-drawer-close aria-label="Close Suites">{{icons.symbol('close')}}</button></div>
+      <div class="apps-drawer-scroll grouped-apps-scroll">{{appgroups.render_application_groups('launcher')}}</div>
+      <div class="apps-drawer-foot"><span><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} session</small></span><a href="{{url_for('logout')}}">{{icons.symbol('logout')}} Logout</a></div>
+    </nav>
+    <nav id="macDock" class="mac-dock no-print" aria-label="Tesla OS Dock">
+      <button type="button" class="mac-dock-item" data-suites-dock data-drawer-target="appsDrawer" aria-label="Open Suites" aria-controls="appsDrawer" aria-expanded="false">
+        <span class="mac-dock-icon">{{icons.symbol('grid')}}</span><span class="mac-dock-tooltip" role="tooltip">Suites</span><i class="mac-dock-running" aria-hidden="true"></i>
       </button>
+    </nav>
+    <aside id="accountDrawer" class="apps-drawer side-drawer side-drawer-right account-side-drawer no-print" aria-label="Account" aria-hidden="true" hidden>
+      <div class="apps-drawer-head account-drawer-head"><div class="account-drawer-identity">{% if current_user.avatar_data_uri or current_user.photo_data_uri %}<img src="{{current_user.avatar_data_uri or current_user.photo_data_uri}}" alt="">{% else %}<span class="profile-initial">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}<span><p class="eyebrow">LIVENZA ACCOUNT</p><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} · Personal workspace</small></span></div><button type="button" id="accountDrawerClose" data-drawer-close aria-label="Close account menu">{{icons.symbol('close')}}</button></div>
+      <div class="apps-drawer-scroll"><section class="apps-drawer-section"><p>Account & System</p><div class="apps-drawer-items"><a class="apps-drawer-item" href="{{url_for('system_settings_pane',pane='account')}}" data-app-nav><i>{{icons.symbol('account')}}</i><span><b>System Settings</b><small>Profile, appearance, integrations and controls</small></span></a><a class="apps-drawer-item" href="{{url_for('system_settings_pane',pane='intelligence')}}#mascot-settings" data-app-nav><i>{{icons.symbol('intelligence')}}</i><span><b>Livenza Companion</b><small>Assistant behavior and live intelligence</small></span></a></div></section>{% if kiosk_mode_enabled %}<section class="apps-drawer-section"><p>Security</p><div class="apps-drawer-items"><form method="post" action="{{url_for('kiosk_relock')}}" class="account-drawer-form"><button type="submit" class="apps-drawer-item account-drawer-action"><i>{{icons.symbol('lock')}}</i><span><b>Lock Screen</b><small>Require PIN or password</small></span></button></form></div></section>{% endif %}</div>
+      <div class="apps-drawer-foot"><span><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} session</small></span><a href="{{url_for('logout')}}">{{icons.symbol('logout')}} Logout</a></div>
     </aside>
+
+    <div id="macCommandPalette" class="mac-command-backdrop" aria-hidden="true" hidden>
+      <section class="mac-command-palette" role="dialog" aria-modal="true" aria-label="Search Livenza">
+        <div class="mac-command-search-wrap">{{icons.symbol('search')}}<input id="macGlobalSearch" type="search" autocomplete="off" placeholder="Search applications and settings" aria-label="Search Livenza"><button type="button" id="macCommandClose" aria-label="Close search">{{icons.symbol('close')}}</button></div>
+        <div id="macCommandResults" class="mac-command-results">{{appgroups.render_command_items()}}</div>
+      </section>
+    </div>
+
+    {% if companion_enabled %}
+    <section id="mascotCompanionPanel" class="mascot-companion-panel liquid-card" aria-label="Live weather, operations and Livenza help" aria-hidden="true" hidden>
+      <header class="companion-panel-head"><div><span class="companion-ai-star">{{icons.symbol('intelligence')}}</span><span><b>Livenza Companion</b><small>Live updates · Assistance · System context</small></span></div><button type="button" id="mascotCompanionClose" aria-label="Close Livenza companion">{{icons.symbol('close')}}</button></header>
+      <nav class="companion-mode-tabs safe-tabs safe-scroll-tabs" role="tablist" aria-label="Companion mode"><button type="button" class="safe-tab active" role="tab" aria-selected="true" data-tv-tab="companion-live" data-tv-group="companion" data-tv-target="companion-live" data-companion-tab="live">{{icons.symbol('network')}}<span>Live</span></button><button type="button" class="safe-tab" role="tab" aria-selected="false" data-tv-tab="companion-chat" data-tv-group="companion" data-tv-target="companion-chat" data-companion-tab="chat">{{icons.symbol('intelligence')}}<span>Ask Livenza</span></button></nav>
+      <div class="companion-mode-view active" data-tv-panel="companion-live" data-tv-group="companion" data-companion-view="live"><div class="companion-weather-hero"><span id="companionWeatherIcon" class="companion-weather-icon">{{icons.symbol('brightness')}}</span><div><small id="companionWeatherCity">{{companion_default_city}}</small><strong id="companionWeatherTemperature">—°</strong><span id="companionWeatherCondition">Loading live weather…</span></div><div class="companion-weather-meta"><span id="companionWeatherFeels">Feels —°</span><span id="companionWeatherHumidity">Humidity —%</span><span id="companionWeatherWind">Wind — km/h</span></div></div><div id="companionCityTabs" class="companion-city-tabs" aria-label="Forecast city"></div><div id="companionForecast" class="companion-forecast" aria-label="Four day forecast"></div><div class="companion-section-label"><span>LIVE OPERATIONS</span><i></i></div><div id="companionOperations" class="companion-operations"><div class="companion-loading">Syncing Livenza status…</div></div><div class="companion-quote-card"><span>{{icons.symbol('intelligence')}}</span><div><small>TODAY’S THOUGHT</small><blockquote id="companionQuote">Small improvements become remarkable systems.</blockquote></div><button type="button" id="companionNextQuote" aria-label="Show another thought">{{icons.symbol('sync')}}</button></div><footer class="companion-panel-footer"><small id="companionWeatherSource">Live forecast</small><button type="button" id="companionReplayWeather">Replay weather scene</button></footer></div>
+      <div class="companion-mode-view companion-chat-view" data-tv-panel="companion-chat" data-tv-group="companion" data-companion-view="chat" hidden><div class="companion-chat-intro"><span>{{icons.symbol('intelligence')}}</span><div><b>How can I help?</b><small>Ask about any Livenza feature or workflow.</small></div></div><div id="assistantMessages" class="assistant-messages companion-chat-messages" aria-live="polite"><div class="assistant-message bot">Hi. I can explain Agreements, Rooms, Queries, Billing, Video Wall, access controls and the rest of your workspace.</div></div><div class="assistant-suggestions companion-chat-suggestions"><button type="button" data-help-prompt="How do I create an agreement?">Agreements</button><button type="button" data-help-prompt="How does the Query Manager work?">Queries</button><button type="button" data-help-prompt="How do I use Video Wall Studio?">Video Wall</button></div><form id="assistantForm" class="assistant-form companion-chat-form"><label class="sr-only" for="assistantInput">Ask Livenza</label><input id="assistantInput" autocomplete="off" placeholder="Ask Livenza about any feature…"><button class="primary" type="submit">Send</button></form></div>
+    </section>
+    <aside id="mascotCompanion" class="mascot-companion no-print is-live mascot-pos-{{mascot_preferences.position}} mascot-size-{{mascot_preferences.size}} mascot-motion-{{mascot_preferences.intensity}}" data-default-city="{{companion_default_city}}" data-weather-effects="{{'1' if companion_weather_effects else '0'}}" aria-label="Livenza companion and assistant"><button type="button" id="mascotCompanionButton" class="mascot-companion-button" aria-expanded="false" aria-controls="mascotCompanionPanel" title="Open Livenza Companion"><span class="mascot-side-glow" aria-hidden="true"></span><span class="mascot-side-character"><img src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}" alt=""></span><span class="mascot-side-shadow" aria-hidden="true"></span><span id="mascotWeatherChip" class="mascot-weather-chip" aria-live="polite">LIVE</span></button></aside>
     <div id="livenzaWeatherScene" class="livenza-weather-scene no-print" aria-hidden="true"></div>
     {% endif %}
-    <button type="button" id="livenzaEasterEgg" class="livenza-easter-egg no-print" title="A little Livenza touch" aria-label="Livenza easter egg"><img src="{{url_for('static',filename='livenza_logo.png')}}" alt=""></button>
-    <div id="easterToast" class="easter-toast no-print" hidden>Live the Livenza Life ✦</div>
-    {% endif %}
+    <button type="button" id="livenzaEasterEgg" class="livenza-easter-egg no-print" title="A little Livenza touch" aria-label="Livenza easter egg"><img src="{{url_for('static',filename='livenza_logo.png')}}" alt=""></button><div id="easterToast" class="easter-toast no-print" hidden>Live the Livenza Life</div>
 
-    <footer class="site-footer liquid-footer utility-legal-footer" data-livenza-footer="true">
-      <div class="footer-company">
-        <b>© <span id="footerYear"></span> Livenza Life LLP. All rights reserved.</b>
-        <small>Head Office: 325 G, Sector 38, Gurugram, Haryana - 122001</small>
-      </div>
-      <div class="footer-created"><span>Created by</span> <strong>Rishabh Kothari</strong></div>
-      <div class="footer-time"><span id="footerClock">--</span></div>
-    </footer>
+    {% if request.endpoint != 'dashboard' %}<footer class="site-footer liquid-footer utility-legal-footer" data-livenza-footer="true"><div class="footer-company"><b>© <span id="footerYear"></span> Livenza Life LLP. All rights reserved.</b><small>Head Office: 325 G, Sector 38, Gurugram, Haryana - 122001</small></div><div class="footer-created"><span>Created by</span> <strong>Rishabh Kothari</strong></div><div class="footer-time"><span id="footerClock">--</span></div></footer>{% endif %}
+  {% else %}
+    <main id="appMain" class="shell app-content-shell login-shell">{% with msgs=get_flashed_messages(with_categories=true) %}{% for cat,msg in msgs %}<div class="flash liquid-card {{cat}}">{{msg}}</div>{% endfor %}{% endwith %}{% block login_content %}{{ self.content() }}{% endblock %}</main>
+  {% endif %}
   </div>
 
   {% if current_user %}
-  <section id="viewMenu" class="rotate-menu-global header-display-menu no-print" role="dialog" aria-label="Display orientation" hidden>
-    <div class="rotate-menu-head"><b>Display Orientation</b><small>Keep the website aligned to this screen.</small></div>
-    <button type="button" data-home-display="lock" aria-pressed="false"><span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"></path></svg></span><div><b>Rotation Lock</b><small>Prevent automatic orientation changes</small></div></button>
-    <button type="button" data-home-display="landscape" aria-pressed="false"><span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M9 21h6"></path></svg></span><div><b>Horizontal</b><small>Use a wide landscape workspace</small></div></button>
-    <button type="button" data-home-display="portrait" aria-pressed="false"><span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"></rect><path d="M11 18h2"></path></svg></span><div><b>Vertical</b><small>Use a tall portrait workspace</small></div></button>
-    <p id="orientationStatus" class="view-orientation-status" role="status" aria-live="polite">Automatic display active.</p>
-  </section>
+  <section id="viewMenu" class="rotate-menu-global header-display-menu no-print" role="dialog" aria-label="Display orientation" hidden><div class="rotate-menu-head"><b>Display Orientation</b><small>Keep the workspace aligned to this screen.</small></div><button type="button" data-home-display="lock" aria-pressed="false"><span>{{icons.symbol('lock')}}</span><div><b>Rotation Lock</b><small>Prevent automatic orientation changes</small></div></button><button type="button" data-home-display="landscape" aria-pressed="false"><span>{{icons.symbol('display')}}</span><div><b>Horizontal</b><small>Use a wide landscape workspace</small></div></button><button type="button" data-home-display="portrait" aria-pressed="false"><span>{{icons.symbol('display')}}</span><div><b>Vertical</b><small>Use a tall portrait workspace</small></div></button><p id="orientationStatus" class="view-orientation-status" role="status" aria-live="polite">Automatic display active.</p></section>
   {% endif %}
 
   <script src="{{url_for('static',filename='tv_compat.js')}}?v={{app_version|replace('Web ','')}}"></script>
   <script src="{{url_for('static',filename='app.js')}}?v={{app_version|replace('Web ','')}}"></script>
   {% if current_user and can_access('letterhead') %}<script src="{{url_for('static',filename='letterhead.js')}}?v={{app_version|replace('Web ','')}}"></script>{% endif %}
   {% block scripts %}{% endblock %}
+  <script src="{{url_for('static',filename='shell_v190.js')}}?v={{app_version|replace('Web ','')}}"></script>
+  <script src="{{url_for('static',filename='settings_v190.js')}}?v={{app_version|replace('Web ','')}}"></script>
 </body>
 </html>

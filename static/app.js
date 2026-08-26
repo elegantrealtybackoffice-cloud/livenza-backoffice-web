@@ -55,7 +55,7 @@ async function handleAadhaarExtract(btn){
   try{
     const fd=new FormData();fd.append('aadhaar_file',file);const r=await fetch('/agreements/aadhaar-extract',{method:'POST',body:fd,credentials:'same-origin',signal:controller.signal});
     const contentType=(r.headers.get('content-type')||'').toLowerCase();
-    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Web 1.6.0 and retry.`);
+    if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Tesla OS 27 and retry.`);
     const d=await r.json();
     if(!r.ok||!d.ok)throw new Error([d.error,d.reader_status].filter(Boolean).join(' Reader status: '));
     const fields=d.fields||{};let filled=0;['tenant_name','tenant_father','tenant_dob','tenant_address','tenant_id_type','tenant_id_no'].forEach(k=>{if(fillAgreementField(k,fields[k]))filled++});
@@ -170,7 +170,7 @@ function updateFooterClock(){const el=document.getElementById('footerClock');if(
 updateFooterClock();setInterval(updateFooterClock,1000);const footerYear=document.getElementById('footerYear');if(footerYear)footerYear.textContent=new Date().getFullYear();
 initPageFeatures(document);
 
-// ===== Web 1.5.11 • restored header rotation and display menu =====
+// ===== Tesla OS 27 • restored header rotation and display menu =====
 (function(){
   const root=document.documentElement;
   const viewport=document.getElementById('appViewport');
@@ -363,7 +363,7 @@ initPageFeatures(document);
   };
 })();
 
-// ===== Web 1.6.2 • reliable avatar source handoff + laptop camera =====
+// ===== Tesla OS 27 • reliable avatar source handoff + laptop camera =====
 (()=>{
   const form=document.getElementById('avatarForm'); if(!form)return;
   const input=document.getElementById('avatarPhotoInput'),button=document.getElementById('avatarGenerateButton'),status=document.getElementById('avatarGenerationStatus'),shell=document.getElementById('avatarPreviewShell'),modeLabel=document.getElementById('avatarModeLabel');
@@ -402,7 +402,7 @@ initPageFeatures(document);
   window.addEventListener('pagehide',()=>stopCamera(false));
 })();
 
-// ===== Web 1.5.2 • transparent scroll header + contextual visual storytelling =====
+// ===== Tesla OS 27 • transparent scroll header + contextual visual storytelling =====
 (()=>{
   const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||livenzaMobilePerformance();
   const header=document.querySelector('.reference-header');
@@ -474,7 +474,7 @@ initPageFeatures(document);
   window.addEventListener('livenza:content-swapped',e=>enhance(e.detail?.root||document));
 })();
 
-// ===== Web 1.5.0 • pattern login + WebAuthn / Windows Hello =====
+// ===== Tesla OS 27 • pattern login + WebAuthn / Windows Hello =====
 (function(){
   const fromB64url=value=>{
     const b64=String(value||'').replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(String(value||'').length/4)*4,'=');
@@ -597,43 +597,9 @@ initPageFeatures(document);
   initPatternWidgets(document);initPasswordToggles(document);initInlineAuth();window.addEventListener('livenza:page-ready',e=>{initPatternWidgets(e.detail?.root||document);initPasswordToggles(e.detail?.root||document)});
 })();
 
-// ===== Web 1.4.6 • professional motion + fullscreen-safe navigation =====
+// ===== Tesla OS 27 • professional motion + fullscreen-safe navigation =====
 (function(){
   const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const performanceBudget=livenzaMobilePerformance();
-  const transition=document.getElementById('pageTransition');
-  const motionLayer=document.getElementById('liveMotionLayer');
-
-  // Lightweight live particles: decorative only, no canvas and no layout work.
-  if(motionLayer&&!reduce&&!performanceBudget){
-    const count=14;
-    for(let i=0;i<count;i++){
-      const p=document.createElement('i');
-      p.className='live-particle';
-      p.style.setProperty('--x',`${Math.round(Math.random()*100)}vw`);
-      p.style.setProperty('--size',`${4+Math.round(Math.random()*8)}px`);
-      p.style.setProperty('--delay',`${(-Math.random()*16).toFixed(2)}s`);
-      p.style.setProperty('--duration',`${12+Math.round(Math.random()*12)}s`);
-      p.style.setProperty('--drift',`${-55+Math.round(Math.random()*110)}px`);
-      motionLayer.appendChild(p);
-    }
-  }
-
-  // Liquid spotlight follows the pointer without changing layout.
-  if(!reduce&&!performanceBudget && window.matchMedia?.('(pointer:fine)').matches){
-    document.querySelectorAll('.liquid-card,.module-card,.form-card,.table-card,.query-card,.stats>div').forEach(el=>{
-      el.addEventListener('pointermove',ev=>{
-        const r=el.getBoundingClientRect();
-        el.style.setProperty('--mx',`${ev.clientX-r.left}px`);
-        el.style.setProperty('--my',`${ev.clientY-r.top}px`);
-      },{passive:true});
-    });
-    document.addEventListener('pointermove',ev=>{
-      document.documentElement.style.setProperty('--pointer-x',`${ev.clientX}px`);
-      document.documentElement.style.setProperty('--pointer-y',`${ev.clientY}px`);
-    },{passive:true});
-  }
-
   // Fullscreen navigation stays inside the same document. This preserves the
   // browser Fullscreen API while switching Operations Cloud modules.
   async function swapFullscreenPage(url,push=true){
@@ -666,7 +632,6 @@ initPageFeatures(document);
     if(/^\/(logout|api\/|static\/)/.test(u.pathname)||/\.(pdf|zip|csv|xlsx?|docx?|png|jpe?g|webp)$/i.test(u.pathname))return;
     if(window.LivenzaDisplay?.isFullscreen?.()){
       ev.preventDefault();window.LivenzaDisplay.closeViewMenu?.();
-      if(transition&&!reduce){transition.classList.add('leaving');setTimeout(()=>transition.classList.remove('leaving'),280)}
       const ok=await swapFullscreenPage(u.href,true);if(!ok&&window.LivenzaDisplay?.isFullscreen?.()){console.warn('Keeping fullscreen active after in-place navigation failure.');}
       else if(!ok)location.assign(u.href);
     }
@@ -675,24 +640,14 @@ initPageFeatures(document);
     if(window.LivenzaDisplay?.isFullscreen?.())await swapFullscreenPage(location.href,false);else location.reload();
   });
   window.addEventListener('pageshow',()=>{
-    transition?.classList.remove('leaving');
     document.documentElement.classList.remove('fullscreen-requesting');
     document.documentElement.classList.remove('fullscreen-stable');
     document.body.classList.remove('fullscreen-stable');
   });
 
-  // Reveal content as it enters the viewport. This is decorative and never
-  // blocks clicks, scrolling or form interaction.
-  if(!reduce && 'IntersectionObserver' in window){
-    const revealItems=document.querySelectorAll('.module-card,.stats>div,.city-card,.form-card,.table-card,.query-card,.review-card,.screen-card,.media-card');
-    const io=new IntersectionObserver(entries=>{
-      entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('reveal-in');io.unobserve(entry.target)}});
-    },{threshold:.08,rootMargin:'0px 0px -30px 0px'});
-    revealItems.forEach((el,i)=>{el.classList.add('reveal-ready');el.style.setProperty('--reveal-delay',`${Math.min(i%8,7)*32}ms`);io.observe(el)});
-  }
 })();
 
-// ===== Web 1.4.6 • clean reference header dropdown discipline =====
+// ===== Tesla OS 27 • clean reference header dropdown discipline =====
 (()=>{
   const header=document.querySelector('.reference-header');
   if(!header)return;
@@ -707,7 +662,7 @@ initPageFeatures(document);
   document.addEventListener('keydown',e=>{if(e.key==='Escape')dropdowns.forEach(d=>d.open=false)});
 })();
 
-// ===== Web 1.4.7 • dynamic page polish, Query Sheet, assistant & easter egg =====
+// ===== Tesla OS 27 • dynamic page polish, Query Sheet, assistant & easter egg =====
 (()=>{
   const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -787,7 +742,7 @@ initPageFeatures(document);
   });
 })();
 
-// ===== Web 1.4.8 • food partner portal polish =====
+// ===== Tesla OS 27 • food partner portal polish =====
 (()=>{
   // Partner browser tabs are ordinary same-origin navigation; if the user is
   // fullscreen, the existing in-place navigator keeps fullscreen active.
@@ -799,14 +754,14 @@ initPageFeatures(document);
   });
 })();
 
-// ===== Web 1.5.0 • reference-style apps menu + configurable live marquee =====
+// ===== Tesla OS 27 • reference-style apps menu + configurable live marquee =====
 (()=>{
   // Core Applications/Account drawer behavior is owned by the ES5 tv_compat bundle.
   // Compatibility marker: apps-drawer-open state is owned by tv_compat.js.
 
   const ticker=document.getElementById('liveMarqueeTrack');
   function tickerNode(item){
-    const span=document.createElement('span');span.className=`marquee-item tone-${item.tone||'blue'}`;
+    const span=document.createElement('span');span.className=`marquee-item tone-${item.tone||'neutral'}`;
     span.dataset.label=String(item.label||'live').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
     const label=document.createElement('b');label.textContent=item.label||'Live';span.appendChild(label);span.append(' '+(item.value||'—'));
     if(item.source){const source=document.createElement('small');source.textContent=` · ${item.source}`;span.appendChild(source)}
@@ -838,7 +793,7 @@ initPageFeatures(document);
   refreshTicker();
 })();
 
-// ===== Web 1.5.3 • login-only mascot welcome, dance and automatic exit =====
+// ===== Tesla OS 27 • login-only mascot welcome, dance and automatic exit =====
 (()=>{
   const welcome=document.getElementById('loginMascotWelcome');
   if(!welcome)return;
@@ -860,7 +815,7 @@ initPageFeatures(document);
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.contains(welcome))depart()},{once:true});
 })();
 
-// ===== Web 1.5.5 • persistent live mascot, forecast and weather scenes =====
+// ===== Tesla OS 27 • persistent live mascot, forecast and weather scenes =====
 (()=>{
   const companion=document.getElementById('mascotCompanion');
   if(!companion)return;
@@ -925,7 +880,7 @@ initPageFeatures(document);
   function renderOperations(operations=[]){
     const wrap=document.getElementById('companionOperations');if(!wrap)return;wrap.replaceChildren();
     if(!operations.length){wrap.appendChild(emptyNode('companion-loading','Operational pulse unavailable'));return}
-    operations.forEach(item=>{const card=document.createElement('div');card.className=`companion-operation tone-${item.tone||'blue'}`;const icon=document.createElement('span');icon.textContent=item.icon||'✦';const copy=document.createElement('div');const label=document.createElement('small');label.textContent=item.label||'Live';const value=document.createElement('b');value.textContent=item.value||'—';copy.append(label,value);card.append(icon,copy);wrap.appendChild(card)});
+    operations.forEach(item=>{const card=document.createElement('div');card.className=`companion-operation tone-${item.tone||'neutral'}`;const icon=document.createElement('span');icon.textContent=item.icon||'✦';const copy=document.createElement('div');const label=document.createElement('small');label.textContent=item.label||'Live';const value=document.createElement('b');value.textContent=item.value||'—';copy.append(label,value);card.append(icon,copy);wrap.appendChild(card)});
   }
   function showQuote(index=0){
     const target=document.getElementById('companionQuote');const quotes=pulse?.quotes||[];if(!target||!quotes.length)return;
@@ -1029,7 +984,7 @@ initPageFeatures(document);
   loadPulse(currentCity,true);
 })();
 
-// ===== Web 1.9.0 • Liquid Glass interaction state synchronization =====
+// ===== Tesla OS 27 • Liquid Glass interaction state synchronization =====
 function syncLiquidControlStates(root=document){
   root.querySelectorAll?.('[aria-selected],[aria-pressed],input[type="checkbox"],input[type="radio"]').forEach(el=>{
     const selected=el.getAttribute?.('aria-selected');const pressed=el.getAttribute?.('aria-pressed');
@@ -1046,5 +1001,5 @@ const liquidStateObserver=new MutationObserver(mutations=>{if(mutations.some(m=>
 liquidStateObserver.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['aria-selected','aria-pressed','checked']});
 syncLiquidControlStates(document);
 
-// Web 1.8.0 capability health signal.
+// Tesla OS 27 capability health signal.
 window.LivenzaModernReady=true;

@@ -1,4 +1,4 @@
--- Livenza Web 1.8.0 additive migration. No v1.7.1 table is dropped or renamed.
+-- Tesla OS 27 historical compatibility additive migration. No v1.7.1 table is dropped or renamed.
 CREATE TABLE IF NOT EXISTS integration_provider (
   id SERIAL PRIMARY KEY,
   provider_key VARCHAR(80) NOT NULL UNIQUE,

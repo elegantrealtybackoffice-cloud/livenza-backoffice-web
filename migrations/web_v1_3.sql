@@ -1,4 +1,4 @@
--- Livenza Back Office Web 1.3 schema additions
+-- Tesla OS 27 historical compatibility schema additions
 alter table public."user" add column if not exists photo_data_uri text default '';
 alter table public."user" add column if not exists aadhaar_last4 varchar(4) default '';
 alter table public."user" add column if not exists aadhaar_name varchar(180) default '';

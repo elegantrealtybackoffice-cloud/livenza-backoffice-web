@@ -1,4 +1,4 @@
--- Livenza Web 1.9.0 additive migration. Existing Agreement/Master/Vault/Integration tables are preserved.
+-- Tesla OS 27 historical compatibility additive migration. Existing Agreement/Master/Vault/Integration tables are preserved.
 ALTER TABLE "user" ADD COLUMN IF NOT EXISTS capabilities_json TEXT DEFAULT '[]';
 
 CREATE TABLE IF NOT EXISTS letterhead_template (

@@ -38,7 +38,10 @@ from letterhead_templates import template_is_usable, signature_is_usable, next_t
 from party_master_core import (MASTER_FIELD_SET, SENSITIVE_FIELDS, DOCUMENT_CATEGORIES, LANDLORD_AGREEMENT_MAP, TENANT_AGREEMENT_MAP, normalize_master_payload, safe_master_summary, identifier_lookup_hash, identifier_lookup_hashes, mask_identifier, master_display_payload, validate_master_document, legacy_profile_to_master, apply_master_mapping, parse_annexure_ids)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_VERSION = 'Web 1.9.0'
+OS_NAME = 'Tesla OS 27'
+OS_VERSION = '27.0.1'
+OS_BUILD = '27A101'
+APP_VERSION = OS_VERSION
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -1432,7 +1435,7 @@ def _companion_operations():
         return [
             {'label':'Current tenants','value':str(active),'tone':'green','icon':'◉'},
             {'label':'Vacant beds','value':str(beds),'tone':'gold','icon':'▦'},
-            {'label':'Amount earned','value':'₹'+format(earned,',.0f'),'tone':'blue','icon':'₹'},
+            {'label':'Amount earned','value':'₹'+format(earned,',.0f'),'tone':'neutral','icon':'₹'},
             {'label':'Hot queries','value':str(hot),'tone':'pink','icon':'Q'},
         ]
     except Exception:
@@ -1470,7 +1473,7 @@ def _moneycontrol_quote(label, url):
 def live_marquee_items(user=None):
     user=user or current_user(); items=[]
     if setting('marquee_show_username','1')=='1' and user:
-        items.append({'label':'Signed in','value':user.full_name or user.username,'tone':'blue'})
+        items.append({'label':'Signed in','value':user.full_name or user.username,'tone':'neutral'})
     if setting('marquee_show_tenants','1')=='1':
         active=Tenant.query.filter(~Tenant.status.in_(['Vacated','Cancelled','Terminated'])).count()
         items.append({'label':'Current tenants','value':str(active),'tone':'green'})
@@ -1488,7 +1491,7 @@ def live_marquee_items(user=None):
     if setting('marquee_show_favorites','0')=='1' and setting('marquee_favorites','').strip():
         items.append({'label':'Favourites','value':setting('marquee_favorites','').strip()[:180],'tone':'pink'})
     if setting('marquee_custom_text','').strip():
-        items.append({'label':'Live update','value':setting('marquee_custom_text','').strip()[:240],'tone':'blue'})
+        items.append({'label':'Live update','value':setting('marquee_custom_text','').strip()[:240],'tone':'neutral'})
     if setting('marquee_show_stocks','0')=='1':
         configured=setting('marquee_stock_pages','').splitlines()
         if not configured:
@@ -1517,6 +1520,94 @@ MODULES = {
     'integrations': 'Integrations Center',
     'letterhead': 'Livenza Letterhead Studio',
 }
+
+
+SYSTEM_SETTINGS_PANES = [
+    {'key':'account','label':'Account','group':'Personal','icon':'account','description':'Your Livenza identity, sign-in status and personal workspace preferences.'},
+    {'key':'network','label':'Network','group':'Connectivity','icon':'wifi','description':'Livenza connectivity, backend reachability and integration health.'},
+    {'key':'notifications','label':'Notifications','group':'Personal','icon':'bell','description':'Choose which Livenza alerts, badges and operational notices can interrupt you.'},
+    {'key':'sound','label':'Sound','group':'Personal','icon':'sound','description':'Control Livenza interface and notification audio.'},
+    {'key':'focus','label':'Focus','group':'Personal','icon':'focus','description':'Reduce non-critical alerts, mascot interruptions and live-status distractions.'},
+    {'key':'general','label':'General','group':'System','icon':'general','description':'Version, region, language and core Livenza defaults.'},
+    {'key':'appearance','label':'Appearance','group':'System','icon':'appearance','description':'Warm neutral Liquid Glass appearance, transparency, contrast and interface density.'},
+    {'key':'accessibility','label':'Accessibility','group':'System','icon':'accessibility','description':'Motion, transparency, text and interaction accessibility preferences.'},
+    {'key':'control-centre','label':'Control Centre','group':'System','icon':'control-centre','description':'Choose the quick controls available in the Livenza toolbar.'},
+    {'key':'desktop-dock','label':'Desktop & Dock','group':'System','icon':'desktop-dock','description':'Dock, workspace, Suites launcher and inspector behavior.'},
+    {'key':'displays','label':'Displays','group':'System','icon':'display','description':'Interface luminance, scaling, fullscreen and video-wall presentation.'},
+    {'key':'wallpaper','label':'Wallpaper','group':'System','icon':'wallpaper','description':'Choose the warm neutral environment behind Tesla OS Liquid Glass.'},
+    {'key':'widgets','label':'Widgets','group':'System','icon':'widgets','description':'Manage operational widgets from System Settings without adding clutter to Home.'},
+    {'key':'privacy-security','label':'Privacy & Security','group':'Security','icon':'privacy','description':'Passkeys, kiosk controls, secure sessions and sensitive-data visibility.'},
+    {'key':'users-groups','label':'Users & Groups','group':'Administration','icon':'users','description':'Users, roles, permissions, profile identity and access controls.','admin_only':True},
+    {'key':'internet-accounts','label':'Internet Accounts','group':'Connectivity','icon':'integrations','description':'Connected services, providers, secrets and integration workflows.','permission':'integrations'},
+    {'key':'intelligence','label':'Livenza Intelligence','group':'Personal','icon':'intelligence','description':'Companion behavior, operational reactions, weather and assistance preferences.'},
+    {'key':'automations','label':'Automations','group':'Administration','icon':'automation','description':'Live-status, reporting, query and first-party automation settings.','admin_only':True},
+    {'key':'organisation','label':'Organisation & Admin','group':'Administration','icon':'organisation','description':'Vault, cities, provider administration and organisation-wide controls.','admin_only':True},
+]
+
+
+def allowed_settings_panes(user=None):
+    user = user or current_user()
+    if not user:
+        return []
+    admin = (user.role or '').lower() == 'admin'
+    allowed = []
+    for pane in SYSTEM_SETTINGS_PANES:
+        if pane.get('admin_only') and not admin:
+            continue
+        permission = pane.get('permission')
+        if permission and not admin and not can_access(permission, user):
+            continue
+        allowed.append(dict(pane))
+    return allowed
+
+
+def default_settings_pane(user=None):
+    panes = allowed_settings_panes(user)
+    return panes[0]['key'] if panes else 'account'
+
+
+def settings_pane_url(pane, **values):
+    return url_for('system_settings_pane', pane=pane, **values)
+
+
+def _system_settings_server_keys():
+    return ('food_webhook_token','whatsapp_recipient','empty_report_time','default_google_review_url','vacant_report_enabled','vacant_report_time','vacant_report_recipients','query_webhook_token',
+            'marquee_enabled','marquee_show_username','marquee_show_tenants','marquee_show_vacant_beds','marquee_show_earnings','marquee_show_favorites','marquee_show_stocks','marquee_favorites','marquee_custom_text','marquee_manual_earnings','marquee_stock_pages','marquee_refresh_seconds',
+            'companion_enabled','companion_weather_enabled','companion_weather_effects','companion_quotes_enabled','companion_operations_enabled','companion_default_city','companion_effect_seconds',
+            'host3d_default_intensity','host3d_max_intensity','host3d_default_city','host3d_operational_updates_default','host3d_weather_default','host3d_motivational_default')
+
+
+def _system_settings_server_values():
+    defaults={'marquee_enabled':'1','marquee_show_username':'1','marquee_show_tenants':'1','marquee_show_vacant_beds':'1','marquee_show_earnings':'1','marquee_refresh_seconds':'60',
+              'companion_enabled':'1','companion_weather_enabled':'1','companion_weather_effects':'1','companion_quotes_enabled':'1','companion_operations_enabled':'1','companion_default_city':'Gurugram','companion_effect_seconds':'11',
+              'host3d_default_intensity':'full','host3d_max_intensity':'full','host3d_default_city':'Gurugram','host3d_operational_updates_default':'1','host3d_weather_default':'1','host3d_motivational_default':'1'}
+    return {k:setting(k,defaults.get(k,'')) for k in _system_settings_server_keys()}
+
+
+def settings_pane_context(pane, user=None):
+    user = user or current_user()
+    ctx = {'user':user, 'settings':_system_settings_server_values()}
+    if pane in ('account','intelligence'):
+        ctx.update(avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()), mascot_preferences=mascot_preferences_for(user))
+    if pane == 'privacy-security':
+        ctx.update(credentials=WebAuthnCredential.query.filter_by(user_id=user.id).order_by(WebAuthnCredential.id).all() if user else [], kiosk_enabled=setting('kiosk_mode_enabled','0')=='1')
+    if pane == 'internet-accounts':
+        ctx.update(_integration_center_context((request.args.get('category') or '').strip().lower(),(request.args.get('provider') or '').strip(),(request.args.get('workflow') or '').strip()))
+    if pane == 'users-groups':
+        users=User.query.order_by(User.username).all()
+        ctx.update(users=users, credentials={u.id:WebAuthnCredential.query.filter_by(user_id=u.id).order_by(WebAuthnCredential.id).all() for u in users},
+                   cities=City.query.order_by(City.name).all(), modules=MODULES, letterhead_capabilities=LETTERHEAD_CAPABILITIES,
+                   query_templates=QueryTemplate.query.order_by(QueryTemplate.id.desc()).all(), aadhaar_provider_configured=bool(os.getenv('AADHAAR_AUTH_URL','').strip()),
+                   google_oauth_ready=google_oauth_configured(), google_is_connected=google_connected(), drive_folder_id=setting('google_drive_folder_id',''),
+                   drive_auto_backup=setting('google_drive_auto_backup','0')=='1', kiosk_enabled=setting('kiosk_mode_enabled','0')=='1', avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()))
+    if pane == 'organisation':
+        edit_secret_id=(request.args.get('edit_secret') or '').strip(); edit_provider_id=(request.args.get('edit_provider') or '').strip()
+        ctx.update(entries=VaultSecret.query.order_by(VaultSecret.id.desc()).all(), audits=AuditEvent.query.filter(AuditEvent.module.in_(['vault','electricity'])).order_by(AuditEvent.id.desc()).limit(150).all(),
+                   providers=_electricity_provider_rows(include_inactive=True), connections=ElectricityConnection.query.order_by(ElectricityConnection.property_name).all(),
+                   allowed_secret_types=sorted(ALLOWED_SECRET_TYPES), vault_ready=bool(os.getenv('LIVENZA_VAULT_MASTER_KEY','').strip()),
+                   edit_secret=db.session.get(VaultSecret,int(edit_secret_id)) if edit_secret_id.isdigit() else None,
+                   edit_provider=db.session.get(ElectricityProvider,int(edit_provider_id)) if edit_provider_id.isdigit() else None)
+    return ctx
 
 
 LETTERHEAD_CAPABILITIES = {
@@ -1637,7 +1728,7 @@ def admin_required(fn):
 
 
 def agreement_required_fields(preset_name, data):
-    # Web 1.3.2: every Agreement Studio field is optional.
+    # Tesla OS 27: every Agreement Studio field is optional.
     return set()
 
 
@@ -2404,7 +2495,7 @@ def inject_common():
     user=current_user()
     mascot_preferences=mascot_preferences_for(user) if user else {}
     return dict(
-        current_user=user, app_version=APP_VERSION,
+        current_user=user, app_version=APP_VERSION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
         can_access=can_access, module_labels=MODULES,
         is_admin=bool(user and (user.role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar,
         kiosk_mode_enabled=setting('kiosk_mode_enabled','0')=='1', marquee_enabled=setting('marquee_enabled','1')=='1',
@@ -2505,37 +2596,17 @@ def diagnostics():
     return jsonify(checks)
 
 @app.route('/version')
-def version(): return jsonify(version=APP_VERSION, features=['liquid-glass','live-queries','identity','vacant-room-automation','pwa-icons','aadhaar-agreement-autofill','sticky-footer','optional-agreement-fields','apple-inspired-light-theme','video-wall-studio','multi-screen-player','festive-takeover','fullscreen-control','view-rotation-control','livenza-billing-suite','verified-deploy-marker','no-cache-assets','video-wall-diagnostics','apple-system-typography','enhanced-motion','rotation-popover-fix','database-navigation-resilience','fullscreen-stability','fullscreen-navigation-fix','live-motion-layer','clean-brand-header','white-menu-lock','aligned-top-navigation','unified-view-menu','footer-credit-lock','professional-motion-transitions','reference-style-clean-header','operations-dropdown','operations-cloud-marquee','profile-dropdown','absolute-white-theme-lock','agreement-light-accordions','embedded-help-assistant','persistent-chat-close-control','secure-food-portal-launcher','query-spreadsheet','fullscreen-inplace-navigation','livenza-easter-egg','touch-ripple-microinteractions','windows-kiosk-pin-gate','windows-login-launcher','whatsapp-cloud-workspace','gmail-workspace','google-drive-storage','pattern-login','webauthn-passkeys','configurable-live-status-marquee','moneycontrol-market-watch','hanging-logo-header','left-glass-app-drawer','animated-tab-art','stable-header-logo','plain-header-logo','ai-light-orbit','transparent-scroll-header','contextual-visual-ribbons','login-welcome-mascot','one-time-login-animation','translucent-workspace-shell','sitewide-glass-material','photographic-depth-background','persistent-live-mascot','live-weather-forecast','transient-weather-scenes','mascot-operational-updates','motivational-quote-companion','floating-star-motion','aadhaar-auto-extraction-fallback','server-local-ocr','contained-header-logo','compact-scroll-header','mobile-performance-mode','reduced-mobile-effects','bottom-docked-mascot','frameless-mascot','minimal-logo-orbit-dots','tv-safe-rotation','browser-rotation-fallback','pseudo-fullscreen-theatre-mode','restored-header-fullscreen','fullscreen-all-internal-tabs','360-lifestyle-background','adaptive-avatar-reference-board','heic-avatar-input','avatar-camera-capture','avatar-camera-device-selector','avatar-direct-blob-submit','reliable-local-avatar-fallback','banking-suite','official-bank-launcher','encrypted-bank-statement-vault','reconciliation-template-library','bank-statement-reconciliation','admin-managed-profile-control','admin-avatar-studio','admin-role-permissions','electricity-bill-studio','all-india-electricity-directory','livenza-vault','bill-register-export','live-payment-reminders','bbps-adapter','utility-portal-fallback','electricity-payment-status','admin-electricity-controls','electricity-audit-log','ai-live-mascot','no-photo-mascot-fallback','landlord-master','tenant-master','encrypted-master-documents','agreement-master-autofill','agreement-master-annexures','agreement-master-audit','legacy-party-profile-migration','full-webgl-3d-host','articulated-livenza-digital-host','role-aware-integrations-center','vault-backed-integration-secrets','layout-overlap-safety','tv-legacy-navigation-bootstrap','tv-adaptive-3d-quality','stable-non-clickable-photos','per-user-3d-host-preferences','letterhead-studio','ask-livenza-document-ai','letterhead-template-library','protected-letterhead-signatures','mandatory-final-review','immutable-letterhead-pdf','letterhead-document-vault','letterhead-email-delivery','letterhead-whatsapp-delivery','letterhead-connected-data-drafting'])
-
-def version_v1513():
-    return jsonify(version=APP_VERSION,features=[
-        'reliable-aadhaar-ocr','json-safe-aadhaar-errors','resumable-video-wall-upload','verified-media-finalization',
-        'agreement-wizard','agreement-local-autosave','visual-agreement-presets','encrypted-landlord-profiles','encrypted-tenant-profiles',
-        'biometric-first-login','gesture-pattern-login','responsive-native-workspace','dedicated-player-rotation',
-        'editable-query-sheet','query-batch-save','excel-csv-query-import','collapsed-scroll-mascot','nonblocking-mascot-layer',
-        'wcag-aa-form-contrast','livenza-branded-agreement-banner','responsive-marquee-status',
-        'unified-mascot-assistant','mascot-help-chat','standalone-chatbot-removed','transparent-polished-mascot',
-        'progressive-device-auth','credential-skeleton-loader','password-visibility-toggle','inline-auth-errors',
-        'accessible-pattern-hitboxes','keyboard-pattern-navigation','dedicated-pattern-clear','absolute-legal-strip',
-        'restored-header-rotation','responsive-rotation-popover','website-rotation-modes','rotation-fullscreen-control',
-        'personal-live-avatar','profile-photo-avatar-generation','gpt-image-avatar-styling','default-mascot-fallback',
-        'workspace-wide-avatar-identity','responsive-avatar-companion','avatar-upload-progress','avatar-reset-control','animated-mascot-avatar',
-        'header-rotation-lock','header-horizontal-control','header-vertical-control','persistent-display-lock',
-        'progressive-login-disclosure','fallback-auth-tabs','separated-auth-copy','numeric-keypad-pattern',
-        'realtime-pattern-progress','standardized-svg-icons','utility-legal-footer','header-display-dropdown',
-        'electricity-bill-studio','all-india-electricity-directory','livenza-vault','bill-register-export',
-        'live-payment-reminders','bbps-adapter','utility-portal-fallback','electricity-payment-status',
-        'admin-electricity-controls','electricity-audit-log','ai-live-mascot','no-photo-mascot-fallback',
-        'blue-robot-default-mascot','mascot-native-settings','categorized-app-navigation','shared-home-menu-catalog','no-default-webgl-runtime',
-        'liquid-glass-v190','imac-5k-layout','persistent-blue-mascot-live-updates','sitewide-text-fit-audit','custom-svg-state-icons',
-        'letterhead-studio','ask-livenza-document-ai','letterhead-template-library','protected-letterhead-signatures',
-        'mandatory-final-review','immutable-letterhead-pdf','letterhead-document-vault','letterhead-email-delivery',
-        'letterhead-whatsapp-delivery','letterhead-connected-data-drafting',
-    ])
-
-# Keep the original endpoint identity while exposing the current release's
-# verified feature contract instead of accumulating obsolete UI flags.
-app.view_functions['version']=version_v1513
+def version():
+    return jsonify(
+        name=OS_NAME, version=OS_VERSION, build=OS_BUILD,
+        features=[
+            'tesla-os-27','warm-neutral-liquid-glass','persistent-suites-dock','single-suites-launcher',
+            'unified-system-settings','livenza-symbol-system','ai-logo-identity','reduced-motion',
+            'agreements','rooms','queries','billing','banking','electricity','food','video-wall',
+            'whatsapp','email','drive','letterhead-studio','livenza-vault','role-permissions',
+            'webauthn-passkeys','pattern-login','live-companion','responsive-5k-layout'
+        ]
+    )
 
 @app.route('/login', methods=['GET','POST'])
 def login():
@@ -2581,11 +2652,9 @@ def logout(): session.clear(); return redirect(url_for('login'))
 @app.route('/account', methods=['GET','POST'])
 @login_required
 def account():
-    u=current_user()
     if request.method=='POST':
         flash('Only administrators can change user details, passwords, photos or avatars.','danger')
-        return redirect(url_for('account'))
-    return render_template('account.html', user=u, avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()), mascot_preferences=mascot_preferences_for(u))
+    return redirect(settings_pane_url('account'))
 
 @app.route('/account/mascot-settings', methods=['POST'])
 @login_required
@@ -2763,7 +2832,7 @@ def _agreement_aadhaar_extract_payload(upload):
             ai_error='AI enhancement could not complete.'
     if not any(data.get(k) for k in ('tenant_name','tenant_dob','tenant_address','tenant_id_no')):
         if local_error and not os.getenv('OPENAI_API_KEY','').strip():
-            message='The secure OCR reader is not ready on this deployment. Redeploy Web 1.6.0 with its updated system and Python dependencies, then try again.'
+            message='The secure OCR reader is not ready on this deployment. Redeploy Tesla OS 27 Version 27.0.1 with its current system and Python dependencies, then try again.'
         else:
             message='No reliable Aadhaar fields were detected. Use a clear, straight photo in good light or a PDF containing both sides, then try again.'
         return {'ok':False,'error':message,'reader_status':local_error or 'No readable identity fields detected.'},422
@@ -2817,7 +2886,7 @@ def agreement_party_profile_delete(profile_id):
     db.session.delete(saved);db.session.commit()
     return jsonify(ok=True,message='Saved party profile removed.')
 
-# ===== Web 1.7.1 • Separate Landlord / Tenant Masters =====
+# ===== Tesla OS 27 • Separate Landlord / Tenant Masters =====
 def _master_model(kind):
     if kind=='landlord': return LandlordMaster
     if kind=='tenant': return TenantMaster
@@ -3964,7 +4033,7 @@ def wall_heartbeat(token):
     return jsonify(ok=True)
 
 
-# ===== Web 1.7.1 • Landlord / Tenant Master secure storage =====
+# ===== Tesla OS 27 • Landlord / Tenant Master secure storage =====
 def _master_key():
     value=os.getenv('LIVENZA_VAULT_MASTER_KEY','').strip()
     if not value:
@@ -4052,7 +4121,7 @@ def migrate_legacy_party_profiles():
         db.session.rollback()
     return counts
 
-# ===== Web 1.7.0 • Electricity Bill Studio / Livenza Vault =====
+# ===== Tesla OS 27 • Electricity Bill Studio / Livenza Vault =====
 ELECTRICITY_MAX_FILE_BYTES=16*1024*1024
 ELECTRICITY_ALLOWED_EXTENSIONS={'.pdf','.jpg','.jpeg','.png','.webp','.heic','.heif','.tif','.tiff','.csv','.xlsx','.xls'}
 
@@ -4435,10 +4504,8 @@ def electricity_reminder_snooze(rid):
 @app.route('/admin/vault')
 @admin_required
 def vault_page():
-    entries=VaultSecret.query.order_by(VaultSecret.id.desc()).all(); audits=AuditEvent.query.filter(AuditEvent.module.in_(['vault','electricity'])).order_by(AuditEvent.id.desc()).limit(150).all()
-    edit_secret_id=(request.args.get('edit_secret') or '').strip(); edit_provider_id=(request.args.get('edit_provider') or '').strip()
-    edit_secret=db.session.get(VaultSecret,int(edit_secret_id)) if edit_secret_id.isdigit() else None; edit_provider=db.session.get(ElectricityProvider,int(edit_provider_id)) if edit_provider_id.isdigit() else None
-    return render_template('admin_vault.html',entries=entries,audits=audits,providers=_electricity_provider_rows(include_inactive=True),connections=ElectricityConnection.query.order_by(ElectricityConnection.property_name).all(),allowed_secret_types=sorted(ALLOWED_SECRET_TYPES),vault_ready=bool(os.getenv('LIVENZA_VAULT_MASTER_KEY','').strip()),edit_secret=edit_secret,edit_provider=edit_provider)
+    values={k:v for k,v in {'edit_secret':request.args.get('edit_secret'),'edit_provider':request.args.get('edit_provider')}.items() if v}
+    return redirect(settings_pane_url('organisation', **values))
 
 @app.route('/admin/vault/save',methods=['POST'])
 @admin_required
@@ -4945,7 +5012,7 @@ def email_message(message_id):
     return render_template('email_message.html',message=message)
 
 
-# ===== Web 1.8.0 • Central Integrations Center =====
+# ===== Tesla OS 27 • Central Integrations Center =====
 INTEGRATION_CATEGORY_LABELS={
     'ai':'AI Services','whatsapp':'WhatsApp','google_email':'Email','google_drive':'Google Drive','food':'Food Partners',
     'electricity':'Electricity & Bharat Connect','banking':'Banking Portals','billing':'Billing / RentOK','payments':'Payments','webhooks':'Webhooks & APIs'
@@ -5019,8 +5086,8 @@ def _integration_center_context(active_category=None,active_provider=None,workfl
 @app.route('/integrations')
 @login_required
 def integrations_center():
-    category=(request.args.get('category') or '').strip().lower(); provider=(request.args.get('provider') or '').strip(); workflow=(request.args.get('workflow') or '').strip()
-    return render_template('integrations.html',**_integration_center_context(category,provider,workflow))
+    values={k:v for k,v in {'category':request.args.get('category'),'provider':request.args.get('provider'),'workflow':request.args.get('workflow')}.items() if v}
+    return redirect(settings_pane_url('internet-accounts', **values))
 
 @app.route('/integrations/connections/save',methods=['POST'])
 @admin_required
@@ -5108,7 +5175,7 @@ def integration_provider_portal(provider_id):
         context=_integration_center_context(provider.category,provider.provider_key); context['portal_embed_url']=target; return render_template('integrations.html',**context)
     return redirect(target)
 
-# ===== Web 1.9.0 • Permission-aware Letterhead sources =====
+# ===== Tesla OS 27 • Permission-aware Letterhead sources =====
 
 def _letterhead_actor_is_admin(actor):
     return bool(actor and (actor.role or '').lower()=='admin')
@@ -5192,7 +5259,7 @@ def _letterhead_read_protected_source(actor,source_kind,source_id,document_id=No
         record_audit('letterhead_protected_source_read',source_kind,doc.id,module='letterhead',meta={'source_kind':source_kind,'source_id':str(doc.id),'purpose':'letterhead_ai_drafting','document_id':document_id}); db.session.commit(); return raw,doc.mime_type
     abort(404)
 
-# ===== Web 1.9.0 • Letterhead Studio editor/review =====
+# ===== Tesla OS 27 • Letterhead Studio editor/review =====
 
 def _letterhead_encrypt_bytes(raw):
     ciphertext,nonce=encrypt_blob(raw,_master_key())
@@ -5375,7 +5442,7 @@ def letterhead_final_review(document_id):
     links=DocumentAttachmentLink.query.filter_by(revision_id=revision.id,approved_by_user=True).all()
     return render_template('letterhead_final_review.html',document=document,revision=revision,content=content,template_version=version,template=template,signature=signature,attachments=links)
 
-# ===== Web 1.9.0 • Immutable Letterhead PDF issuance =====
+# ===== Tesla OS 27 • Immutable Letterhead PDF issuance =====
 
 def _letterhead_layout_asset(layout,location):
     value=None
@@ -5517,7 +5584,7 @@ def letterhead_delivery_retry(delivery_id):
 
 
 
-# ===== Web 1.9.0 • Letterhead Document Vault =====
+# ===== Tesla OS 27 • Letterhead Document Vault =====
 
 def _letterhead_can_view_document(document, actor):
     if not document or not actor:
@@ -5672,7 +5739,7 @@ def letterhead_document_pdf(document_id):
     return response
 
 
-# ===== Web 1.9.0 • Ask Livenza AI =====
+# ===== Tesla OS 27 • Ask Livenza AI =====
 
 def _letterhead_integration_secret(provider_key, secret_names):
     provider=IntegrationProvider.query.filter_by(provider_key=provider_key,active=True).first()
@@ -5927,7 +5994,7 @@ def letterhead_signature_upload():
 def letterhead_signature_revoke(signature_id):
     row=db.session.get(SignatureAsset,signature_id) or abort(404); row.is_active=False; row.revoked_at=datetime.datetime.utcnow(); record_audit('letterhead_signature_revoked','signature_asset',row.id,module='letterhead',meta={'signatory_name':row.signatory_name}); db.session.commit(); flash('Signature/seal revoked.','success'); return redirect(url_for('letterhead_templates_page'))
 
-# ===== Web 1.9.0 • Letterhead Template lifecycle =====
+# ===== Tesla OS 27 • Letterhead Template lifecycle =====
 
 def _letterhead_template_version(template_id, version_id=None):
     template=db.session.get(LetterheadTemplate,template_id) or abort(404)
@@ -6007,39 +6074,35 @@ def letterhead_template_duplicate(template_id):
     version=LetterheadTemplateVersion(template_id=template.id,version_no=version_no,lifecycle_state='draft',layout_json=source.layout_json,scope_json=source.scope_json,content_hash=source.content_hash); db.session.add(version); template.status='draft'; record_audit('letterhead_template_duplicated','letterhead_template',template.id,module='letterhead',meta={'source_version':source.version_no,'version_no':version_no}); db.session.commit(); flash('New editable draft version created.','success'); return redirect(url_for('letterhead_template_editor_page',template_id=template.id,version_id=version.id))
 
 @app.route('/settings', methods=['GET','POST'])
-@admin_required
+@login_required
 def settings_page():
-    keys=('food_webhook_token','whatsapp_recipient','empty_report_time','default_google_review_url','vacant_report_enabled','vacant_report_time','vacant_report_recipients','query_webhook_token',
-          'marquee_enabled','marquee_show_username','marquee_show_tenants','marquee_show_vacant_beds','marquee_show_earnings','marquee_show_favorites','marquee_show_stocks','marquee_favorites','marquee_custom_text','marquee_manual_earnings','marquee_stock_pages','marquee_refresh_seconds',
-          'companion_enabled','companion_weather_enabled','companion_weather_effects','companion_quotes_enabled','companion_operations_enabled','companion_default_city','companion_effect_seconds',
-          'host3d_default_intensity','host3d_max_intensity','host3d_default_city','host3d_operational_updates_default','host3d_weather_default','host3d_motivational_default')
+    user=current_user()
     if request.method=='POST':
-        for k in keys:
+        if not user or (user.role or '').lower()!='admin': abort(403)
+        for k in _system_settings_server_keys():
             if k in request.form:
-                vals=request.form.getlist(k)
-                val=(vals[-1] if vals else '').strip()
+                vals=request.form.getlist(k); val=(vals[-1] if vals else '').strip()
                 if k=='default_google_review_url' and val:
                     val=normalize_google_review_url(val)
                     if not val:
-                        flash('Default Google Review Link is invalid.','danger')
-                        return redirect(url_for('settings_page'))
+                        flash('Default Google Review Link is invalid.','danger'); return redirect(settings_pane_url('automations'))
                 set_setting(k,val)
-        flash('Settings saved.','success'); return redirect(url_for('settings_page'))
-    defaults={'marquee_enabled':'1','marquee_show_username':'1','marquee_show_tenants':'1','marquee_show_vacant_beds':'1','marquee_show_earnings':'1','marquee_refresh_seconds':'60',
-              'companion_enabled':'1','companion_weather_enabled':'1','companion_weather_effects':'1','companion_quotes_enabled':'1','companion_operations_enabled':'1','companion_default_city':'Gurugram','companion_effect_seconds':'11',
-              'host3d_default_intensity':'full','host3d_max_intensity':'full','host3d_default_city':'Gurugram','host3d_operational_updates_default':'1','host3d_weather_default':'1','host3d_motivational_default':'1'}
-    return render_template('settings.html',settings={k:setting(k,defaults.get(k,'')) for k in keys})
+        flash('Settings saved.','success'); return redirect(settings_pane_url('automations'))
+    return redirect(settings_pane_url(default_settings_pane(user)))
+
+@app.route('/settings/<pane>')
+@login_required
+def system_settings_pane(pane):
+    user=current_user(); panes=allowed_settings_panes(user); allowed={item['key'] for item in panes}
+    if pane not in allowed: abort(403 if any(item['key']==pane for item in SYSTEM_SETTINGS_PANES) else 404)
+    selected=next(item for item in panes if item['key']==pane)
+    context=settings_pane_context(pane,user)
+    return render_template('system_settings.html',settings_panes=panes,selected_settings_pane=pane,selected_settings=selected,**context)
 
 @app.route('/admin')
 @admin_required
 def admin_panel():
-    users=User.query.order_by(User.username).all()
-    credentials={u.id:WebAuthnCredential.query.filter_by(user_id=u.id).order_by(WebAuthnCredential.id).all() for u in users}
-    return render_template('admin.html', users=users, cities=City.query.order_by(City.name).all(), modules=MODULES, letterhead_capabilities=LETTERHEAD_CAPABILITIES,
-        query_templates=QueryTemplate.query.order_by(QueryTemplate.id.desc()).all(), aadhaar_provider_configured=bool(os.getenv('AADHAAR_AUTH_URL','').strip()),
-        credentials=credentials, google_oauth_ready=google_oauth_configured(), google_is_connected=google_connected(),
-        drive_folder_id=setting('google_drive_folder_id',''), drive_auto_backup=setting('google_drive_auto_backup','0')=='1',
-        kiosk_enabled=setting('kiosk_mode_enabled','0')=='1', avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()))
+    return redirect(settings_pane_url('users-groups'))
 
 @app.route('/admin/kiosk/settings',methods=['POST'])
 @admin_required

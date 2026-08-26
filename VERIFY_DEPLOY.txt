@@ -1,17 +1,12 @@
-LIVENZA WEB 1.7.1 — DEPLOYMENT VERIFICATION
+TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — DEPLOYMENT VERIFICATION
 
-1. Set `LIVENZA_VAULT_MASTER_KEY` in Render/production and keep it stable. Do not commit it to GitHub.
-2. Apply `migrations/web_v1_7_1.sql` if your managed database role does not allow the application to create the new master/document tables automatically.
-3. Open `/version` and confirm **Web 1.7.1** and the new drawer/master feature flags.
-4. Open Applications and confirm the old large white mega-menu is gone. The new left-side translucent glass drawer should keep dark icon tiles clearly visible and close via backdrop/Escape/navigation.
-5. Open Agreement Studio → Landlord Master. As Admin, create a landlord with identity, contact, address, business/tax and bank fields; reload and confirm sensitive fields remain masked.
-6. Open Tenant Master and create a tenant, including emergency/occupation or foreign-national fields where relevant. Confirm search/list views expose only safe summaries.
-7. Upload a permitted master document. Confirm ordinary users cannot download it; Admin download/reveal must require password re-authentication and responses must be no-store.
-8. In Agreement Studio, select a saved landlord/tenant and use **Apply Empty Fields**. Confirm existing manually entered agreement values are not overwritten.
-9. Use **Replace Existing Values** only when intentionally replacing agreement fields; confirm editing the agreement alone does not mutate the master.
-10. As Admin, test **Save as New Master** / **Update Selected Master** from Agreement Studio.
-11. Select master documents as annexures and create the protected PDF + Annexures. Confirm PDF/JPG/PNG/WebP annexures are embedded; unsupported allowed formats are referenced rather than silently exposed.
-12. Confirm non-admin Agreement users cannot edit/archive/duplicate masters, reveal sensitive fields, upload/download protected documents, or generate protected annexure PDFs.
-13. If legacy reusable landlord/tenant profiles exist, confirm they appear in the appropriate new master once without duplicates; the legacy table must remain intact.
-14. Re-test Electricity Bill Studio, Livenza Vault and Home Live Reminders to confirm v1.7.0 features remain available.
-15. Re-test Admin Avatar Studio: if AI mascot generation fails, the standard Livenza mascot remains active rather than the source photo.
+1. Open `/version` and confirm Tesla OS 27, Version 27.0.1 and Build 27A101.
+2. Confirm the Home workspace is clean: animated Livenza AI identity only, with no dashboard cards or application tiles.
+3. Scroll a long page and confirm the bottom Dock remains fixed and visible.
+4. Confirm the Dock contains exactly one Suites item and the launcher shows only suites authorized for the signed-in user.
+5. Open System Settings and confirm General → About shows the OS name, version and build number.
+6. Confirm Account, Users & Groups, Internet Accounts, Privacy & Security, Appearance, Widgets, Automations and Organisation settings are consolidated under System Settings according to permissions.
+7. Confirm the warm-neutral Liquid Glass theme has no blue/cyan decorative chrome and that icons use the unified Livenza symbol family.
+8. Confirm Reduced Motion stops the AI orbital animations and suppresses nonessential travel/spring effects.
+9. Re-test protected Admin, Vault, Agreement, Letterhead, Banking and Integration write actions to confirm existing authentication and authorization remain intact.
+10. Keep historical migration files in place for schema compatibility.

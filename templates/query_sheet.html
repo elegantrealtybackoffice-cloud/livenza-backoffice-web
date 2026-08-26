@@ -1,4 +1,4 @@
-{% extends 'base.html' %}{% block title %}Query Spreadsheet • Livenza Life Operations Cloud{% endblock %}
+{% extends 'base.html' %}{% import '_livenza_symbols.html' as icons with context %}{% block title %}Query Spreadsheet • Tesla OS 27{% endblock %}
 {% macro sheet_row(q=None,number='') -%}
 <tr data-query-id="{{q.id if q else ''}}" data-client-ref="{{'saved-' ~ q.id if q else 'blank-' ~ number}}" class="{{'sheet-blank-row' if not q else ''}}">
   <td class="sheet-row-number">{{number}}</td>
@@ -18,7 +18,7 @@
   <td contenteditable="true" data-field="next_follow_up" data-placeholder="Follow-up">{{q.next_follow_up if q else ''}}</td>
   <td contenteditable="true" data-field="query_text" data-placeholder="Requirement / query" class="sheet-wide-cell">{{q.query_text if q else ''}}</td>
   <td contenteditable="true" data-field="notes" data-placeholder="Notes" class="sheet-wide-cell">{{q.notes if q else ''}}</td>
-  <td class="sheet-action-cell"><button type="button" class="sheet-save-row" title="Save this row">✓</button></td>
+  <td class="sheet-action-cell"><button type="button" class="sheet-save-row" title="Save this row">{{icons.symbol('check')}}</button></td>
 </tr>
 {%- endmacro %}
 {% block content %}
@@ -31,7 +31,7 @@
   <form method="post" action="{{url_for('query_sheet_import')}}" enctype="multipart/form-data" class="sheet-import-form"><label>Import Excel / CSV<input type="file" name="query_file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required></label><button class="secondary">Import & Save</button></form>
   <div class="sheet-status"><span class="sheet-live-dot"></span><b id="sheetSaveStatus">30 blank rows ready</b><small>Existing rows auto-save · Save All handles every filled blank row</small></div>
 </div>
-<div class="query-sheet-wrap liquid-card responsive-table-wrap">
+<div class="query-sheet-wrap liquid-card">
   <table class="query-sheet" id="querySheetTable">
     <thead><tr><th>#</th><th>Source</th><th>Customer</th><th>Mobile</th><th>WhatsApp</th><th>Email</th><th>City</th><th>Property</th><th>Budget</th><th>Move-in</th><th>Stay Type</th><th>Status</th><th>Heat</th><th>Score</th><th>Next Follow-up</th><th>Requirement / Query</th><th>Notes</th><th>Save</th></tr></thead>
     <tbody id="querySheetBody">

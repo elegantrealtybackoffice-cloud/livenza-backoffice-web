@@ -1,0 +1,47 @@
+TESLA OS 27 VERSION 27.0.1 BUILD 27A101 — FILES TO DELETE FROM THE PREVIOUS NEUTRAL LIGHT AI DEPLOYMENT
+
+Delete these paths before/after uploading this update so retired source artifacts cannot remain on the server:
+- README_v1.3.1.md
+- README_v1.3.2.md
+- README_v1.3.3.md
+- README_v1.4.1.md
+- README_v1.4.3.md
+- README_v1.4.4.md
+- README_v1.4.5.md
+- README_v1.4.6.md
+- README_v1.4.7.md
+- README_v1.4.8.md
+- README_v1.4.9.md
+- README_v1.4.md
+- README_v1.5.0.md
+- README_v1.5.1.md
+- README_v1.5.10.md
+- README_v1.5.11.md
+- README_v1.5.12.md
+- README_v1.5.13.md
+- README_v1.5.14.md
+- README_v1.5.2.md
+- README_v1.5.3.md
+- README_v1.5.4.md
+- README_v1.5.5.md
+- README_v1.5.6.md
+- README_v1.5.7.md
+- README_v1.5.8.md
+- README_v1.5.9.md
+- README_v1.6.0.md
+- README_v1.7.0.md
+- README_v1.7.1.md
+- README_v1.8.0.md
+- README_v1.9.0.md
+- README_v1.9.0_MACOS_NEUTRAL_LIGHT_AI.md
+- UPLOAD_INSTRUCTIONS_LIGHT_AQUA_GLASS.txt
+- UPLOAD_INSTRUCTIONS_LIQUID_GLASS.txt
+- UPLOAD_INSTRUCTIONS_MEDIUM_AQUA_GLASS.txt
+- UPLOAD_INSTRUCTIONS_v1.9.0_BLUE_MASCOT_UI.txt
+- static/livenza_host3d.js
+- static/livenza_host3d_state.js
+- static/theme_v190.css
+- static/theme_v190_golden.css
+- static/theme_v190_refractive.css
+
+Historical database migration files that still exist in the new package are intentional compatibility assets.
