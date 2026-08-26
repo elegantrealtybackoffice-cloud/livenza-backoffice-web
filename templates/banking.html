@@ -1,22 +1,67 @@
 {% extends 'base.html' %}{% import '_livenza_symbols.html' as icons with context %}{% block title %}Banking & Reconciliation • Livenza Life{% endblock %}{% block content %}
-<div class="page-head banking-page-head"><div><p class="eyebrow">FINANCE COMMAND CENTER</p><h1>Banking & Reconciliation Suite</h1><p class="muted">Launch official bank websites, keep downloaded statements in an encrypted Livenza vault, and verify every imported entry against a reusable reconciliation template.</p></div><span class="banking-security-badge">{{icons.symbol('lock')}} Credentials stay with your bank</span></div>
-<nav class="banking-subnav liquid-card safe-tabs safe-scroll-tabs"><a class="safe-tab" href="{{url_for('integrations_center',category='banking',workflow='bank_portals')}}">Bank Portals ↗</a><a class="safe-tab" href="#vault">Statement Vault</a><a class="safe-tab" href="#reconcile">Reconciliation</a></nav>
-<section class="banking-panel liquid-card"><div class="banking-panel-head"><div><p class="eyebrow">THIRD-PARTY PORTALS</p><h2>Bank websites moved to Integrations Center</h2><p class="muted">Official bank portal launchers now live in the centralized role-aware integrations workspace. Statement storage and reconciliation remain here.</p></div><a class="primary btn" href="{{url_for('integrations_center',category='banking',workflow='bank_portals')}}">Open Bank Portals</a></div></section>
-<section id="vault" class="banking-grid">
-  <article class="banking-panel liquid-card"><p class="eyebrow">SAVE A DOWNLOADED STATEMENT</p><h2>Encrypted Statement Vault</h2><p class="muted">After downloading a statement from your bank, choose it here. Browsers do not allow a website to silently read your Downloads folder, so this one user-approved upload is required.</p>
-    <form class="bank-upload-form" method="post" action="{{url_for('banking_document_upload')}}" enctype="multipart/form-data"><input type="hidden" name="document_type" value="statement"><label>Bank<select name="bank_name"><option value="">Choose bank</option>{% for bank in banks %}<option>{{bank.name}}</option>{% endfor %}</select></label><label>Account / Property label<input name="account_label" placeholder="e.g. PNB • Livenza Life LLP"></label><label>Statement file<input type="file" name="bank_file" accept=".csv,.xlsx,.xls,.pdf" required></label><label>Reconcile immediately with<select name="template_id"><option value="">Save only</option>{% for d in templates %}<option value="{{d.id}}">{{d.title or d.file_name}}</option>{% endfor %}</select></label><button class="primary">Save Statement & Check</button><small>CSV/XLSX gives the strongest automatic matching. Text-based PDFs are also analysed when possible.</small></form>
-  </article>
-  <article class="banking-panel liquid-card"><p class="eyebrow">PREFILLED MASTER</p><h2>Reconciliation Templates</h2><p class="muted">Upload your expected ledger/template once and reuse it against every new bank statement.</p>
-    <form class="bank-upload-form" method="post" action="{{url_for('banking_document_upload')}}" enctype="multipart/form-data"><input type="hidden" name="document_type" value="template"><label>Template name<input name="title" placeholder="e.g. August Rent Collection Master" required></label><label>Template file<input type="file" name="bank_file" accept=".csv,.xlsx,.xls" required></label><button class="primary">Save Reconciliation Template</button><small>Recognised fields include Date, Amount / Debit / Credit, UTR / Reference and Narration / Description.</small></form>
-  </article>
-</section>
-<section class="banking-panel liquid-card bank-vault-list"><div class="banking-panel-head"><div><p class="eyebrow">PRIVATE VAULT</p><h2>Saved banking files</h2></div><span>{{statements|length}} statements · {{templates|length}} templates</span></div>
-  <div class="bank-doc-columns"><div><h3>Statements</h3>{% for d in statements %}<div class="bank-doc-row"><span class="bank-doc-icon">{{icons.symbol('document')}}</span><div><b>{{d.bank_name or 'Bank Statement'}}</b><small>{{d.account_label or d.file_name}} · {{d.row_count}} rows · {{d.created_at.strftime('%d %b %Y %H:%M')}}</small><em>{{d.parse_status}}</em></div><a href="{{url_for('banking_document_download',doc_id=d.id)}}">Download</a><form method="post" action="{{url_for('banking_document_delete',doc_id=d.id)}}" onsubmit="return confirm('Delete this banking document?')"><button class="link">Delete</button></form></div>{% else %}<p class="muted">No statements saved yet.</p>{% endfor %}</div>
-  <div><h3>Templates</h3>{% for d in templates %}<div class="bank-doc-row"><span class="bank-doc-icon">{{icons.symbol('check')}}</span><div><b>{{d.title or d.file_name}}</b><small>{{d.row_count}} expected rows · {{d.created_at.strftime('%d %b %Y %H:%M')}}</small><em>{{d.parse_status}}</em></div><a href="{{url_for('banking_document_download',doc_id=d.id)}}">Download</a><form method="post" action="{{url_for('banking_document_delete',doc_id=d.id)}}" onsubmit="return confirm('Delete this template?')"><button class="link">Delete</button></form></div>{% else %}<p class="muted">No templates saved yet.</p>{% endfor %}</div></div>
-</section>
-<section id="reconcile" class="banking-panel liquid-card"><div class="banking-panel-head"><div><p class="eyebrow">ENTRY-BY-ENTRY VERIFICATION</p><h2>Run Reconciliation</h2><p class="muted">Livenza matches amount, transaction date, reference/UTR and description, then separates exact matches, items needing review, missing expected entries and extra bank entries.</p></div></div>
-  <form class="reconcile-form" method="post" action="{{url_for('banking_reconcile')}}"><label>Bank statement<select name="statement_id" required><option value="">Select statement</option>{% for d in statements %}<option value="{{d.id}}">{{d.bank_name or 'Statement'}} • {{d.account_label or d.file_name}} • {{d.row_count}} rows</option>{% endfor %}</select></label><span>VERSUS</span><label>Expected template<select name="template_id" required><option value="">Select template</option>{% for d in templates %}<option value="{{d.id}}">{{d.title or d.file_name}} • {{d.row_count}} rows</option>{% endfor %}</select></label><button class="primary">Verify All Entries</button></form>
-  <div class="reconcile-history"><h3>Recent checks</h3>{% for card in runs %}<a href="{{url_for('banking_reconciliation',run_id=card.run.id)}}" class="reconcile-run"><span class="match-ring">{{card.summary.get('match_rate',0)}}%</span><div><b>{{card.statement.bank_name if card.statement else 'Statement'}} vs {{card.template.title if card.template else 'Template'}}</b><small>{{card.summary.get('matched',0)}} matched · {{card.summary.get('review',0)}} review · {{card.summary.get('missing',0)}} missing · {{card.summary.get('extra',0)}} extra</small></div><span>Open →</span></a>{% else %}<p class="muted">No reconciliation runs yet.</p>{% endfor %}</div>
+<section class="app-standard-page app-standard-page--banking">
+  <header class="page-head app-standard-header banking-page-head">
+    <div class="app-standard-heading">
+      <p class="eyebrow">FINANCE</p>
+      <h1>Banking & Reconciliation</h1>
+      <p class="muted">Manage statements, secure banking files and reconciliation workflows from one finance workspace.</p>
+    </div>
+    <div class="actions safe-toolbar app-standard-actions">
+      <a class="secondary btn" href="{{url_for('integrations_center',category='banking',workflow='bank_portals')}}">Bank Accounts</a>
+      <a class="primary btn" href="#vault">Import Statement</a>
+    </div>
+  </header>
+
+  <nav class="banking-subnav safe-tabs safe-scroll-tabs app-standard-tabs" aria-label="Banking sections">
+    <a class="safe-tab" href="{{url_for('integrations_center',category='banking',workflow='bank_portals')}}">Bank Portals ↗</a>
+    <a class="safe-tab active" href="#vault">Statements</a>
+    <a class="safe-tab" href="#reconcile">Reconciliation</a>
+  </nav>
+
+  <section class="banking-panel liquid-card app-standard-card app-standard-callout">
+    <span class="app-callout-icon">{{icons.symbol('lock')}}</span>
+    <div><b>Your bank credentials stay with your bank.</b><small>Official bank portals open through Integrations Center. Livenza stores only the files you explicitly upload.</small></div>
+    <a class="secondary btn" href="{{url_for('integrations_center',category='banking',workflow='bank_portals')}}">Open Bank Portals</a>
+  </section>
+
+  <section id="vault" class="banking-grid app-standard-grid">
+    <article class="banking-panel liquid-card app-standard-card">
+      <p class="eyebrow">STATEMENT VAULT</p><h2>Import a bank statement</h2><p class="muted">Choose a downloaded statement and optionally reconcile it against an existing master.</p>
+      <form class="bank-upload-form app-standard-form" method="post" action="{{url_for('banking_document_upload')}}" enctype="multipart/form-data">
+        <input type="hidden" name="document_type" value="statement">
+        <label>Bank<select name="bank_name"><option value="">Choose bank</option>{% for bank in banks %}<option>{{bank.name}}</option>{% endfor %}</select></label>
+        <label>Account / Property label<input name="account_label" placeholder="e.g. PNB • Livenza Life LLP"></label>
+        <label>Statement file<input type="file" name="bank_file" accept=".csv,.xlsx,.xls,.pdf" required></label>
+        <label>Reconcile with<select name="template_id"><option value="">Save only</option>{% for d in templates %}<option value="{{d.id}}">{{d.title or d.file_name}}</option>{% endfor %}</select></label>
+        <div class="app-form-actions"><button class="primary">Save Statement & Check</button></div>
+        <small>CSV/XLSX gives the strongest matching. Text-based PDFs are analysed where possible.</small>
+      </form>
+    </article>
+
+    <article class="banking-panel liquid-card app-standard-card">
+      <p class="eyebrow">RECONCILIATION MASTER</p><h2>Reusable templates</h2><p class="muted">Save an expected ledger once and reuse it against future statements.</p>
+      <form class="bank-upload-form app-standard-form" method="post" action="{{url_for('banking_document_upload')}}" enctype="multipart/form-data">
+        <input type="hidden" name="document_type" value="template">
+        <label>Template name<input name="title" placeholder="e.g. August Rent Collection Master" required></label>
+        <label>Template file<input type="file" name="bank_file" accept=".csv,.xlsx,.xls" required></label>
+        <div class="app-form-actions"><button class="primary">Save Template</button></div>
+        <small>Recognised fields include Date, Amount / Debit / Credit, UTR / Reference and Narration / Description.</small>
+      </form>
+    </article>
+  </section>
+
+  <section class="banking-panel liquid-card bank-vault-list app-standard-card">
+    <div class="banking-panel-head app-standard-section-head"><div><p class="eyebrow">PRIVATE VAULT</p><h2>Saved banking files</h2></div><span class="app-section-count">{{statements|length}} statements · {{templates|length}} templates</span></div>
+    <div class="bank-doc-columns">
+      <div><h3>Statements</h3>{% for d in statements %}<div class="bank-doc-row"><span class="bank-doc-icon">{{icons.symbol('document')}}</span><div><b>{{d.bank_name or 'Bank Statement'}}</b><small>{{d.account_label or d.file_name}} · {{d.row_count}} rows · {{d.created_at.strftime('%d %b %Y %H:%M')}}</small><em>{{d.parse_status}}</em></div><a href="{{url_for('banking_document_download',doc_id=d.id)}}">Download</a><form method="post" action="{{url_for('banking_document_delete',doc_id=d.id)}}" onsubmit="return confirm('Delete this banking document?')"><button class="link danger">Delete</button></form></div>{% else %}<p class="empty">No statements saved yet.</p>{% endfor %}</div>
+      <div><h3>Templates</h3>{% for d in templates %}<div class="bank-doc-row"><span class="bank-doc-icon">{{icons.symbol('check')}}</span><div><b>{{d.title or d.file_name}}</b><small>{{d.row_count}} expected rows · {{d.created_at.strftime('%d %b %Y %H:%M')}}</small><em>{{d.parse_status}}</em></div><a href="{{url_for('banking_document_download',doc_id=d.id)}}">Download</a><form method="post" action="{{url_for('banking_document_delete',doc_id=d.id)}}" onsubmit="return confirm('Delete this template?')"><button class="link danger">Delete</button></form></div>{% else %}<p class="empty">No templates saved yet.</p>{% endfor %}</div>
+    </div>
+  </section>
+
+  <section id="reconcile" class="banking-panel liquid-card app-standard-card">
+    <div class="banking-panel-head app-standard-section-head"><div><p class="eyebrow">VERIFY</p><h2>Run reconciliation</h2><p class="muted">Compare a bank statement with an expected template and review mismatches.</p></div></div>
+    <form class="reconcile-form app-standard-form" method="post" action="{{url_for('banking_reconcile')}}"><label>Bank statement<select name="statement_id" required><option value="">Select statement</option>{% for d in statements %}<option value="{{d.id}}">{{d.bank_name or 'Statement'}} • {{d.account_label or d.file_name}} • {{d.row_count}} rows</option>{% endfor %}</select></label><span>VERSUS</span><label>Expected template<select name="template_id" required><option value="">Select template</option>{% for d in templates %}<option value="{{d.id}}">{{d.title or d.file_name}} • {{d.row_count}} rows</option>{% endfor %}</select></label><button class="primary">Verify All Entries</button></form>
+    <div class="reconcile-history"><h3>Recent checks</h3>{% for card in runs %}<a href="{{url_for('banking_reconciliation',run_id=card.run.id)}}" class="reconcile-run"><span class="match-ring">{{card.summary.get('match_rate',0)}}%</span><div><b>{{card.statement.bank_name if card.statement else 'Statement'}} vs {{card.template.title if card.template else 'Template'}}</b><small>{{card.summary.get('matched',0)}} matched · {{card.summary.get('review',0)}} review · {{card.summary.get('missing',0)}} missing · {{card.summary.get('extra',0)}} extra</small></div><span>Open →</span></a>{% else %}<p class="empty">No reconciliation runs yet.</p>{% endfor %}</div>
+  </section>
 </section>
 {% endblock %}
-

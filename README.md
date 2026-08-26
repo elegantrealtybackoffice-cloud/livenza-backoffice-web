@@ -179,3 +179,11 @@ Hotfix 8 keeps the Hotfix 7 browser-OS architecture and refines the functional a
 
 ### Hotfix 8 verification scope
 The exact packaged source is verified with 26 Hotfix 8 contract tests, Python compilation, JavaScript syntax checks, all 73 Jinja templates parsed, and a 24-scenario Chromium/Playwright audit across 1920×1080, 1440×900, 1366×768 and 1152×720. The browser audit covers representative Agreements, Banking, Creative/Letterhead, Settings, overlapping-window and Reduced Motion states and must pass twice consecutively after the final production-code change. See `HOTFIX8_AUDIT.md` for the complete record and environment limitation.
+
+## Hotfix 9 — Precision UI/UX + Single Window Design System
+
+Hotfix 9 standardizes the application suites around one shared Tesla OS window language. Agreements is the structural baseline and Banking, Rooms, Queries, Reviews, Billing, Electricity, Food, WhatsApp, Email, Drive, Letterhead and Settings now inherit the same route titlebar, typography hierarchy, spacing rhythm, action placement, tabs, cards, forms and tables while retaining distinct Livenza accent identities.
+
+The Suites launcher is redesigned as a light Liquid-Glass-style application browser with compact aligned category controls, meaningful app artwork, professional card widths and normal word wrapping. Direct application routes use a compact 52px window-style toolbar and no longer show a second desktop Dock or duplicate mascot/footer chrome.
+
+Hotfix 9 verification includes 27 dedicated source contracts, the 26 Hotfix 8 regression contracts, Python compilation, all 73 Jinja templates, 8 production JavaScript syntax checks, a 48-scenario multi-resolution Chromium shell audit and a 26-scenario Chromium audit rendering the actual Livenza suite templates. See `HOTFIX9_AUDIT.md` for the exact scope and environment limitation.

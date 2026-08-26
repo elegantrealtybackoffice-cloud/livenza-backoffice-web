@@ -1,4 +1,48 @@
 {% extends 'base.html' %}{% block content %}
-<div class="page-head"><div><p class="eyebrow">LEGAL OPERATIONS</p><h1>Agreement Studio</h1><p class="muted">Preset-specific formats with reusable Landlord/Tenant Masters, PDF export and WhatsApp sharing.</p></div><div class="actions safe-toolbar"><a class="secondary btn" href="{{url_for('landlord_masters')}}">Landlord Master</a><a class="secondary btn" href="{{url_for('tenant_masters')}}">Tenant Master</a><a class="primary btn" href="{{url_for('agreement_edit')}}">+ New Agreement</a></div></div>
-<div class="table-card"><table><thead><tr><th>Agreement</th><th>Preset</th><th>Updated</th><th>Actions</th></tr></thead><tbody>{% for a in items %}<tr><td><b>{{a.name}}</b></td><td>{{a.preset}}</td><td>{{a.updated_at.strftime('%d %b %Y %H:%M')}}</td><td class="actions"><a href="{{url_for('agreement_preview',aid=a.id)}}">English</a><a href="{{url_for('agreement_preview',aid=a.id,lang='hi')}}">हिंदी</a><a href="{{url_for('agreement_pdf',aid=a.id)}}">PDF</a><a class="whatsapp-text" href="{{url_for('agreement_whatsapp',aid=a.id)}}" target="_blank">WhatsApp</a><a href="{{url_for('agreement_edit',aid=a.id)}}">Edit</a><form method="post" action="{{url_for('agreement_delete',aid=a.id)}}" onsubmit="return confirm('Delete agreement?')"><button class="link danger">Delete</button></form></td></tr>{% else %}<tr><td colspan="4" class="empty">No agreements yet.</td></tr>{% endfor %}</tbody></table></div>
+<section class="app-standard-page app-standard-page--agreements">
+  <header class="page-head app-standard-header">
+    <div class="app-standard-heading">
+      <p class="eyebrow">LEGAL OPERATIONS</p>
+      <h1>Agreement Studio</h1>
+      <p class="muted">Create, manage and share agreements with reusable landlord and tenant masters.</p>
+    </div>
+    <div class="actions safe-toolbar app-standard-actions">
+      <a class="secondary btn" href="{{url_for('landlord_masters')}}">Landlord Master</a>
+      <a class="secondary btn" href="{{url_for('tenant_masters')}}">Tenant Master</a>
+      <a class="primary btn" href="{{url_for('agreement_edit')}}">+ New Agreement</a>
+    </div>
+  </header>
+
+  <div class="table-card app-standard-card app-standard-table">
+    <table>
+      <thead><tr><th>Agreement</th><th>Preset</th><th>Updated</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for a in items %}
+        <tr>
+          <td><b>{{a.name}}</b></td>
+          <td>{{a.preset}}</td>
+          <td>{{a.updated_at.strftime('%d %b %Y %H:%M')}}</td>
+          <td>
+            <div class="app-table-actions">
+              <a class="app-table-action" href="{{url_for('agreement_pdf',aid=a.id)}}">PDF</a>
+              <a class="app-table-action" href="{{url_for('agreement_whatsapp',aid=a.id)}}" target="_blank">WhatsApp</a>
+              <a class="app-table-action" href="{{url_for('agreement_edit',aid=a.id)}}">Edit</a>
+              <details class="app-action-menu">
+                <summary aria-label="More agreement actions">•••</summary>
+                <div class="app-action-menu-popover">
+                  <a href="{{url_for('agreement_preview',aid=a.id)}}">Preview in English</a>
+                  <a href="{{url_for('agreement_preview',aid=a.id,lang='hi')}}">Preview in हिंदी</a>
+                  <form method="post" action="{{url_for('agreement_delete',aid=a.id)}}" onsubmit="return confirm('Delete agreement?')"><button class="danger">Delete</button></form>
+                </div>
+              </details>
+            </div>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="empty">No agreements yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endblock %}

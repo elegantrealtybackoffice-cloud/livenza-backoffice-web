@@ -6,12 +6,19 @@
 
 {% macro app_item(surface,title,desc,endpoint,perm='',symbol_name='home',media='livenza_360_lifestyle_bg.jpg') -%}
   {% if ((not perm) or can_access(perm)) and ui_app_available(endpoint) %}
-    {% if surface == 'drawer' %}
-      <a class="grouped-app-item lg-app-tile lg-control {% if request.endpoint==endpoint %}active is-active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav data-app-endpoint="{{endpoint}}"><i>{{app_icon(symbol_name,endpoint,'blue','suite-tile-app-icon')}}</i><span><b>{{title}}</b><small>{{desc}}</small></span><em aria-hidden="true">›</em></a>
+    {% set meta = ui_app_meta(endpoint) %}
+    {% if surface == 'launcher' %}
+      <a class="suite-launch-card lg-app-tile" href="{{url_for(endpoint)}}" data-app-nav data-app-endpoint="{{endpoint}}" data-app-family="{{meta.family}}" data-app-tone="{{meta.tone}}" style="--app-accent:{{meta.accent}};--app-accent-2:{{meta.accent2}}">
+        <span class="suite-launch-icon">{{app_icon(symbol_name,endpoint,meta.tone,'suite-launch-app-icon')}}</span>
+        <span class="suite-launch-copy"><b class="suite-launch-title">{{title}}</b><span class="suite-launch-description">{{desc}}</span></span>
+        <span class="suite-launch-open" aria-hidden="true"><span>Open</span><i>›</i></span>
+      </a>
+    {% elif surface == 'drawer' %}
+      <a class="grouped-app-item lg-app-tile lg-control {% if request.endpoint==endpoint %}active is-active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav data-app-endpoint="{{endpoint}}"><i>{{app_icon(symbol_name,endpoint,meta.tone,'suite-tile-app-icon')}}</i><span><b>{{title}}</b><small>{{desc}}</small></span><em aria-hidden="true">›</em></a>
     {% else %}
       <a class="home-app-card liquid-card lg-app-tile" href="{{url_for(endpoint)}}" data-app-nav>
-        <span class="home-app-media"><img src="{{url_for('static',filename=media)}}" alt="" loading="lazy" decoding="async"><i>{{app_icon(symbol_name,endpoint,'blue','home-app-icon')}}</i></span>
-        <span class="home-app-copy"><small>AUTHORIZED APP</small><b>{{title}}</b><span>{{desc}}</span><em>Open module ›</em></span>
+        <span class="home-app-media"><img src="{{url_for('static',filename=media)}}" alt="" loading="lazy" decoding="async"><i>{{app_icon(symbol_name,endpoint,meta.tone,'home-app-icon')}}</i></span>
+        <span class="home-app-copy"><small>LIVENZA APP</small><b>{{title}}</b><span>{{desc}}</span><em>Open module ›</em></span>
       </a>
     {% endif %}
   {% endif %}
@@ -19,8 +26,8 @@
 
 {% macro category_panel(surface,key,label) -%}
   {% set group_id = 'suites-launcher-categories' if surface == 'launcher' else ('apps-drawer-categories' if surface == 'drawer' else 'home-app-categories') %}
-  <section class="app-category-panel {% if key=='core' %}active{% endif %}" data-tv-panel="{{surface}}-{{key}}" data-tv-group="{{group_id}}" {% if key!='core' %}hidden{% endif %} aria-label="{{label}} applications">
-    <div class="{{'grouped-app-grid' if surface in ['drawer','launcher'] else 'home-app-grid'}}">
+  <section class="app-category-panel {% if key=='core' %}active{% endif %}" data-category-tone="{{key}}" data-tv-panel="{{surface}}-{{key}}" data-tv-group="{{group_id}}" {% if key!='core' %}hidden{% endif %} aria-label="{{label}} applications">
+    <div class="{{'suite-launch-grid' if surface == 'launcher' else ('grouped-app-grid' if surface == 'drawer' else 'home-app-grid')}}">
       {% if key == 'core' %}
         {% if surface != 'launcher' %}{{ app_item(surface,'Home','Live operations overview','dashboard','','home') }}{% endif %}
         {{ app_item(surface,'System Settings','Account, appearance, widgets, integrations and administration','settings_page','','settings','livenza_logo.png') }}
@@ -57,9 +64,9 @@
   <div class="application-groups application-groups-{{surface}}">
     <nav class="app-category-tabs safe-tabs safe-scroll-tabs lg-segment" role="tablist" aria-label="Application categories">
       {% for key,label,icon in [('core','Core','home'),('operations','Operations','room'),('finance','Finance & Utilities','billing'),('communication','Communication & Content','email'),('connections','Connections','integrations')] %}
-      <button type="button" class="safe-tab {% if loop.first %}active is-active{% endif %} lg-control" data-tv-tab="{{surface}}-{{key}}" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-{{key}}" aria-selected="{{'true' if loop.first else 'false'}}">{{icons.symbol(icon)}}<span>{{label}}</span></button>
+      <button type="button" class="safe-tab {% if loop.first %}active is-active{% endif %} lg-control" data-category-tone="{{key}}" data-tv-tab="{{surface}}-{{key}}" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-{{key}}" aria-selected="{{'true' if loop.first else 'false'}}">{{icons.symbol(icon)}}<span>{{label}}</span></button>
       {% endfor %}
-      {% if is_admin %}<button type="button" class="safe-tab lg-control" data-tv-tab="{{surface}}-administration" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-administration" aria-selected="false">{{icons.symbol('settings')}}<span>Administration</span></button>{% endif %}
+      {% if is_admin %}<button type="button" class="safe-tab lg-control" data-category-tone="administration" data-tv-tab="{{surface}}-administration" data-tv-group="{{group_id}}" data-tv-target="{{surface}}-administration" aria-selected="false">{{icons.symbol('settings')}}<span>Administration</span></button>{% endif %}
     </nav>
     <div class="app-category-stage">
       {{ category_panel(surface,'core','Core') }}

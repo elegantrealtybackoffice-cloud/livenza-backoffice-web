@@ -2531,6 +2531,52 @@ LIVENZA_APP_REGISTRY = [
 ]
 
 
+LIVENZA_APP_VISUAL_EXTRAS = {
+    'landlord_masters': {'title':'Landlord Master','endpoint':'landlord_masters','icon':'property','tone':'blue','family':'productivity','accent':'#397BFF','accent2':'#6A5CFF'},
+    'tenant_masters': {'title':'Tenant Master','endpoint':'tenant_masters','icon':'resident','tone':'teal','family':'occupancy','accent':'#24C7C0','accent2':'#247DFF'},
+}
+
+LIVENZA_APP_VISUAL_PARENT = {
+    'agreement_edit':'agreements',
+    'agreement_preview':'agreements',
+    'landlord_master_edit':'landlord_masters',
+    'tenant_master_edit':'tenant_masters',
+    'master_safe_view':'agreements',
+    'query_sheet':'queries',
+    'bank_reconciliation':'banking_suite',
+    'electricity_portal':'electricity_studio',
+    'electricity_register':'electricity_studio',
+    'food_integrations':'food',
+    'food_portals':'food',
+    'email_message':'email_workspace',
+    'letterhead_editor':'letterhead_studio',
+    'letterhead_final_review':'letterhead_studio',
+    'letterhead_template_editor':'letterhead_studio',
+    'letterhead_templates':'letterhead_studio',
+    'letterhead_vault':'letterhead_studio',
+    'system_settings_pane':'settings_page',
+    'integrations_center':'settings_page',
+    'admin_panel':'settings_page',
+    'admin_vault':'settings_page',
+    'wall_player':'video_wall',
+}
+
+def ui_app_meta(endpoint):
+    """Visual metadata for any functional launcher item without changing its availability contract."""
+    item=next((row for row in LIVENZA_APP_REGISTRY if row['endpoint']==endpoint),None)
+    if item:
+        return dict(item)
+    extra=LIVENZA_APP_VISUAL_EXTRAS.get(endpoint)
+    if extra:
+        return dict(extra)
+    parent=LIVENZA_APP_VISUAL_PARENT.get(endpoint)
+    if parent:
+        inherited=ui_app_meta(parent)
+        inherited['endpoint']=endpoint
+        return inherited
+    return {'endpoint':endpoint,'icon':'home','tone':'blue','family':'productivity','accent':'#248CFF','accent2':'#6757E8'}
+
+
 def ui_app_available(endpoint, user=None):
     """Return True only when a visible app route is real, authorized and usable."""
     item=next((row for row in LIVENZA_APP_REGISTRY if row['endpoint']==endpoint),None)
@@ -2566,7 +2612,7 @@ def inject_common():
             current_user=None, app_version=APP_VERSION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
             can_access=can_access, module_labels=MODULES, is_admin=False, masked_aadhaar=masked_aadhaar,
             kiosk_mode_enabled=False, marquee_enabled=False, companion_enabled=False,
-            companion_default_city='Gurugram', companion_weather_effects=False, mascot_preferences={}, dock_apps=[], ui_app_available=lambda endpoint: False
+            companion_default_city='Gurugram', companion_weather_effects=False, mascot_preferences={}, dock_apps=[], ui_app_available=lambda endpoint: False, ui_app_meta=ui_app_meta
         )
     user=current_user()
     mascot_preferences=mascot_preferences_for(user) if user else {}
@@ -2578,7 +2624,7 @@ def inject_common():
         companion_enabled=setting('companion_enabled','1')=='1' and bool(mascot_preferences.get('enabled',True)),
         companion_default_city=mascot_preferences.get('weather_city') or setting('companion_default_city','Gurugram'),
         companion_weather_effects=setting('companion_weather_effects','1')=='1' and bool(mascot_preferences.get('weather_reactions',True)),
-        mascot_preferences=mascot_preferences, dock_apps=visible_dock_apps(user), ui_app_available=ui_app_available
+        mascot_preferences=mascot_preferences, dock_apps=visible_dock_apps(user), ui_app_available=ui_app_available, ui_app_meta=ui_app_meta
     )
 
 @app.before_request

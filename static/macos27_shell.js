@@ -22,7 +22,7 @@
     try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (_) {}
   }
   const DEFAULT_PREFERENCES = {
-    'appearance.mode':'auto',
+    'appearance.mode':'light',
     'dock.size':'regular',
     'dock.magnification':true,
     'dock.autohide':false,
@@ -38,7 +38,7 @@
   let preferences = {...DEFAULT_PREFERENCES, ...readPreferences()};
 
   function setRootPreferenceClasses() {
-    const mode = ['auto', 'light', 'dark'].includes(preferences['appearance.mode']) ? preferences['appearance.mode'] : 'auto';
+    const mode = ['auto', 'light', 'dark'].includes(preferences['appearance.mode']) ? preferences['appearance.mode'] : 'light';
     root.dataset.appearance = mode;
     root.classList.toggle('settings-increase-contrast', Boolean(preferences['appearance.contrast']));
     root.classList.toggle('settings-reduce-transparency', Boolean(preferences['appearance.reduceTransparency'] || preferences['accessibility.reduceTransparency']));
@@ -126,6 +126,24 @@
 
   setRootPreferenceClasses();
   applyWallpaper(preferences['wallpaper.variant'] || root.dataset.wallpaper || 'aurora', false);
+  function applySharedSuiteDesign(scope) {
+    if (!scope || body?.dataset.page === 'dashboard' && scope.id === 'appMain') return;
+    scope.classList.add('app-standard-page');
+    $$('.page-head', scope).forEach((node) => node.classList.add('app-standard-header'));
+    $$('.page-head > div:first-child', scope).forEach((node) => node.classList.add('app-standard-heading'));
+    $$('.page-head > .actions, .page-head-actions, .section-head > .actions, .letterhead-hero-actions', scope).forEach((node) => node.classList.add('app-standard-actions'));
+    $$('.safe-tabs, .banking-subnav, .food-subnav, .letterhead-tabs', scope).forEach((node) => node.classList.add('app-standard-tabs'));
+    $$('.section-head, .banking-panel-head, .query-sheet-head, .letterhead-page-head', scope).forEach((node) => node.classList.add('app-standard-section-head'));
+    $$(`.liquid-card, .form-card, .table-card, .review-card, .banking-panel, .query-card, .master-card,
+       .screen-card, .portal-card, .connection-card, .letterhead-card, .settings-card`, scope).forEach((node) => {
+      if (!node.matches('.paper, .letterhead-review-paper, .letterhead-preview-paper')) node.classList.add('app-standard-card');
+    });
+    $$('.table-card, .provider-directory-table, .electricity-sheet-wrap, .query-sheet-wrap', scope).forEach((node) => node.classList.add('app-standard-table'));
+    $$('form.bank-upload-form, form.reconcile-form, .form-card > form, form.form-grid', scope).forEach((node) => node.classList.add('app-standard-form'));
+  }
+
+
+  if (body?.dataset.page !== 'dashboard') applySharedSuiteDesign(document.getElementById('appMain'));
 
   /* ---------- Drawers ---------- */
   const backdrop = $('#appsMenuBackdrop');
@@ -223,6 +241,18 @@
   /* ---------- History / inspector ---------- */
   $('#macHistoryBack')?.addEventListener('click', () => history.length > 1 ? history.back() : location.assign('/'));
   $('#macHistoryForward')?.addEventListener('click', () => history.forward());
+  $$('[data-route-window-action]').forEach((control) => control.addEventListener('click', (event) => {
+    const action = control.dataset.routeWindowAction;
+    if (action === 'reload') { event.preventDefault(); location.reload(); return; }
+    if (action === 'minimize') {
+      event.preventDefault();
+      const home = control.dataset.routeHomeUrl || '/';
+      if (history.length > 1 && document.referrer) {
+        try { const ref = new URL(document.referrer); if (ref.origin === location.origin) { history.back(); return; } } catch (_) {}
+      }
+      location.assign(home);
+    }
+  }));
   const inspector = $('#macInspector');
   const inspectorTemplate = $('#macInspectorTemplate');
   const shellBody = $('.mac-shell-body');
@@ -676,6 +706,7 @@
       const nextMain = doc.getElementById('appMain');
       if (!nextMain || doc.querySelector('.login-card')) return false;
       content.innerHTML = windowMarkupWithoutExecutableScripts(nextMain);
+      applySharedSuiteDesign(content);
       await ensureWindowAssets(doc, url);
       await executeWindowInlineScripts(nextMain, content);
       const fetchedTitle = doc.querySelector('#macPageTitle')?.textContent?.trim() || doc.title?.split('·')[0]?.trim();

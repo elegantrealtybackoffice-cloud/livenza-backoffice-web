@@ -18,46 +18,41 @@
   <link rel="manifest" href="{{ url_for('static',filename='site.webmanifest') }}">
   <title>{% block title %}Tesla OS 27 · Livenza Life{% endblock %}</title>
   <script>(()=>{const small=matchMedia('(max-width:820px)').matches,lowMemory=Number(navigator.deviceMemory||8)<=4,lowCpu=Number(navigator.hardwareConcurrency||8)<=4,saveData=Boolean(navigator.connection?.saveData);if(small||lowMemory||lowCpu||saveData)document.documentElement.classList.add('mobile-performance')})();</script>
-  <script data-wallpaper-bootstrap>(()=>{try{const next=JSON.parse(localStorage.getItem('livenza.settings.v2701')||'{}')||{},old=JSON.parse(localStorage.getItem('livenza.systemSettings.v190')||'{}')||{},prefs={...old,...next},variant=prefs['wallpaper.variant']||'aurora',mode=prefs['appearance.mode']||'auto';document.documentElement.dataset.wallpaper=variant;document.documentElement.dataset.appearance=mode;if(prefs['appearance.contrast'])document.documentElement.classList.add('settings-increase-contrast');if(prefs['appearance.reduceTransparency']||prefs['accessibility.reduceTransparency'])document.documentElement.classList.add('settings-reduce-transparency');if(prefs['accessibility.largeText'])document.documentElement.classList.add('settings-large-text');if(variant==='custom'){const custom=localStorage.getItem('livenza.wallpaper.custom');if(custom)document.documentElement.style.setProperty('--user-wallpaper',`url("${custom.replace(/"/g,'%22')}")`)}}catch(_){document.documentElement.dataset.wallpaper='aurora';document.documentElement.dataset.appearance='auto'}})();</script>
+  <script data-wallpaper-bootstrap>(()=>{try{const next=JSON.parse(localStorage.getItem('livenza.settings.v2701')||'{}')||{},old=JSON.parse(localStorage.getItem('livenza.systemSettings.v190')||'{}')||{},prefs={...old,...next},variant=prefs['wallpaper.variant']||'aurora',mode=prefs['appearance.mode']||'light';document.documentElement.dataset.wallpaper=variant;document.documentElement.dataset.appearance=mode;if(prefs['appearance.contrast'])document.documentElement.classList.add('settings-increase-contrast');if(prefs['appearance.reduceTransparency']||prefs['accessibility.reduceTransparency'])document.documentElement.classList.add('settings-reduce-transparency');if(prefs['accessibility.largeText'])document.documentElement.classList.add('settings-large-text');if(variant==='custom'){const custom=localStorage.getItem('livenza.wallpaper.custom');if(custom)document.documentElement.style.setProperty('--user-wallpaper',`url("${custom.replace(/"/g,'%22')}")`)}}catch(_){document.documentElement.dataset.wallpaper='aurora';document.documentElement.dataset.appearance='light'}})();</script>
   <script src="{{url_for('static',filename='tv_capability.js')}}?v={{app_version|replace('Web ','')}}"></script>
   <link rel="stylesheet" href="{{url_for('static',filename='legacy_modules.css')}}?v={{app_version|replace('Web ','')}}">
   {% if current_user and can_access('letterhead') and request.endpoint and request.endpoint.startswith('letterhead') %}<link rel="stylesheet" href="{{url_for('static',filename='letterhead.css')}}?v={{app_version|replace('Web ','')}}">{% endif %}
   {% block page_styles %}{% endblock %}
   <link rel="stylesheet" href="{{url_for('static',filename='macos27_system.css')}}?v={{app_version|replace('Web ','')}}">
 </head>
-<body class="app-liquid-shell macos27-clean" data-page="{{request.endpoint or ''}}">
+{% set current_app_ui = ui_app_meta(request.endpoint or '') if current_user else {} %}
+<body class="app-liquid-shell macos27-clean" data-page="{{request.endpoint or ''}}" data-app-family="{{current_app_ui.family or ''}}" style="--suite-accent:{{current_app_ui.accent or '#248CFF'}};--suite-accent-2:{{current_app_ui.accent2 or '#6757E8'}}">
   {% import '_application_groups.html' as appgroups with context %}
   {% import '_livenza_symbols.html' as icons with context %}
 
   <div id="appViewport" class="app-viewport view-auto">
   {% if current_user %}
     <div id="macShell" class="mac-shell">
-      {% if request.endpoint != 'dashboard' %}<header id="macToolbar" class="mac-toolbar topbar" aria-label="Application toolbar">
-        <div class="mac-toolbar-group mac-toolbar-left">
-          <a class="mac-toolbar-appmark" href="{{url_for('dashboard')}}" aria-label="Livenza Home" title="Livenza Life"><img src="{{url_for('static',filename='livenza_logo_transparent.png')}}" alt=""></a>
-          <div class="mac-toolbar-shelf">
-            <button type="button" id="macHistoryBack" aria-label="Go back" title="Back">{{icons.symbol('back')}}</button>
-            <button type="button" id="macHistoryForward" aria-label="Go forward" title="Forward">{{icons.symbol('forward')}}</button>
-          </div>
-          <div class="mac-page-identity"><b id="macPageTitle">{{(request.endpoint or 'home')|replace('_',' ')|title}}</b><small>{{os_name}} · {{os_version}}</small></div>
+      {% if request.endpoint != 'dashboard' %}<header id="macToolbar" class="mac-toolbar mac-route-toolbar topbar" aria-label="Application window controls">
+        <div class="mac-route-window-controls mac-window-controls" aria-label="Window controls">
+          <a class="mac-window-control close" href="{{url_for('dashboard')}}" data-route-window-action="close" aria-label="Close and return to desktop" title="Close"></a>
+          <button type="button" class="mac-window-control minimize" data-route-window-action="minimize" data-route-home-url="{{url_for('dashboard')}}" aria-label="Minimise and return to previous workspace" title="Minimise"></button>
+          <button type="button" id="fullscreenToggle" class="mac-window-control maximize" data-fullscreen-toggle aria-label="Enter full screen" aria-pressed="false" title="Zoom"></button>
         </div>
-        <div class="mac-toolbar-group mac-toolbar-center">
-          <button type="button" class="mac-global-search" data-mac-command-open aria-label="Search Livenza applications"><span aria-hidden="true">{{icons.symbol('search')}}</span><span>Search Livenza</span><kbd>⌘ K</kbd></button>
+        <div class="mac-route-window-title-identity mac-window-title-identity">
+          <span class="mac-window-mini-icon mac-route-app-icon livenza-app-icon" data-app-icon="{{request.endpoint or 'home'}}" data-app-tone="{{current_app_ui.tone or 'blue'}}" aria-hidden="true"><span class="app-icon-backdrop"></span><span class="app-icon-glyph">{{icons.symbol(current_app_ui.icon or 'home')}}</span><span class="app-icon-shine"></span></span>
+          <strong id="macPageTitle" class="mac-window-title">{{current_app_ui.title or (request.endpoint or 'home')|replace('_',' ')|title}}</strong>
         </div>
-        <div class="mac-toolbar-group mac-toolbar-right">
-          <div class="mac-toolbar-shelf view-controls header-rotation-control no-print">
-            <button type="button" id="viewMenuToggle" class="top-tool header-rotate-toggle" aria-label="Open display controls" aria-controls="viewMenu" aria-expanded="false" title="Display">{{icons.symbol('display')}}<span class="tool-label">Display</span></button>
-            <button type="button" id="fullscreenToggle" class="top-tool header-fullscreen-toggle" data-fullscreen-toggle aria-label="Enter full screen" aria-pressed="false" title="Full Screen">{{icons.symbol('fullscreen')}}<span class="tool-label">Full Screen</span></button>
-          </div>
-          <a class="mac-desktop-only" href="{{url_for('settings_page')}}" data-app-nav title="System Settings" aria-label="System Settings">{{icons.symbol('settings')}}</a>
-          <button type="button" id="accountDrawerToggle" class="profile-toggle account-drawer-toggle mac-profile-button" data-drawer-target="accountDrawer" aria-label="Open account menu" aria-controls="accountDrawer" aria-expanded="false">{% if current_user.avatar_data_uri or current_user.photo_data_uri %}<img src="{{current_user.avatar_data_uri or current_user.photo_data_uri}}" alt="{{current_user.full_name or current_user.username}} profile avatar">{% else %}<span class="profile-initial">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}<span class="profile-name"><small>{{current_user.role|title}}</small>{{current_user.full_name or current_user.username}}</span></button>
+        <div class="mac-route-window-actions mac-window-title-actions">
+          <button type="button" data-route-window-action="reload" aria-label="Reload application" title="Reload">↻</button>
+          <a href="{{url_for('dashboard')}}" aria-label="Show Livenza desktop" title="Desktop">↗</a>
         </div>
       </header>{% endif %}
 
       <div class="mac-shell-body">
         <section id="macWorkspace" class="mac-workspace" aria-label="Livenza workspace">
           {% if marquee_enabled and request.endpoint != 'dashboard' %}<div class="operations-marquee live-operations-marquee" id="liveOperationsMarquee" aria-label="Live Livenza operational status"><div class="marquee-live-label"><i></i> LIVE</div><div class="operations-marquee-track" id="liveMarqueeTrack"><span><b>Livenza</b> Loading live operations…</span><i>◆</i></div>{% if is_admin %}<a href="{{url_for('system_settings_pane',pane='automations')}}#marquee-settings" class="marquee-settings-link" title="Configure live status" aria-label="Configure live status">{{icons.symbol('settings')}}</a>{% endif %}</div>{% endif %}
-          <main id="appMain" class="shell app-content-shell">
+          <main id="appMain" class="shell app-content-shell{% if request.endpoint != 'dashboard' %} app-standard-page app-standard-route{% endif %}">
             {% with msgs=get_flashed_messages(with_categories=true) %}{% for cat,msg in msgs %}<div class="flash liquid-card {{cat}}">{{msg}}</div>{% endfor %}{% endwith %}
             {% block content %}{% endblock %}
           </main>
@@ -71,7 +66,7 @@
     <nav id="appsDrawer" class="apps-drawer no-print grouped-apps-drawer suites-launcher" aria-label="Suites" aria-hidden="true" hidden>
       <div class="apps-drawer-head"><div><p class="eyebrow">TESLA OS 27</p><b>Suites</b><small>Open a Livenza suite or System Settings.</small></div><button type="button" id="appsDrawerClose" data-drawer-close aria-label="Close Suites">{{icons.symbol('close')}}</button></div>
       <div class="apps-drawer-scroll grouped-apps-scroll">{{appgroups.render_application_groups('launcher')}}</div>
-      <div class="apps-drawer-foot"><span><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} session</small></span><a href="{{url_for('logout')}}">{{icons.symbol('logout')}} Logout</a></div>
+      <div class="apps-drawer-foot suites-account-bar"><span class="suites-account-copy"><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} · Livenza session</small></span><a class="suites-logout" href="{{url_for('logout')}}" aria-label="Log out of Livenza">{{icons.symbol('logout')}}<span>Logout</span></a></div>
     </nav>
     <nav id="macDock" class="mac-dock no-print" aria-label="Tesla OS Dock">
       <button type="button" class="mac-dock-item mac-dock-launcher" data-suites-dock data-drawer-target="appsDrawer" aria-label="Open Suites" aria-controls="appsDrawer" aria-expanded="false" title="Suites">

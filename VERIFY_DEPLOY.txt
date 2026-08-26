@@ -1,22 +1,22 @@
-TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 8 MACOS 27 SUITE POLISH
+TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 9 PRECISION UI/UX + SINGLE WINDOW DESIGN SYSTEM
 
 1. Open `/version` and confirm Tesla OS 27, Version 27.0.1 and Build 27A101.
-2. Sign in and confirm Home occupies one viewport without unintended horizontal/vertical page scrolling.
-3. Confirm the 34px menu bar remains quiet and contextual; decorative dummy File/Edit/Go controls must not return.
-4. Confirm the 58px Dock contains only authorized/operational applications and that every visible app has a distinct, nonblank icon.
-5. Hover across Dock icons and confirm smooth neighbour/proximity magnification with stationary running indicators. Enable Reduced Motion and confirm travel/magnification is suppressed.
-6. Open Agreement Studio, Rooms/Residents, Queries and one communication app. Verify blue/cyan/orange/communication identity is restrained, readable and consistent with the shared macOS geometry.
-7. Open Banking/Billing/Electricity. Verify financial/stat values remain on one readable line, tables align correctly and colour accents do not reduce contrast.
-8. Open Letterhead/Video Wall and confirm creative colour/animation is richer than neutral utilities without turning the workspace into a full-colour background.
-9. Open System Settings and verify its calmer system visual identity, sidebar alignment and all eight built-in wallpaper previews: Aurora, Spectrum, Sequoia, Midnight, Livenza Blue, Violet Glass, Ocean and Sunrise.
-10. Verify custom wallpaper selection, Reset, instant transition and persistence after reload with no default-wallpaper flash before paint.
-11. Open two application windows and verify focus/z-order, drag, resize, minimise, restore, Zoom/maximise and Close; no window should intersect the Dock safe zone after resize/restore.
-12. Confirm the right-side widgets remain 344px wide on desktop, do not intersect the Dock, and key text/date/temperature values are not clipped.
-13. Confirm the Livenza Companion does not cover the Dock/widgets and no separate temperature badge reappears beside it.
-14. Inspect representative forms, tables, cards, tabs, buttons, popovers and status chips for consistent baselines, centred labels, readable secondary text and no blank placeholder artwork.
-15. Hide the browser tab for at least one minute, restore it, and confirm footer clock/companion data resume once without duplicate high-frequency work.
-16. If Video Wall Player is in use, hide/restore its tab and confirm state/heartbeat polling pauses while hidden and reconnects when visible.
-17. Check browser Performance/Task Manager while moving across the Dock and dragging windows; there should be no obvious continuous layout thrash or duplicated idle polling.
-18. Re-test protected Admin, Vault, Agreement create/update/PDF, Electricity, Billing, Banking, Letterhead, WhatsApp/Email/Drive integrations and other production write actions under the appropriate roles. These server-backed flows cannot be certified by the packaging sandbox.
-19. Preserve historical migration files, instance/database data, uploaded business files and environment variables during deployment.
-20. If anything differs from these checks, retain the prior production package and report the specific route/browser/console error before replacing it.
+2. Sign in and confirm Home occupies one viewport without unintended horizontal page scrolling or Dock/widget collision.
+3. Confirm the 34px menu bar and 58px Dock remain aligned and contain only authorized/operational applications with nonblank icons.
+4. Open Suites. Confirm the launcher is light/readable, category tabs remain on one line, cards are evenly aligned and no application title breaks inside a word.
+5. Compare Agreement Studio and Banking. They must visibly use the same window/titlebar/header/button/tab/card/table design system; Banking may use finance colours but must not revert to its old browser-style Finance Command Center shell.
+6. Repeat the comparison with Rooms, Queries, Billing, Electricity, Food, WhatsApp/Email/Drive, Letterhead and Settings. Structure/rhythm/controls must remain consistent while accent/content identity changes.
+7. Confirm direct full-page app routes do not show a duplicate desktop Dock, mascot or legacy footer.
+8. Verify application canvases are readable light/tinted surfaces rather than giant black slabs. Dark surfaces are acceptable only where media/function requires them.
+9. Inspect headings, cards, tabs, tables, financial values and buttons for clipping, broken words, uneven vertical centring or text touching borders.
+10. Confirm table actions are deliberate and compact; destructive/secondary actions should not appear as uncontrolled text strings.
+11. From Home, test managed-window focus/z-order, drag, resize, minimise, restore, Zoom/maximise and Close. Open two windows and confirm correct layering and Dock safe bounds.
+12. Verify System Settings → Wallpaper: built-in wallpapers, custom image, Reset, instant transition and persistence after reload with no default-wallpaper flash.
+13. Hover the Dock and verify smooth proximity magnification. Enable Reduced Motion and confirm travel/magnification and other spatial motion are reduced.
+14. Verify right-side widgets remain aligned and do not collide with the Dock; loading states should look intentional rather than broken.
+15. Verify the global assistant/mascot does not appear inside direct app routes or cover app content/widgets.
+16. Check at common desktop widths (1920, 1440, 1366, 1280 and 1152 where practical) for horizontal overflow, clipped tabs and broken content.
+17. Hide and restore the browser tab and confirm timers/provider polling do not visibly duplicate or accelerate.
+18. Re-test protected Admin, Vault, Agreement create/update/PDF, Electricity, Billing, Banking, Letterhead, WhatsApp/Email/Drive and other production writes/integrations under the appropriate roles.
+19. Preserve historical migrations, production database, uploaded business files and environment variables during deployment.
+20. If a route differs from these checks, capture the route, browser screenshot, Console error and Network failure before replacing the prior production package.
