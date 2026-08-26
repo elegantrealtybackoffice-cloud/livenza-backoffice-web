@@ -1,0 +1,7 @@
+Tesla OS 27 — Version 27.0.1 — Build 27A101
+Complete deployment with Login 500 Hotfix 3 merged.
+
+Upload every PART zip in numeric order and preserve paths.
+Overwrite existing files when prompted.
+Do not delete persistent database/instance data or environment variables.
+Restart/redeploy the service after the final part is uploaded.

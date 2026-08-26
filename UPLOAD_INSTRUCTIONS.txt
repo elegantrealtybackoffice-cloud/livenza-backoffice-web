@@ -1,7 +1,11 @@
-Tesla OS 27 v27.0.1 Build 27A101 — LOGIN 500 HOTFIX 3
+TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101
 
-1. Upload app.py to the project root and replace the existing app.py.
-2. Restart/redeploy the web service.
-3. Open /logout, then /login.
-
-This hotfix makes public login rendering independent of database-backed Settings/mascot preferences and makes optional settings/preferences fail-safe instead of returning HTTP 500.
+1. Upload the contents of the DIRECT_ROOT_FILES package to the application repository root.
+2. Preserve the existing DATABASE_URL / PostgreSQL connection, SECRET_KEY, LIVENZA_VAULT_MASTER_KEY and INTEGRATION_ENCRYPTION_KEY values so existing encrypted data remains readable.
+3. Keep the supplied historical migration files. Their filenames are retained only for database compatibility and do not represent the current OS version.
+4. Deploy with the supplied Dockerfile/render.yaml and confirm `/version` reports Tesla OS 27, Version 27.0.1 and Build 27A101.
+5. Confirm Home contains only the Livenza AI identity workspace and the persistent bottom Dock.
+6. Confirm the Dock contains one Suites icon and opens the permission-aware Suites launcher.
+7. Confirm Account, Admin, Users, Integrations, appearance, widgets, security and organisation configuration are available through System Settings.
+8. Keep HTTPS enabled for camera, passkey/WebAuthn and other browser security features.
+9. Banking or partner sites may refuse iframe embedding by design. Use their verified external-site launcher when that occurs; do not bypass CSP or X-Frame-Options.
