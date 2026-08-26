@@ -2508,9 +2508,13 @@ def inject_common():
 @app.before_request
 def enforce_kiosk_pin_gate():
     """Server-side gate for every authenticated page while application lock is enabled."""
+    # Diagnostics must never depend on Settings/current-user lookups before their
+    # own stage-by-stage error reporting has a chance to run.
+    if request.endpoint in {'health','version','diagnostics','diagnostics_authenticated','diagnostics_runtime','static'}:
+        return None
     if not session.get('uid') or setting('kiosk_mode_enabled','0')!='1' or session.get('kiosk_unlocked'):
         return None
-    allowed={'kiosk_lock','kiosk_unlock','logout','health','version','diagnostics_authenticated','static'}
+    allowed={'kiosk_lock','kiosk_unlock','logout'}
     if request.endpoint not in allowed:
         return redirect(url_for('kiosk_lock',next=request.full_path.rstrip('?')))
 
@@ -2594,6 +2598,34 @@ def diagnostics():
         checks['database_error'] = str(exc)[:180]
         db.session.rollback()
     return jsonify(checks)
+
+@app.route('/diagnostics/runtime')
+def diagnostics_runtime():
+    """Public fail-soft trace for request-time database/context/template dependencies."""
+    result={'version':APP_VERSION,'build':OS_BUILD,'session_uid_present':bool(session.get('uid')),'stages':{}}
+
+    def record(stage, fn):
+        try:
+            value=fn()
+            result['stages'][stage]={'ok':True,'value':value}
+            return True
+        except Exception as exc:
+            try: db.session.rollback()
+            except Exception: pass
+            result['stages'][stage]={'ok':False,'error_type':type(exc).__name__,'error':str(exc)[:900]}
+            result.setdefault('failed_stage',stage)
+            return False
+
+    record('setting_table', lambda: {'rows':int(db.session.execute(db.text('select count(*) from setting')).scalar() or 0), 'columns':[c['name'] for c in inspect(db.engine).get_columns('setting')]})
+    record('user_table', lambda: {'rows':int(db.session.execute(db.text('select count(*) from "user"')).scalar() or 0), 'columns':[c['name'] for c in inspect(db.engine).get_columns('user')]})
+    record('mascot_preference_table', lambda: {'rows':int(db.session.execute(db.text('select count(*) from mascot_preference')).scalar() or 0), 'columns':[c['name'] for c in inspect(db.engine).get_columns('mascot_preference')]})
+    record('setting_helper', lambda: {'kiosk_mode_enabled':setting('kiosk_mode_enabled','0'),'companion_enabled':setting('companion_enabled','1')})
+    record('current_user', lambda: ({'id':current_user().id,'username':current_user().username,'role':current_user().role} if current_user() else None))
+    record('context_processor', lambda: {k:(str(v)[:160] if not callable(v) else '<callable>') for k,v in inject_common().items() if k not in {'current_user'}})
+    record('login_render', lambda: {'html_bytes':len(render_template('login.html').encode('utf-8'))})
+    result['ok']='failed_stage' not in result
+    return jsonify(result),200
+
 
 @app.route('/diagnostics/authenticated')
 def diagnostics_authenticated():
