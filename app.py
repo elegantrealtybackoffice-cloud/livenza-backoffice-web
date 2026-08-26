@@ -2510,7 +2510,7 @@ def enforce_kiosk_pin_gate():
     """Server-side gate for every authenticated page while application lock is enabled."""
     if not session.get('uid') or setting('kiosk_mode_enabled','0')!='1' or session.get('kiosk_unlocked'):
         return None
-    allowed={'kiosk_lock','kiosk_unlock','logout','health','version','static'}
+    allowed={'kiosk_lock','kiosk_unlock','logout','health','version','diagnostics_authenticated','static'}
     if request.endpoint not in allowed:
         return redirect(url_for('kiosk_lock',next=request.full_path.rstrip('?')))
 
@@ -2594,6 +2594,57 @@ def diagnostics():
         checks['database_error'] = str(exc)[:180]
         db.session.rollback()
     return jsonify(checks)
+
+@app.route('/diagnostics/authenticated')
+def diagnostics_authenticated():
+    """Trace the authenticated HTML-render path without turning a failing stage into a 500."""
+    result={'session':{'ok':bool(session.get('uid'))}}
+    uid=session.get('uid')
+    if not uid:
+        return jsonify(ok=False,failed_stage='session',stages=result),401
+
+    try:
+        user=db.session.get(User,uid)
+        if not user:
+            return jsonify(ok=False,failed_stage='user_load',stages={**result,'user_load':{'ok':False,'error':'Session user does not exist.'}}),409
+        result['user_load']={'ok':True,'user_id':user.id,'role':user.role or ''}
+    except Exception as exc:
+        db.session.rollback()
+        result['user_load']={'ok':False,'error_type':type(exc).__name__,'error':str(exc)[:500]}
+        return jsonify(ok=False,failed_stage='user_load',stages=result),200
+
+    try:
+        result['settings']={'ok':True,'kiosk_mode_enabled':setting('kiosk_mode_enabled','0')=='1'}
+    except Exception as exc:
+        db.session.rollback()
+        result['settings']={'ok':False,'error_type':type(exc).__name__,'error':str(exc)[:500]}
+        return jsonify(ok=False,failed_stage='settings',stages=result),200
+
+    try:
+        prefs=mascot_preferences_for(user)
+        result['mascot_preferences']={'ok':True,'enabled':bool(prefs.get('enabled'))}
+    except Exception as exc:
+        db.session.rollback()
+        result['mascot_preferences']={'ok':False,'error_type':type(exc).__name__,'error':str(exc)[:500]}
+        return jsonify(ok=False,failed_stage='mascot_preferences',stages=result),200
+
+    try:
+        result['permissions']={'ok':True,'settings_access':can_access('settings',user),'letterhead_access':can_access('letterhead',user)}
+    except Exception as exc:
+        db.session.rollback()
+        result['permissions']={'ok':False,'error_type':type(exc).__name__,'error':str(exc)[:500]}
+        return jsonify(ok=False,failed_stage='permissions',stages=result),200
+
+    try:
+        rendered=render_template('dashboard.html',show_login_welcome=False)
+        result['dashboard_render']={'ok':True,'html_bytes':len(rendered.encode('utf-8'))}
+    except Exception as exc:
+        db.session.rollback()
+        result['dashboard_render']={'ok':False,'error_type':type(exc).__name__,'error':str(exc)[:900]}
+        return jsonify(ok=False,failed_stage='dashboard_render',stages=result),200
+
+    return jsonify(ok=True,failed_stage=None,stages=result)
+
 
 @app.route('/version')
 def version():
@@ -2703,29 +2754,11 @@ def account_avatar():
 @app.route('/')
 @login_required
 def dashboard():
+    # Tesla OS 27 Home is intentionally a lightweight identity workspace.
+    # Operational data is loaded only inside the suites that actually need it,
+    # so a stale optional module/table cannot turn the Home route into a 500.
     show_login_welcome=bool(session.pop('show_login_welcome',False))
-    if can_access('electricity'): refresh_electricity_reminders()
-    rooms=Room.query.all(); statuses=[room_status(r) for r in rooms]
-    stats={
-        'agreements':Agreement.query.count(), 'tenants':Tenant.query.count(), 'rooms':len(rooms),
-        'vacant':sum(1 for x in statuses if x=='Vacant'), 'orders':FoodOrder.query.count(), 'reviews':Review.query.count(), 'queries':QueryLead.query.count(), 'hot_queries':QueryLead.query.filter_by(heat='Hot').count(), 'screens':VideoScreen.query.count(), 'screens_online':sum(1 for x in VideoScreen.query.all() if screen_is_online(x)),
-        'electricity_due':ElectricityBill.query.filter(ElectricityBill.status.in_(['due_soon','due_today','overdue','payment_pending_confirmation'])).count()
-    }
-    agreements_all=Agreement.query.all()
-    city_rows=[]
-    for c in City.query.filter_by(active=True).order_by(City.name).all():
-        city_rows.append({
-            'name':c.name, 'code':c.code,
-            'rooms':Room.query.filter_by(city=c.name).count(),
-            'tenants':Tenant.query.filter_by(city=c.name).count(),
-            'agreements':sum(1 for a in agreements_all if (a.data.get('city') or '').strip()==c.name)
-        })
-    live_reminders=_electricity_current_reminders(8) if can_access('electricity') else []
-    summary={'due_soon':0,'due_today':0,'overdue':0,'payment_pending_confirmation':0}
-    for item in live_reminders:
-        status=(item.get('payload') or {}).get('bill_status','')
-        if status in summary: summary[status]+=1
-    return render_template('dashboard.html', stats=stats, cities=city_rows, permissions=user_permissions(), show_login_welcome=show_login_welcome, live_reminders=live_reminders, electricity_reminder_summary=summary)
+    return render_template('dashboard.html', show_login_welcome=show_login_welcome)
 
 @app.route('/api/marquee')
 @login_required
