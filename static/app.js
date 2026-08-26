@@ -167,7 +167,15 @@ document.addEventListener('click',async e=>{
 });
 
 function updateFooterClock(){const el=document.getElementById('footerClock');if(el)el.textContent=new Date().toLocaleString(undefined,{weekday:'short',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})}
-const footerClock=document.getElementById('footerClock');if(footerClock){updateFooterClock();window.setInterval(updateFooterClock,1000)}const footerYear=document.getElementById('footerYear');if(footerYear)footerYear.textContent=new Date().getFullYear();
+let footerClockTimer=null;
+function scheduleFooterClock(){
+  window.clearTimeout(footerClockTimer);footerClockTimer=null;
+  const el=document.getElementById('footerClock');if(!el||document.hidden)return;
+  updateFooterClock();
+  const delay=Math.max(250,1000-(Date.now()%1000)+20);
+  footerClockTimer=window.setTimeout(scheduleFooterClock,delay);
+}
+const footerClock=document.getElementById('footerClock');if(footerClock){scheduleFooterClock();document.addEventListener('visibilitychange',()=>{if(document.hidden){window.clearTimeout(footerClockTimer);footerClockTimer=null}else scheduleFooterClock()});window.addEventListener('pagehide',()=>{window.clearTimeout(footerClockTimer);footerClockTimer=null},{once:true})}const footerYear=document.getElementById('footerYear');if(footerYear)footerYear.textContent=new Date().getFullYear();
 initPageFeatures(document);
 
 // ===== Tesla OS 27 • restored header rotation and display menu =====
@@ -832,7 +840,7 @@ initPageFeatures(document);
   const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const mobilePerformance=livenzaMobilePerformance();
   let currentCity=companion.dataset.defaultCity||'Gurugram';
-  let pulse=null,quoteIndex=0,nudgeIndex=0,nudgeTimer=null,refreshTimer=null,sceneTimer=null;
+  let pulse=null,quoteIndex=0,nudgeIndex=0,nudgeTimer=null,ambientTimer=null,refreshTimer=null,sceneTimer=null;
   let previousOperationSnapshot='',lastPulseAt=0;
 
   function setParked(parked){companion.classList.toggle('is-parked',parked)}
@@ -900,7 +908,8 @@ initPageFeatures(document);
     if(!nudge||!panel?.hidden)return;const lines=nudgeLines();if(!lines.length)return;
     const text=nudge.querySelector('span');if(text)text.textContent=lines[nudgeIndex++%lines.length];nudge.classList.add('show');window.setTimeout(()=>nudge.classList.remove('show'),4200);
   }
-  function restartNudges(){if(desktopHome||!nudge)return;clearInterval(nudgeTimer);window.setTimeout(showNextNudge,1800);nudgeTimer=window.setInterval(showNextNudge,15000)}
+  function scheduleNextNudge(delay=15000){clearTimeout(nudgeTimer);nudgeTimer=null;if(desktopHome||!nudge||document.hidden)return;nudgeTimer=window.setTimeout(()=>{showNextNudge();scheduleNextNudge(15000)},delay)}
+  function restartNudges(){scheduleNextNudge(1800)}
 
   function clearWeatherScene(){
     clearTimeout(sceneTimer);if(!weatherScene)return;weatherScene.classList.remove('is-active','is-leaving');weatherScene.replaceChildren();weatherScene.removeAttribute('data-effect');document.body.classList.forEach(name=>{if(name.startsWith('weather-tone-'))document.body.classList.remove(name)});
@@ -948,12 +957,11 @@ initPageFeatures(document);
   }
   function renderPulse(data,autoEffect=true){
     reactToOperationChanges(data.operations||[]);pulse=data;lastPulseAt=Date.now();setCompanionFreshness('live');const weather=data.weather||{};currentCity=weather.city||currentCity;
-    const city=document.getElementById('companionWeatherCity'),temperature=document.getElementById('companionWeatherTemperature'),condition=document.getElementById('companionWeatherCondition'),icon=document.getElementById('companionWeatherIcon'),chip=document.getElementById('mascotWeatherChip');
+    const city=document.getElementById('companionWeatherCity'),temperature=document.getElementById('companionWeatherTemperature'),condition=document.getElementById('companionWeatherCondition'),icon=document.getElementById('companionWeatherIcon');
     if(city)city.textContent=weather.city||currentCity;
     if(temperature)temperature.textContent=weather.available?`${weather.temperature}°`:'—°';
     if(condition)condition.textContent=weather.condition||'Weather unavailable';
     if(icon)icon.textContent=weatherIcon(weather.effect,weather.is_day);
-    if(chip)chip.textContent=weather.available?`${weather.temperature}°`:'LIVE';
     const feels=document.getElementById('companionWeatherFeels'),humidity=document.getElementById('companionWeatherHumidity'),wind=document.getElementById('companionWeatherWind'),source=document.getElementById('companionWeatherSource');
     if(feels)feels.textContent=`Feels ${weather.feels_like??'—'}°`;if(humidity)humidity.textContent=`Humidity ${weather.humidity??'—'}%`;if(wind)wind.textContent=`Wind ${weather.wind??'—'} km/h`;if(source)source.textContent=weather.available?'Weather by Open-Meteo':'Weather reconnecting';
     renderLocations(data.locations||[]);renderForecast(weather);renderOperations(data.operations||[]);showQuote(0);restartNudges();
@@ -970,10 +978,10 @@ initPageFeatures(document);
     catch(error){setCompanionFreshness('stale');const condition=document.getElementById('companionWeatherCondition');if(condition)condition.textContent=lastPulseAt?'Live data is temporarily stale — reconnecting':'Live update will reconnect shortly';scheduleCompanionPulse(90000)}
     finally{companion.classList.remove('is-syncing')}
   }
-  document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseCompanionPulse();else resumeCompanionPulse()});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){pauseCompanionPulse();clearTimeout(nudgeTimer);nudgeTimer=null;clearTimeout(ambientTimer);ambientTimer=null}else{resumeCompanionPulse();restartNudges();scheduleMascotAmbient(mobilePerformance?14000:7000)}});
   window.addEventListener('online',()=>{if(!document.hidden)loadPulse(currentCity,false)});
-  window.addEventListener('pageshow',()=>{if(!document.hidden)loadPulse(currentCity,false)});
-  window.addEventListener('pagehide',pauseCompanionPulse,{once:true});
+  window.addEventListener('pageshow',()=>{if(!document.hidden){loadPulse(currentCity,false);restartNudges();scheduleMascotAmbient(mobilePerformance?14000:7000)}});
+  window.addEventListener('pagehide',()=>{pauseCompanionPulse();clearTimeout(nudgeTimer);clearTimeout(ambientTimer)},{once:true});
 
   const mascotAmbientActions=['funny-wave','funny-hop','funny-peek','funny-wobble','funny-celebrate'];
   function performMascotAmbientAction(){
@@ -982,7 +990,8 @@ initPageFeatures(document);
     const action=choices[Math.floor(Math.random()*choices.length)];
     companion.classList.add(action);window.setTimeout(()=>companion.classList.remove(action),1500);
   }
-  if(!reduce&&!desktopHome){window.setTimeout(performMascotAmbientAction,mobilePerformance?14000:7000);window.setInterval(performMascotAmbientAction,mobilePerformance?45000:22000)}
+  function scheduleMascotAmbient(delay=mobilePerformance?45000:22000){clearTimeout(ambientTimer);ambientTimer=null;if(reduce||desktopHome||document.hidden)return;ambientTimer=window.setTimeout(()=>{performMascotAmbientAction();scheduleMascotAmbient(mobilePerformance?45000:22000)},delay)}
+  if(!reduce&&!desktopHome)scheduleMascotAmbient(mobilePerformance?14000:7000)
   loadPulse(currentCity,!desktopHome);
 })();
 

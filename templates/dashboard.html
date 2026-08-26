@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% import '_livenza_symbols.html' as icons with context %}
+{% import '_application_groups.html' as appgroups with context %}
 {% block content %}
 <section class="mac-desktop-home" aria-label="Tesla OS 27 Home desktop">
   <nav class="mac-desktop-menubar" aria-label="Desktop menu bar">
@@ -59,10 +60,10 @@
     <section class="home-widget home-suggestions-widget" data-home-widget="tasks" aria-label="Livenza suggestions">
       <header class="home-suggestions-head"><small>Livenza Suggestions</small></header>
       <div class="home-suggestion-list">
-        {% if can_access('agreements') %}<a href="{{url_for('agreements')}}" data-app-nav><span class="suggestion-icon tone-blue">{{icons.symbol('agreement')}}</span><span><b>Create an agreement</b><small>Open Agreement Studio</small></span></a>{% endif %}
-        {% if can_access('queries') %}<a href="{{url_for('queries')}}" data-app-nav><span class="suggestion-icon tone-violet">{{icons.symbol('queries')}}</span><span><b>Review live queries</b><small>See follow-ups and leads</small></span></a>{% endif %}
-        {% if can_access('letterhead') %}<a href="{{url_for('letterhead_studio')}}" data-app-nav><span class="suggestion-icon tone-red">{{icons.symbol('letterhead')}}</span><span><b>Create a document</b><small>Open Letterhead Studio</small></span></a>{% endif %}
-        <button type="button" data-home-companion-open><span class="suggestion-icon tone-indigo">{{icons.symbol('intelligence')}}</span><span><b>Ask Livenza</b><small>Get help with this workspace</small></span></button>
+        {% if can_access('agreements') %}<a href="{{url_for('agreements')}}" data-app-nav>{{appgroups.app_icon('agreement','agreements','blue','suggestion-app-icon')}}<span><b>Create an agreement</b><small>Open Agreement Studio</small></span></a>{% endif %}
+        {% if can_access('queries') %}<a href="{{url_for('queries')}}" data-app-nav>{{appgroups.app_icon('queries','queries','orange','suggestion-app-icon')}}<span><b>Review live queries</b><small>See follow-ups and leads</small></span></a>{% endif %}
+        {% if can_access('letterhead') %}<a href="{{url_for('letterhead_studio')}}" data-app-nav>{{appgroups.app_icon('letterhead','letterhead_studio','red','suggestion-app-icon')}}<span><b>Create a document</b><small>Open Letterhead Studio</small></span></a>{% endif %}
+        <button type="button" data-home-companion-open>{{appgroups.app_icon('intelligence','assistant','indigo','suggestion-app-icon')}}<span><b>Ask Livenza</b><small>Get help with this workspace</small></span></button>
       </div>
     </section>
   </aside>

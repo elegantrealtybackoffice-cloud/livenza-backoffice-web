@@ -1,18 +1,20 @@
-TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 7 BROWSER-OS CLEAN SHELL
+TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 8 MACOS 27 SUITE POLISH
 
 1. Back up the current application tree plus persistent database/instance/uploads before replacing application files.
-2. Upload/extract the COMPLETE Hotfix 7 package into the application repository root, preserving paths and overwriting matching application/static/template files.
-3. For a 100-file upload limit, upload PART_01_100_FILES first and PART_02_57_FILES second into the exact same application root. Neither part is a standalone application.
+2. Upload/extract the COMPLETE Hotfix 8 package into the application repository root, preserving paths and overwriting matching application/static/template files.
+3. For a 100-file upload limit, upload PART_01_100_FILES first and PART_02_53_FILES second into the exact same application root. Neither part is a standalone application.
 4. Preserve DATABASE_URL / PostgreSQL data, SECRET_KEY, LIVENZA_VAULT_MASTER_KEY, INTEGRATION_ENCRYPTION_KEY and all other production environment variables so existing encrypted/business data remains readable.
-5. Preserve historical migration files, persistent instance/database data and uploaded business files. Do not delete or reset production data as part of this UI shell deployment.
+5. Preserve historical migration files, persistent instance/database data and uploaded business files. Do not delete or reset production data as part of this UI deployment.
 6. Deploy with the supplied Dockerfile/render.yaml and confirm `/version` reports Tesla OS 27, Version 27.0.1 and Build 27A101.
-7. Hard-refresh once after deployment so the browser receives the new clean-shell static assets.
-8. Confirm Home loads as the macOS-style desktop host: quiet 34 px menu bar, vibrant wallpaper, right-side widgets and a persistent 58 px functional-app Dock.
-9. Confirm the Dock contains only applications genuinely available for the signed-in user. Provider-dependent apps must remain hidden when their capability is unavailable.
-10. Open at least two Dock apps and verify managed window focus, drag, resize, minimise, restore, Zoom/maximise and Close. File should appear only when an application window is active.
-11. Open System Settings → Wallpaper and verify built-in previews, custom image selection, Reset, instant transition and persistence after reload without a default-wallpaper flash.
-12. Confirm menu items, Dock entries and widgets perform real actions; decorative/dummy File/Edit/Go-style controls must not reappear.
-13. Confirm representative forms, tables, cards, popovers and buttons have neat baseline alignment, readable text and no clipping/legacy streak effects.
-14. Keep HTTPS enabled for camera, passkey/WebAuthn and other browser security features.
-15. Banking or partner sites may refuse iframe embedding by design. Use their verified external-site launcher when that occurs; do not bypass CSP or X-Frame-Options.
-16. Run every acceptance check in VERIFY_DEPLOY.txt before treating the deployment as accepted. Server-backed writes/integrations must be re-tested against production because the packaging sandbox cannot certify live database/provider behaviour.
+7. Hard-refresh once after deployment so the browser receives the new Hotfix 8 system assets.
+8. Confirm Home retains the macOS browser-OS shell: quiet 34px menu bar, vibrant selectable wallpaper, right-side widgets and persistent 58px functional-app Dock.
+9. Confirm every visible Dock item has real artwork and opens a working/authorized application; unavailable provider-dependent apps must remain hidden.
+10. Open representative Agreements, Banking, Letterhead/Creative and Settings windows. Confirm each has a distinct but restrained colour identity, correct titlebar treatment, readable controls, neat text alignment and no blank icons.
+11. Verify window focus, drag, resize, minimise, restore, Zoom/maximise and Close. Open two windows and confirm safe bounds/z-order at 1920×1080, 1440×900, 1366×768 and 1152×720 where practical.
+12. Open System Settings → Wallpaper and verify all built-in previews, custom image selection, Reset, instant transition and persistence after reload without a default-wallpaper flash.
+13. Confirm tables, stats, cards, forms, buttons and status chips are aligned and readable; finance values must not wrap awkwardly.
+14. Enable Reduced Motion and confirm suite-content reveal, Dock travel and other spatial motion are suppressed appropriately.
+15. Hide/restore the browser tab and confirm the footer clock, companion refresh and Video Wall polling resume once without duplicate hidden-tab work.
+16. Keep HTTPS enabled for camera, passkey/WebAuthn and other browser security features.
+17. Banking or partner sites may refuse iframe embedding by design. Use their verified external-site launcher when that occurs; do not bypass CSP or X-Frame-Options.
+18. Run every acceptance check in VERIFY_DEPLOY.txt before treating the deployment as accepted. Server-backed writes/integrations must be re-tested against production because the packaging sandbox cannot certify live database/provider behavior.

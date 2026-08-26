@@ -1,12 +1,16 @@
 {% import '_livenza_symbols.html' as icons with context %}
 
+{% macro app_icon(symbol_name,endpoint='',tone='blue',class_name='livenza-app-icon') -%}
+<span class="{{class_name}} livenza-app-icon" data-app-icon="{{endpoint or symbol_name}}" data-app-tone="{{tone}}" aria-hidden="true"><span class="app-icon-backdrop"></span><span class="app-icon-glyph">{{icons.symbol(symbol_name)}}</span><span class="app-icon-shine"></span></span>
+{%- endmacro %}
+
 {% macro app_item(surface,title,desc,endpoint,perm='',symbol_name='home',media='livenza_360_lifestyle_bg.jpg') -%}
   {% if ((not perm) or can_access(perm)) and ui_app_available(endpoint) %}
     {% if surface == 'drawer' %}
-      <a class="grouped-app-item lg-app-tile lg-control {% if request.endpoint==endpoint %}active is-active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav><i>{{icons.symbol(symbol_name)}}</i><span><b>{{title}}</b><small>{{desc}}</small></span><em aria-hidden="true">›</em></a>
+      <a class="grouped-app-item lg-app-tile lg-control {% if request.endpoint==endpoint %}active is-active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav data-app-endpoint="{{endpoint}}"><i>{{app_icon(symbol_name,endpoint,'blue','suite-tile-app-icon')}}</i><span><b>{{title}}</b><small>{{desc}}</small></span><em aria-hidden="true">›</em></a>
     {% else %}
       <a class="home-app-card liquid-card lg-app-tile" href="{{url_for(endpoint)}}" data-app-nav>
-        <span class="home-app-media"><img src="{{url_for('static',filename=media)}}" alt="" loading="lazy" decoding="async"><i>{{icons.symbol(symbol_name)}}</i></span>
+        <span class="home-app-media"><img src="{{url_for('static',filename=media)}}" alt="" loading="lazy" decoding="async"><i>{{app_icon(symbol_name,endpoint,'blue','home-app-icon')}}</i></span>
         <span class="home-app-copy"><small>AUTHORIZED APP</small><b>{{title}}</b><span>{{desc}}</span><em>Open module ›</em></span>
       </a>
     {% endif %}
@@ -69,16 +73,16 @@
 {%- endmacro %}
 
 
-{% macro dock_app(title,endpoint,symbol_name='home',tone='blue') -%}
-  <a class="mac-dock-item mac-dock-app {% if request.endpoint==endpoint %}is-active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav data-dock-app data-app-endpoint="{{endpoint}}" data-app-url="{{url_for(endpoint)}}" data-app-title="{{title}}" data-app-tone="{{tone}}" data-dock-tone="{{tone}}" aria-label="{{title}}" title="{{title}}">
-    <span class="mac-dock-icon"><span class="dock-app-glyph">{{icons.symbol(symbol_name)}}</span></span>
+{% macro dock_app(title,endpoint,symbol_name='home',tone='blue',family='productivity',accent='#0088ff',accent2='#6155f5') -%}
+  <a class="mac-dock-item mac-dock-app {% if request.endpoint==endpoint %}is-active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav data-dock-app data-app-endpoint="{{endpoint}}" data-app-url="{{url_for(endpoint)}}" data-app-title="{{title}}" data-app-tone="{{tone}}" data-app-family="{{family}}" data-app-accent="{{accent}}" data-app-accent2="{{accent2}}" data-dock-tone="{{tone}}" aria-label="{{title}}" title="{{title}}" style="--app-accent:{{accent}};--app-accent-2:{{accent2}}">
+    {{app_icon(symbol_name,endpoint,tone,'mac-dock-icon')}}
     <span class="mac-dock-tooltip" role="tooltip">{{title}}</span><i class="mac-dock-running" aria-hidden="true"></i>
   </a>
 {%- endmacro %}
 
 {% macro render_dock_apps() -%}
   {% for app_item in dock_apps %}
-    {{dock_app(app_item.title,app_item.endpoint,app_item.icon,app_item.tone)}}
+    {{dock_app(app_item.title,app_item.endpoint,app_item.icon,app_item.tone,app_item.family,app_item.accent,app_item.accent2)}}
   {% endfor %}
 {%- endmacro %}
 

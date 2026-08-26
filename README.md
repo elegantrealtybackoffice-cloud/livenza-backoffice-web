@@ -155,3 +155,27 @@ Hotfix 7 changes the Home experience from a dashboard styled like macOS into a d
 The packaged source is verified with Python contract tests, Python compilation, JavaScript syntax checks, all Jinja templates parsed, and a real Chromium/Playwright shell fixture at 1440×900 and 1152×720. The Chromium audit checks exact geometry, no page overflow, widget/Dock separation, representative text overflow, wallpaper rendering, Dock magnification, window open/focus/drag/resize/minimise/restore/maximise/close, contextual menus, inline mounted-page script execution and Reduced Motion behaviour. The final browser audit is required to pass twice consecutively after the last code change.
 
 The sandbox used to prepare this package does not have Flask installed and cannot open an authenticated live `backoffice.livenza.life` session. Therefore the Chromium verification is a deterministic browser fixture of the production shell code, not a claim that the live deployment itself was remotely exercised. Run `VERIFY_DEPLOY.txt` after deploying the ZIP to validate the real environment and provider-backed workflows.
+
+## Hotfix 8 — macOS 27 Suite Polish
+
+Hotfix 8 keeps the Hotfix 7 browser-OS architecture and refines the functional application windows themselves. Each major Livenza suite now receives a restrained but recognizable visual family, unique Dock artwork, improved sub-window typography/alignment and macOS-style motion while preserving the existing backend, route, permission and integration behavior.
+
+### Application visual identities
+- Agreements use a blue/indigo productivity treatment; Rooms/Residents use cyan/teal occupancy cues; Queries use orange pipeline cues; Reviews use yellow/pink reputation cues.
+- Video Wall and Letterhead use creative pink/violet identities; Food uses green/orange hospitality accents; Billing/Banking use teal/navy finance treatments; Electricity uses amber/orange utilities cues.
+- WhatsApp/Email/Drive use communication/document accents, while Settings/Admin surfaces remain calmer violet/graphite system surfaces.
+- Colour is concentrated in Dock artwork, suite title chrome, selected states, status chips, data highlights and restrained canvas washes instead of flooding whole working surfaces.
+
+### Alignment, motion and graphics
+- Functional Dock icons use application-specific SVG symbols; blank/generic placeholder artwork is rejected by the Hotfix 8 contracts and browser audit.
+- Finance/stat values use non-wrapping tabular numerals, table/card treatments inherit the active suite family, and the Home date line box was adjusted after Chromium clipping detection.
+- Suite-content materialization, card/tab interaction and titlebar accent motion remain brief and fully suppressed by Reduced Motion.
+- Eight original built-in wallpapers are available alongside custom wallpaper: Aurora, Spectrum, Sequoia, Midnight, Livenza Blue, Violet Glass, Ocean and Sunrise.
+
+### Performance refinement
+- The legacy footer clock no longer runs an unconditional 1-second interval while hidden.
+- Video Wall state and heartbeat loops are visibility-aware and pause when the player page is hidden.
+- Retired historical presentation assets remain removed rather than reintroduced as another Hotfix stylesheet.
+
+### Hotfix 8 verification scope
+The exact packaged source is verified with 26 Hotfix 8 contract tests, Python compilation, JavaScript syntax checks, all 73 Jinja templates parsed, and a 24-scenario Chromium/Playwright audit across 1920×1080, 1440×900, 1366×768 and 1152×720. The browser audit covers representative Agreements, Banking, Creative/Letterhead, Settings, overlapping-window and Reduced Motion states and must pass twice consecutively after the final production-code change. See `HOTFIX8_AUDIT.md` for the complete record and environment limitation.

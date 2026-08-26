@@ -1,4 +1,4 @@
 Tesla OS 27
 Version 27.0.1
 Build 27A101
-Hotfix 7 — Browser-OS Clean Shell
+Hotfix 8 — macOS 27 Suite Polish

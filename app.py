@@ -2512,22 +2512,22 @@ def all_form_data(preset_name=None):
 
 
 LIVENZA_APP_REGISTRY = [
-    {'title':'Home','endpoint':'dashboard','permission':'','icon':'home','tone':'finder','availability':'internal'},
-    {'title':'Agreement Studio','endpoint':'agreements','permission':'agreements','icon':'agreement','tone':'blue','availability':'internal'},
-    {'title':'Rooms','endpoint':'rooms','permission':'rooms','icon':'room','tone':'cyan','availability':'internal'},
-    {'title':'Residents','endpoint':'tenants','permission':'rooms','icon':'resident','tone':'teal','availability':'internal'},
-    {'title':'Queries','endpoint':'queries','permission':'queries','icon':'queries','tone':'orange','availability':'internal'},
-    {'title':'Reviews','endpoint':'reviews','permission':'reviews','icon':'review','tone':'yellow','availability':'internal'},
-    {'title':'Video Wall','endpoint':'video_wall','permission':'video_wall','icon':'video','tone':'pink','availability':'internal'},
-    {'title':'Food','endpoint':'food','permission':'food','icon':'food','tone':'green','availability':'internal'},
-    {'title':'Billing','endpoint':'billing','permission':'rentok','icon':'billing','tone':'mint','availability':'internal'},
-    {'title':'Banking','endpoint':'banking_suite','permission':'banking','icon':'banking','tone':'navy','availability':'internal'},
-    {'title':'Electricity','endpoint':'electricity_studio','permission':'electricity','icon':'electricity','tone':'amber','availability':'internal'},
-    {'title':'WhatsApp','endpoint':'whatsapp_workspace','permission':'whatsapp','icon':'whatsapp','tone':'green','availability':'whatsapp'},
-    {'title':'Email','endpoint':'email_workspace','permission':'email','icon':'email','tone':'blue','availability':'google'},
-    {'title':'Drive','endpoint':'drive_workspace','permission':'drive','icon':'drive','tone':'cyan','availability':'google'},
-    {'title':'Letterhead Studio','endpoint':'letterhead_studio','permission':'letterhead','icon':'letterhead','tone':'red','availability':'internal'},
-    {'title':'System Settings','endpoint':'settings_page','permission':'','icon':'settings','tone':'settings','availability':'internal'},
+    {'title':'Home','endpoint':'dashboard','permission':'','icon':'home','tone':'finder','family':'desktop','accent':'#48A9FF','accent2':'#5B62F4','availability':'internal'},
+    {'title':'Agreement Studio','endpoint':'agreements','permission':'agreements','icon':'agreement','tone':'blue','family':'productivity','accent':'#248CFF','accent2':'#6757E8','availability':'internal'},
+    {'title':'Rooms','endpoint':'rooms','permission':'rooms','icon':'room','tone':'cyan','family':'occupancy','accent':'#24C7F4','accent2':'#197BFF','availability':'internal'},
+    {'title':'Residents','endpoint':'tenants','permission':'rooms','icon':'resident','tone':'teal','family':'occupancy','accent':'#2FD3B8','accent2':'#0A9C87','availability':'internal'},
+    {'title':'Queries','endpoint':'queries','permission':'queries','icon':'queries','tone':'orange','family':'pipeline','accent':'#FF9B42','accent2':'#FF5D3A','availability':'internal'},
+    {'title':'Reviews','endpoint':'reviews','permission':'reviews','icon':'review','tone':'yellow','family':'reputation','accent':'#FFD447','accent2':'#FF4E8B','availability':'internal'},
+    {'title':'Video Wall','endpoint':'video_wall','permission':'video_wall','icon':'video','tone':'pink','family':'creative','accent':'#FF58AF','accent2':'#8B5DFF','availability':'internal'},
+    {'title':'Food','endpoint':'food','permission':'food','icon':'food','tone':'green','family':'hospitality','accent':'#49CD72','accent2':'#FF9A3D','availability':'internal'},
+    {'title':'Billing','endpoint':'billing','permission':'rentok','icon':'billing','tone':'mint','family':'finance','accent':'#2ED5B5','accent2':'#1A9DE0','availability':'internal'},
+    {'title':'Banking','endpoint':'banking_suite','permission':'banking','icon':'banking','tone':'navy','family':'finance','accent':'#5575D9','accent2':'#283A8C','availability':'internal'},
+    {'title':'Electricity','endpoint':'electricity_studio','permission':'electricity','icon':'electricity','tone':'amber','family':'utilities','accent':'#FFD24A','accent2':'#FF8A2D','availability':'internal'},
+    {'title':'WhatsApp','endpoint':'whatsapp_workspace','permission':'whatsapp','icon':'whatsapp','tone':'green','family':'communication','accent':'#48D06A','accent2':'#13A857','availability':'whatsapp'},
+    {'title':'Email','endpoint':'email_workspace','permission':'email','icon':'email','tone':'blue','family':'communication','accent':'#59B1FF','accent2':'#4D62E8','availability':'google'},
+    {'title':'Drive','endpoint':'drive_workspace','permission':'drive','icon':'drive','tone':'cyan','family':'communication','accent':'#37D1E8','accent2':'#3478F6','availability':'google'},
+    {'title':'Letterhead Studio','endpoint':'letterhead_studio','permission':'letterhead','icon':'letterhead','tone':'red','family':'documents','accent':'#FF5B6C','accent2':'#8B57FF','availability':'internal'},
+    {'title':'System Settings','endpoint':'settings_page','permission':'','icon':'settings','tone':'settings','family':'system','accent':'#7C86F8','accent2':'#67707E','availability':'internal'},
 ]
 
 
@@ -2665,7 +2665,7 @@ def diagnostics():
         'video_wall_player_loaded': 'wall_player' in route_names,
         'video_wall_template_exists': os.path.exists(os.path.join(BASE_DIR,'templates','video_wall.html')),
         'wall_player_template_exists': os.path.exists(os.path.join(BASE_DIR,'templates','wall_player.html')),
-        'apple_theme_css_exists': os.path.exists(os.path.join(BASE_DIR,'static','style.css')),
+        'apple_theme_css_exists': os.path.exists(os.path.join(BASE_DIR,'static','macos27_system.css')),
         'billing_route_loaded': 'billing' in route_names,
     }
     try:

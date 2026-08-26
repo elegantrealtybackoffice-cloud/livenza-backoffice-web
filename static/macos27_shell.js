@@ -58,7 +58,7 @@
   }
 
   function applyWallpaper(value, persist = true) {
-    const allowed = new Set(['aurora', 'spectrum', 'sequoia', 'midnight', 'custom']);
+    const allowed = new Set(['aurora', 'spectrum', 'sequoia', 'midnight', 'livenza-blue', 'violet-glass', 'ocean', 'sunrise', 'custom']);
     const desktop = $('.mac-desktop-home');
     const transitionLayer = $('#wallpaperTransitionLayer');
     if (desktop && transitionLayer && !reduceMotion.matches && !root.classList.contains('settings-reduce-motion')) {
@@ -662,6 +662,7 @@
   async function loadWindowDocument(windowEl, url, pushHistory = true) {
     if (!windowEl) return false;
     const content = $('.mac-window-content', windowEl);
+    content?.classList.add('mac-suite-surface');
     const titleLabel = $('.mac-window-title', windowEl);
     if (!content) return false;
     windowEl.classList.add('is-loading');
@@ -765,6 +766,11 @@
     windowEl.dataset.windowTitle = meta.title || 'Livenza';
     windowEl.dataset.windowUrl = meta.url;
     windowEl.dataset.windowTone = meta.tone || 'blue';
+    windowEl.setAttribute('data-window-family', meta.family || 'productivity');
+    windowEl.setAttribute('data-window-accent', meta.accent || '#0088ff');
+    windowEl.setAttribute('data-window-accent2', meta.accent2 || '#6155f5');
+    windowEl.style.setProperty('--suite-accent', meta.accent || '#0088ff');
+    windowEl.style.setProperty('--suite-accent-2', meta.accent2 || '#6155f5');
     windowEl.tabIndex = -1;
     windowEl.innerHTML = `
       <header class="mac-window-titlebar">
@@ -773,10 +779,10 @@
           <button type="button" class="mac-window-control minimize" data-window-action="minimize" aria-label="Minimise"></button>
           <button type="button" class="mac-window-control maximize" data-window-action="maximize" aria-label="Zoom"></button>
         </div>
-        <strong class="mac-window-title">${String(meta.title || 'Livenza').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}</strong>
+        <div class="mac-window-title-identity"><span class="mac-window-mini-icon livenza-app-icon" data-app-icon="${String(meta.endpoint || '').replace(/[^a-z0-9_-]/gi,'')}"><span class="app-icon-backdrop"></span><span class="app-icon-glyph">${meta.iconMarkup || ''}</span><span class="app-icon-shine"></span></span><strong class="mac-window-title">${String(meta.title || 'Livenza').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}</strong></div>
         <div class="mac-window-title-actions"><button type="button" data-window-action="reload" aria-label="Reload app">↻</button><a href="${meta.url}" data-window-action="fullpage" aria-label="Open in full page">↗</a></div>
       </header>
-      <div class="mac-window-content"><div class="mac-window-loading" role="status">Opening ${String(meta.title || 'app').replace(/[&<>]/g,'')}…</div></div>
+      <div class="mac-window-content mac-suite-surface"><div class="mac-window-loading" role="status">Opening ${String(meta.title || 'app').replace(/[&<>]/g,'')}…</div></div>
       <i class="mac-window-resize-handle resize-n" data-resize="n"></i><i class="mac-window-resize-handle resize-e" data-resize="e"></i><i class="mac-window-resize-handle resize-s" data-resize="s"></i><i class="mac-window-resize-handle resize-w" data-resize="w"></i>
       <i class="mac-window-resize-handle resize-ne" data-resize="ne"></i><i class="mac-window-resize-handle resize-se" data-resize="se"></i><i class="mac-window-resize-handle resize-sw" data-resize="sw"></i><i class="mac-window-resize-handle resize-nw" data-resize="nw"></i>`;
     desktopWindowHost.appendChild(windowEl);
@@ -808,7 +814,17 @@
     });
     const endpoint = anchor.dataset.appEndpoint || source?.dataset.appEndpoint || url.pathname.replace(/^\/+|\/+$/g, '').replace(/[^a-z0-9]+/gi, '_') || 'dashboard';
     const title = anchor.dataset.appTitle || source?.dataset.appTitle || anchor.querySelector('b')?.textContent?.trim() || anchor.getAttribute('aria-label') || anchor.title || 'Livenza';
-    return {endpoint, url:url.href, title, tone:anchor.dataset.appTone || source?.dataset.appTone || 'blue'};
+    const iconSource = anchor.querySelector('.app-icon-glyph') || source?.querySelector('.app-icon-glyph');
+    return {
+      endpoint,
+      url:url.href,
+      title,
+      tone:anchor.dataset.appTone || source?.dataset.appTone || 'blue',
+      family:anchor.dataset.appFamily || source?.dataset.appFamily || 'productivity',
+      accent:anchor.dataset.appAccent || source?.dataset.appAccent || '#0088ff',
+      accent2:anchor.dataset.appAccent2 || source?.dataset.appAccent2 || '#6155f5',
+      iconMarkup:iconSource?.innerHTML || ''
+    };
   }
 
   if (desktopHostEnabled) {

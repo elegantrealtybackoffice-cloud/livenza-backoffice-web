@@ -1,20 +1,22 @@
-TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 7 BROWSER-OS CLEAN SHELL
+TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 8 MACOS 27 SUITE POLISH
 
 1. Open `/version` and confirm Tesla OS 27, Version 27.0.1 and Build 27A101.
-2. Sign in and confirm Home occupies one viewport with no hidden vertical scrollbar caused by legacy footer padding.
-3. Confirm the 34 px menu bar is visually quiet: no decorative boxed File/Edit/Go controls. `File` should appear only when an application window is active.
-4. Confirm the 58 px Dock contains only applications that are actually available for the signed-in user. Provider-dependent WhatsApp/Google apps must stay hidden when their capability is unavailable.
-5. Hover across Dock icons and confirm smooth neighbour/proximity magnification with the 4 px running dot remaining stationary. With Reduced Motion enabled, magnification/travel motion must be suppressed.
-6. Open Agreement Studio from the Dock. Confirm it opens inside a managed macOS-style window instead of replacing Home; verify focus, drag, resize, minimise, restore, Zoom and Close.
-7. Open a second app and confirm window focus/z-order changes correctly. Use Window → Bring All to Front and Show Desktop/restore flows.
-8. Navigate within a mounted app and confirm forms/buttons/scripts remain functional. In particular re-test Settings/Vault and Electricity pages that contain page-local scripts.
-9. Use File → Open in Full Page and confirm direct route navigation still works as a fallback.
-10. Open System Settings → Wallpaper. Verify built-in previews, custom-image selection, Reset, instant transition and persistence after a reload with no light/default wallpaper flash before paint.
-11. Confirm right-side widgets remain 344 px wide on desktop, do not intersect the Dock, do not clip text, and Suggestions scroll internally when necessary.
-12. Inspect representative forms, cards, tables, popovers and menus for neat baseline alignment, centred button labels, readable secondary text, no decorative legacy streaks and no floating-card hover jump.
-13. Confirm the Livenza Companion does not cover widgets, Dock or application content and does not run an unnecessary continuous Home ambient loop.
-14. Check browser Performance/Task Manager during Dock movement and window dragging: movement should remain responsive and no continuous duplicate companion/weather network polling should be visible while idle.
-15. Hide the browser tab for at least a minute, restore it, and confirm recurring Home data refresh resumes once without duplicate timers.
-16. Re-test protected Admin, Vault, Agreement create/update/PDF, Electricity, Billing, Banking, Letterhead, WhatsApp/Email/Drive integrations and other production write actions under the appropriate roles. These server-backed flows cannot be certified by the packaging sandbox.
-17. Preserve historical migration files, instance/database data, uploaded business files and environment variables during deployment.
-18. If anything differs from these checks, retain the prior production package and report the specific route/browser/console error before replacing it.
+2. Sign in and confirm Home occupies one viewport without unintended horizontal/vertical page scrolling.
+3. Confirm the 34px menu bar remains quiet and contextual; decorative dummy File/Edit/Go controls must not return.
+4. Confirm the 58px Dock contains only authorized/operational applications and that every visible app has a distinct, nonblank icon.
+5. Hover across Dock icons and confirm smooth neighbour/proximity magnification with stationary running indicators. Enable Reduced Motion and confirm travel/magnification is suppressed.
+6. Open Agreement Studio, Rooms/Residents, Queries and one communication app. Verify blue/cyan/orange/communication identity is restrained, readable and consistent with the shared macOS geometry.
+7. Open Banking/Billing/Electricity. Verify financial/stat values remain on one readable line, tables align correctly and colour accents do not reduce contrast.
+8. Open Letterhead/Video Wall and confirm creative colour/animation is richer than neutral utilities without turning the workspace into a full-colour background.
+9. Open System Settings and verify its calmer system visual identity, sidebar alignment and all eight built-in wallpaper previews: Aurora, Spectrum, Sequoia, Midnight, Livenza Blue, Violet Glass, Ocean and Sunrise.
+10. Verify custom wallpaper selection, Reset, instant transition and persistence after reload with no default-wallpaper flash before paint.
+11. Open two application windows and verify focus/z-order, drag, resize, minimise, restore, Zoom/maximise and Close; no window should intersect the Dock safe zone after resize/restore.
+12. Confirm the right-side widgets remain 344px wide on desktop, do not intersect the Dock, and key text/date/temperature values are not clipped.
+13. Confirm the Livenza Companion does not cover the Dock/widgets and no separate temperature badge reappears beside it.
+14. Inspect representative forms, tables, cards, tabs, buttons, popovers and status chips for consistent baselines, centred labels, readable secondary text and no blank placeholder artwork.
+15. Hide the browser tab for at least one minute, restore it, and confirm footer clock/companion data resume once without duplicate high-frequency work.
+16. If Video Wall Player is in use, hide/restore its tab and confirm state/heartbeat polling pauses while hidden and reconnects when visible.
+17. Check browser Performance/Task Manager while moving across the Dock and dragging windows; there should be no obvious continuous layout thrash or duplicated idle polling.
+18. Re-test protected Admin, Vault, Agreement create/update/PDF, Electricity, Billing, Banking, Letterhead, WhatsApp/Email/Drive integrations and other production write actions under the appropriate roles. These server-backed flows cannot be certified by the packaging sandbox.
+19. Preserve historical migration files, instance/database data, uploaded business files and environment variables during deployment.
+20. If anything differs from these checks, retain the prior production package and report the specific route/browser/console error before replacing it.

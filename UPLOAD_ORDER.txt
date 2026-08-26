@@ -1,18 +1,10 @@
-Tesla OS 27 — Version 27.0.1 — Build 27A101 — Hotfix 7 Browser-OS Clean Shell
+Tesla OS 27 — Version 27.0.1 — Build 27A101 — Hotfix 8 macOS 27 Suite Polish
 
-Preferred deployment:
-1. Back up the current application tree and persistent instance/database/uploads first.
-2. Extract the complete Hotfix 7 ZIP into the application root, preserving paths and overwriting matching application/static/template files.
-3. Do NOT delete persistent database/instance data, uploaded business files, secrets, environment variables or historical migration files.
-4. Restart/redeploy the service.
-5. Hard-refresh once after deployment so the browser receives the new versioned/static shell files.
-6. Run every check in VERIFY_DEPLOY.txt before treating the deployment as accepted.
+Preferred: extract the COMPLETE Hotfix 8 ZIP into the application root and overwrite matching files.
 
-100-file upload workflow:
-1. Upload/extract PART_01_100_FILES into the same application root.
-2. Upload/extract PART_02_REMAINING_FILES into that exact same root.
-3. Preserve directory structure; do not create a second nested project folder.
-4. Restart/redeploy only after both parts are present.
-5. Run VERIFY_DEPLOY.txt.
-
-The split archives are file partitions of the same verified complete tree; neither part is a standalone application.
+100-file upload limit:
+1. Extract/upload PART_01_100_FILES into the application root.
+2. Extract/upload PART_02_53_FILES into the same application root.
+3. Do not create separate folders for Part 1 and Part 2; both parts reconstruct one application tree.
+4. Preserve the production database, instance/uploads and environment variables.
+5. Deploy/restart, hard-refresh the browser once, then complete VERIFY_DEPLOY.txt.

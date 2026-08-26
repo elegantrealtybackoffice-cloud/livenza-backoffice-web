@@ -112,6 +112,10 @@ html[data-wallpaper="aurora"]{--wallpaper-image:url("livenza_liquid_wallpaper.we
 html[data-wallpaper="spectrum"]{--wallpaper-image:radial-gradient(circle at 14% 20%,rgba(255,112,174,.85),transparent 34%),radial-gradient(circle at 78% 22%,rgba(88,103,255,.95),transparent 35%),radial-gradient(circle at 52% 78%,rgba(73,207,255,.82),transparent 32%),linear-gradient(135deg,#351d78 0%,#7141c7 34%,#244dce 65%,#091c62 100%)}
 html[data-wallpaper="sequoia"]{--wallpaper-image:radial-gradient(ellipse at 20% 15%,rgba(69,231,214,.60),transparent 33%),radial-gradient(ellipse at 78% 30%,rgba(102,94,255,.74),transparent 38%),linear-gradient(155deg,#041928 0%,#073f5a 38%,#183a85 70%,#191448 100%)}
 html[data-wallpaper="midnight"]{--wallpaper-image:radial-gradient(circle at 70% 18%,rgba(95,58,215,.45),transparent 32%),radial-gradient(circle at 18% 72%,rgba(0,124,255,.30),transparent 28%),linear-gradient(145deg,#020816,#08183d 48%,#12113a 76%,#050714 100%)}
+html[data-wallpaper="livenza-blue"]{--wallpaper-image:radial-gradient(ellipse at 76% 18%,rgba(83,169,255,.82),transparent 30%),radial-gradient(ellipse at 18% 76%,rgba(45,221,210,.34),transparent 33%),linear-gradient(145deg,#041c4f 0%,#0b45a1 44%,#20256e 72%,#080f36 100%)}
+html[data-wallpaper="violet-glass"]{--wallpaper-image:radial-gradient(circle at 22% 20%,rgba(255,115,190,.62),transparent 31%),radial-gradient(circle at 72% 28%,rgba(133,92,255,.88),transparent 37%),radial-gradient(circle at 55% 84%,rgba(68,162,255,.55),transparent 32%),linear-gradient(145deg,#2b145d,#512b91 42%,#1a397f 76%,#081b44)}
+html[data-wallpaper="ocean"]{--wallpaper-image:radial-gradient(ellipse at 18% 24%,rgba(59,239,225,.55),transparent 28%),radial-gradient(ellipse at 82% 70%,rgba(54,119,255,.68),transparent 36%),linear-gradient(160deg,#011b2f 0%,#03496a 40%,#073f8b 70%,#071440 100%)}
+html[data-wallpaper="sunrise"]{--wallpaper-image:radial-gradient(circle at 22% 34%,rgba(255,178,87,.92),transparent 27%),radial-gradient(circle at 58% 22%,rgba(255,104,151,.76),transparent 34%),radial-gradient(circle at 82% 72%,rgba(116,83,255,.68),transparent 36%),linear-gradient(145deg,#53235f 0%,#b24c73 38%,#704bba 70%,#243b82 100%)}
 html[data-wallpaper="custom"]{--wallpaper-image:var(--user-wallpaper),linear-gradient(145deg,#0a1c45,#39216d)}
 
 *{box-sizing:border-box}
@@ -216,7 +220,7 @@ body[data-page="dashboard"] .mac-workspace,body[data-page="dashboard"] .app-cont
 .home-widget-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin:0 0 10px}
 .home-widget-heading>span:first-child{display:flex;flex-direction:column;gap:0}
 .home-widget-heading small{color:rgba(20,20,30,.56);font-size:11px;line-height:14px;font-weight:550}
-.home-widget-heading strong{font-size:30px;line-height:32px;letter-spacing:-.04em;font-weight:500;color:rgba(18,20,32,.94)}
+.home-widget-heading strong{font-size:30px;line-height:38px;letter-spacing:-.04em;font-weight:500;color:rgba(18,20,32,.94)}
 .home-widget-badge{height:18px;display:flex;align-items:center;padding:0 7px;border-radius:9px;background:rgba(98,76,220,.72);color:#fff;font-size:9px;line-height:12px;font-weight:700;letter-spacing:.02em}
 .home-today-content{display:grid;gap:8px}
 .home-agenda-row{display:grid;grid-template-columns:3px minmax(0,1fr);gap:11px;min-height:44px;padding:4px 0;align-items:center}
@@ -490,3 +494,307 @@ body.macos27-clean :is(.primary,.secondary,.btn) {
   text-align: center;
   vertical-align: middle;
 }
+
+/* =====================================================================
+   HOTFIX 8 · SUITE VISUAL SYSTEM
+   Original Livenza app artwork + colour identities layered on the exact
+   macOS 27 geometry above. This is intentionally part of the authoritative
+   system stylesheet rather than another hotfix stylesheet.
+   ===================================================================== */
+
+/* Vector symbols must never fall back to SVG's default black fill. */
+.lz-symbol{
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.75;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  vector-effect:non-scaling-stroke;
+}
+
+/* Shared application artwork. */
+.livenza-app-icon{
+  --app-accent:#248cff;
+  --app-accent-2:#6757e8;
+  --app-ink:#fff;
+  position:relative;
+  display:grid;
+  place-items:center;
+  isolation:isolate;
+  overflow:hidden;
+  color:var(--app-ink);
+  background:linear-gradient(145deg,var(--app-accent),var(--app-accent-2));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.50),inset 0 -1px 0 rgba(0,0,0,.13),0 5px 12px rgba(0,0,0,.16);
+}
+.livenza-app-icon .app-icon-backdrop{
+  position:absolute;inset:0;z-index:-2;
+  background:
+    radial-gradient(circle at 24% 12%,rgba(255,255,255,.48),transparent 34%),
+    radial-gradient(circle at 78% 82%,rgba(255,255,255,.12),transparent 34%),
+    linear-gradient(145deg,var(--app-accent),var(--app-accent-2));
+}
+.livenza-app-icon .app-icon-backdrop::after{
+  content:"";position:absolute;inset:5% 8% 46%;border-radius:44% 44% 54% 54%;
+  background:linear-gradient(180deg,rgba(255,255,255,.31),rgba(255,255,255,0));
+  filter:blur(.2px);
+}
+.livenza-app-icon .app-icon-glyph{position:relative;z-index:2;display:grid;place-items:center;filter:drop-shadow(0 1px 1px rgba(0,0,0,.20))}
+.livenza-app-icon .app-icon-glyph .lz-symbol{width:58%;height:58%;stroke:currentColor;fill:none}
+.livenza-app-icon .app-icon-shine{position:absolute;inset:1px;z-index:3;pointer-events:none;border-radius:inherit;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.34)}
+
+/* Each working application receives its own original Livenza identity. */
+[data-app-icon="dashboard"]{--app-accent:#67c9ff;--app-accent-2:#4b64f5;--app-ink:#fff}
+[data-app-icon="agreements"],[data-app-icon="landlord_masters"],[data-app-icon="tenant_masters"]{--app-accent:#389cff;--app-accent-2:#6659e9;--app-ink:#fff}
+[data-app-icon="rooms"]{--app-accent:#48d7ff;--app-accent-2:#1c88ff;--app-ink:#fff}
+[data-app-icon="tenants"]{--app-accent:#43dbc4;--app-accent-2:#0ca28d;--app-ink:#fff}
+[data-app-icon="queries"]{--app-accent:#ffb04e;--app-accent-2:#ff623d;--app-ink:#fff}
+[data-app-icon="reviews"]{--app-accent:#ffe15c;--app-accent-2:#ff5c94;--app-ink:#553718}
+[data-app-icon="video_wall"]{--app-accent:#ff69ba;--app-accent-2:#8e63ff;--app-ink:#fff}
+[data-app-icon="food"]{--app-accent:#5cda78;--app-accent-2:#ff9d42;--app-ink:#fff}
+[data-app-icon="billing"]{--app-accent:#47dfc2;--app-accent-2:#1da5e3;--app-ink:#fff}
+[data-app-icon="banking_suite"]{--app-accent:#657edb;--app-accent-2:#2d3f90;--app-ink:#fff}
+[data-app-icon="electricity_studio"]{--app-accent:#ffe05a;--app-accent-2:#ff902f;--app-ink:#5b3b00}
+[data-app-icon="whatsapp_workspace"]{--app-accent:#63da7a;--app-accent-2:#18a957;--app-ink:#fff}
+[data-app-icon="email_workspace"]{--app-accent:#68bdff;--app-accent-2:#5269eb;--app-ink:#fff}
+[data-app-icon="drive_workspace"]{--app-accent:#49d9e8;--app-accent-2:#3f7df6;--app-ink:#fff}
+[data-app-icon="letterhead_studio"]{--app-accent:#ff6878;--app-accent-2:#8f5dff;--app-ink:#fff}
+[data-app-icon="settings_page"]{--app-accent:#c4cad5;--app-accent-2:#747f93;--app-ink:#26313f}
+[data-app-icon="assistant"]{--app-accent:#7f8cff;--app-accent-2:#7052df;--app-ink:#fff}
+
+.mac-dock-app .mac-dock-icon{
+  background:linear-gradient(145deg,var(--app-accent),var(--app-accent-2));
+  color:var(--app-ink,#fff);
+  border-radius:9px;
+}
+.mac-dock-app .mac-dock-icon::before,.mac-dock-app .mac-dock-icon::after{content:none}
+.mac-dock-icon .app-icon-glyph .lz-symbol{width:22px;height:22px;stroke-width:1.85}
+.mac-dock-item:hover .mac-dock-icon,.mac-dock-item:focus-visible .mac-dock-icon{filter:saturate(1.12) brightness(1.06)}
+.mac-dock-item.is-window-active .mac-dock-icon{filter:saturate(1.12) brightness(1.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.58),0 7px 16px color-mix(in srgb,var(--app-accent) 28%,rgba(0,0,0,.24))}
+.mac-dock-running{background:rgba(255,255,255,.92);box-shadow:0 1px 2px rgba(0,0,0,.44)}
+.mac-dock-launcher .mac-dock-icon{background:linear-gradient(145deg,#fff,#dfe6f4);--app-ink:#26313f;color:#26313f}
+
+/* Suite launcher/drawer icon artwork. */
+.grouped-app-item>i{width:46px;height:46px;padding:0;background:transparent;border-radius:13px;box-shadow:none}
+.suite-tile-app-icon{width:44px;height:44px;border-radius:12px}
+.suite-tile-app-icon .app-icon-glyph .lz-symbol{width:23px;height:23px}
+.grouped-app-item{transition:background var(--motion-fast),border-color var(--motion-fast),box-shadow var(--motion-fast),transform var(--motion-fast)}
+.grouped-app-item:hover,.grouped-app-item:focus-visible{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.08);border-color:color-mix(in srgb,var(--mac-blue) 25%,var(--mac-separator))}
+.home-app-icon{width:38px;height:38px;border-radius:11px}
+
+/* Home suggestion artwork: fully visible, never a black SVG fill. */
+.suggestion-app-icon{width:30px;height:30px;border-radius:8px;flex:0 0 auto}
+.suggestion-app-icon .app-icon-glyph .lz-symbol{width:17px;height:17px;stroke-width:1.9}
+.home-suggestion-list a,.home-suggestion-list button{grid-template-columns:32px minmax(0,1fr)}
+
+/* Application visual identity tokens. */
+.mac-app-window,
+body:not([data-page="dashboard"]) #appMain{
+  --suite-accent:#248cff;
+  --suite-accent-2:#6757e8;
+  --suite-soft:color-mix(in srgb,var(--suite-accent) 9%,transparent);
+  --suite-soft-strong:color-mix(in srgb,var(--suite-accent) 15%,transparent);
+  --suite-border:color-mix(in srgb,var(--suite-accent) 18%,var(--mac-separator));
+  --suite-ink:color-mix(in srgb,var(--suite-accent) 74%,#172033);
+}
+
+/* Managed-window suite mapping (explicit selectors form the visual contract). */
+.mac-app-window[data-window-app="agreements"]{--suite-accent:#248cff;--suite-accent-2:#6757e8;--suite-ink:#185faf}
+.mac-app-window[data-window-app="rooms"]{--suite-accent:#24c7f4;--suite-accent-2:#197bff;--suite-ink:#106a9d}
+.mac-app-window[data-window-app="tenants"]{--suite-accent:#2fd3b8;--suite-accent-2:#0a9c87;--suite-ink:#087666}
+.mac-app-window[data-window-app="queries"]{--suite-accent:#ff9b42;--suite-accent-2:#ff5d3a;--suite-ink:#a94a18}
+.mac-app-window[data-window-app="reviews"]{--suite-accent:#ffd447;--suite-accent-2:#ff4e8b;--suite-ink:#9d5b0d}
+.mac-app-window[data-window-app="video_wall"]{--suite-accent:#ff58af;--suite-accent-2:#8b5dff;--suite-ink:#994386}
+.mac-app-window[data-window-app="food"]{--suite-accent:#49cd72;--suite-accent-2:#ff9a3d;--suite-ink:#278442}
+.mac-app-window[data-window-app="billing"]{--suite-accent:#2ed5b5;--suite-accent-2:#1a9de0;--suite-ink:#168575}
+.mac-app-window[data-window-app="banking_suite"]{--suite-accent:#5575d9;--suite-accent-2:#283a8c;--suite-ink:#314d9e}
+.mac-app-window[data-window-app="electricity_studio"]{--suite-accent:#ffd24a;--suite-accent-2:#ff8a2d;--suite-ink:#9a6210}
+.mac-app-window[data-window-app="whatsapp_workspace"]{--suite-accent:#48d06a;--suite-accent-2:#13a857;--suite-ink:#228a42}
+.mac-app-window[data-window-app="email_workspace"]{--suite-accent:#59b1ff;--suite-accent-2:#4d62e8;--suite-ink:#376fbe}
+.mac-app-window[data-window-app="drive_workspace"]{--suite-accent:#37d1e8;--suite-accent-2:#3478f6;--suite-ink:#237da6}
+.mac-app-window[data-window-app="letterhead_studio"]{--suite-accent:#ff5b6c;--suite-accent-2:#8b57ff;--suite-ink:#b43f62}
+.mac-app-window[data-window-app="settings_page"]{--suite-accent:#7c86f8;--suite-accent-2:#67707e;--suite-ink:#5660bb}
+
+/* Full-page route families receive the same identity as managed windows. */
+body:is([data-page="agreements"],[data-page="agreement_edit"],[data-page="agreement_preview"],[data-page="landlord_masters"],[data-page="landlord_master_edit"],[data-page="tenant_masters"],[data-page="tenant_master_edit"],[data-page="master_safe_view"]) #appMain{--suite-accent:#248cff;--suite-accent-2:#6757e8;--suite-ink:#185faf}
+body:is([data-page="rooms"],[data-page="tenants"]) #appMain{--suite-accent:#24c7f4;--suite-accent-2:#197bff;--suite-ink:#106a9d}
+body:is([data-page="queries"],[data-page="query_sheet"]) #appMain{--suite-accent:#ff9b42;--suite-accent-2:#ff5d3a;--suite-ink:#a94a18}
+body[data-page="reviews"] #appMain{--suite-accent:#ffd447;--suite-accent-2:#ff4e8b;--suite-ink:#9d5b0d}
+body:is([data-page="video_wall"],[data-page="wall_player"]) #appMain{--suite-accent:#ff58af;--suite-accent-2:#8b5dff;--suite-ink:#994386}
+body:is([data-page="food"],[data-page="food_integrations"],[data-page="food_portals"]) #appMain{--suite-accent:#49cd72;--suite-accent-2:#ff9a3d;--suite-ink:#278442}
+body[data-page="billing"] #appMain{--suite-accent:#2ed5b5;--suite-accent-2:#1a9de0;--suite-ink:#168575}
+body:is([data-page="banking_suite"],[data-page="bank_reconciliation"]) #appMain{--suite-accent:#5575d9;--suite-accent-2:#283a8c;--suite-ink:#314d9e}
+body:is([data-page="electricity_studio"],[data-page="electricity_portal"],[data-page="electricity_register"]) #appMain{--suite-accent:#ffd24a;--suite-accent-2:#ff8a2d;--suite-ink:#9a6210}
+body:is([data-page="whatsapp_workspace"],[data-page="email_workspace"],[data-page="email_message"],[data-page="drive_workspace"]) #appMain{--suite-accent:#59b1ff;--suite-accent-2:#4d62e8;--suite-ink:#376fbe}
+body:is([data-page="letterhead_studio"],[data-page="letterhead_editor"],[data-page="letterhead_final_review"],[data-page="letterhead_template_editor"],[data-page="letterhead_templates"],[data-page="letterhead_vault"]) #appMain{--suite-accent:#ff5b6c;--suite-accent-2:#8b57ff;--suite-ink:#b43f62}
+body:is([data-page="settings_page"],[data-page="system_settings_pane"],[data-page="integrations"],[data-page="admin"],[data-page="admin_vault"]) #appMain{--suite-accent:#7c86f8;--suite-accent-2:#67707e;--suite-ink:#5660bb}
+
+/* Hotfix 8 suite-family canvas identities.
+   Colour stays in low-opacity fields so each app feels distinct without sacrificing reading comfort. */
+.mac-app-window[data-window-family="productivity"]{--suite-canvas-wash:linear-gradient(155deg,color-mix(in srgb,#248cff 5%,var(--mac-content)),color-mix(in srgb,#6757e8 2.8%,var(--mac-content)) 62%,var(--mac-content))}
+.mac-app-window[data-window-family="occupancy"]{--suite-canvas-wash:linear-gradient(155deg,color-mix(in srgb,#24c7f4 5.2%,var(--mac-content)),color-mix(in srgb,#2fd3b8 3%,var(--mac-content)) 62%,var(--mac-content))}
+.mac-app-window[data-window-family="pipeline"]{--suite-canvas-wash:linear-gradient(155deg,color-mix(in srgb,#ff9b42 5%,var(--mac-content)),color-mix(in srgb,#ff5d3a 2.8%,var(--mac-content)) 62%,var(--mac-content))}
+.mac-app-window[data-window-family="reputation"]{--suite-canvas-wash:linear-gradient(155deg,color-mix(in srgb,#ffd447 5.5%,var(--mac-content)),color-mix(in srgb,#ff4e8b 2.6%,var(--mac-content)) 62%,var(--mac-content))}
+.mac-app-window[data-window-family="creative"]{--suite-canvas-wash:linear-gradient(155deg,color-mix(in srgb,#ff58af 4.8%,var(--mac-content)),color-mix(in srgb,#8b5dff 3.4%,var(--mac-content)) 62%,var(--mac-content))}
+.mac-app-window[data-window-family="hospitality"]{--suite-canvas-wash:linear-gradient(155deg,color-mix(in srgb,#49cd72 4.5%,var(--mac-content)),color-mix(in srgb,#ff9a3d 3.2%,var(--mac-content)) 62%,var(--mac-content))}
+.mac-app-window[data-window-family="finance"]{--suite-canvas-wash:linear-gradient(155deg,color-mix(in srgb,#2ed5b5 4%,var(--mac-content)),color-mix(in srgb,#5575d9 3.2%,var(--mac-content)) 62%,var(--mac-content))}
+.mac-app-window[data-window-family="utilities"]{--suite-canvas-wash:linear-gradient(155deg,color-mix(in srgb,#ffd24a 4.8%,var(--mac-content)),color-mix(in srgb,#ff8a2d 2.8%,var(--mac-content)) 62%,var(--mac-content))}
+.mac-app-window[data-window-family="communication"]{--suite-canvas-wash:linear-gradient(155deg,color-mix(in srgb,#59b1ff 4.4%,var(--mac-content)),color-mix(in srgb,#48d06a 2.8%,var(--mac-content)) 62%,var(--mac-content))}
+.mac-app-window[data-window-family="documents"]{--suite-canvas-wash:linear-gradient(155deg,color-mix(in srgb,#ff5b6c 4.2%,var(--mac-content)),color-mix(in srgb,#8b57ff 3.4%,var(--mac-content)) 62%,var(--mac-content))}
+.mac-app-window[data-window-family="system"]{--suite-canvas-wash:linear-gradient(155deg,color-mix(in srgb,#7c86f8 3.6%,var(--mac-content)),color-mix(in srgb,#67707e 2.2%,var(--mac-content)) 62%,var(--mac-content))}
+.mac-app-window[data-window-family] .mac-window-content{background:var(--suite-canvas-wash,linear-gradient(180deg,color-mix(in srgb,var(--suite-accent) 2.5%,var(--mac-content)),var(--mac-content) 140px))}
+
+/* Window chrome now carries identity without becoming a coloured toy window. */
+.mac-window-titlebar{position:relative;overflow:hidden;background:linear-gradient(180deg,color-mix(in srgb,var(--suite-accent) 5%,#fbfbfc),color-mix(in srgb,var(--suite-accent-2) 3%,#ececef))}
+.mac-app-window.is-active .mac-window-titlebar::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--suite-accent),var(--suite-accent-2),transparent);
+  opacity:.72;pointer-events:none;
+}
+.mac-window-title-identity{min-width:0;display:flex;align-items:center;justify-content:center;gap:6px}
+.mac-window-mini-icon{width:19px;height:19px;border-radius:5px;box-shadow:inset 0 .5px 0 rgba(255,255,255,.5),0 1px 3px rgba(0,0,0,.12)}
+.mac-window-mini-icon .app-icon-glyph .lz-symbol{width:11px;height:11px;stroke-width:1.9}
+.mac-window-title{padding:0;max-width:min(340px,calc(100% - 26px))}
+.mac-window-content{background:linear-gradient(180deg,color-mix(in srgb,var(--suite-accent) 2.5%,var(--mac-content)),var(--mac-content) 140px)}
+.mac-app-window.is-loading .mac-window-content::after{background:linear-gradient(90deg,transparent,var(--suite-accent),var(--suite-accent-2),transparent)}
+
+/* Content entrance is spatial but quiet. New DOM children animate, not the scroll container. */
+@keyframes mac-suite-content-in{
+  from{opacity:0;transform:translate3d(0,6px,0);filter:saturate(.92)}
+  to{opacity:1;transform:none;filter:none}
+}
+.mac-suite-surface>.shell,
+.mac-suite-surface>section,
+.mac-suite-surface>div:not(.mac-window-loading){animation:mac-suite-content-in 260ms cubic-bezier(.16,1,.3,1) both}
+
+/* Shared app-interior hierarchy. */
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .page-head{
+  position:relative;
+  align-items:flex-end;
+  min-height:48px;
+  padding:2px 2px 13px;
+  margin-bottom:14px;
+  border-bottom:1px solid var(--suite-border);
+}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .page-head::before{
+  content:"";display:block;position:absolute;left:2px;bottom:-1px;width:56px;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,var(--suite-accent),var(--suite-accent-2));
+}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.page-head,.section-head,.banking-panel-head,.query-sheet-head) .eyebrow{color:var(--suite-ink)}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.section-head,.banking-panel-head,.query-sheet-head){display:flex;align-items:center;justify-content:space-between;gap:14px;min-width:0}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.section-head,.banking-panel-head,.query-sheet-head)>*{min-width:0}
+
+/* Cards are readable macOS surfaces with a restrained suite wash. */
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.liquid-card,.form-card,.table-card,.review-card,.banking-panel,.query-card,.master-card,.screen-card,.portal-card,.connection-card,.letterhead-card,.settings-card){
+  background:linear-gradient(180deg,color-mix(in srgb,var(--suite-accent) 4.5%,var(--mac-surface-strong)),var(--mac-surface) 42%);
+  border-color:var(--suite-border);
+  box-shadow:0 1px 2px rgba(0,0,0,.035),0 8px 28px color-mix(in srgb,var(--suite-accent) 4%,transparent);
+}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.liquid-card,.form-card,.table-card,.review-card,.banking-panel,.query-card,.master-card,.screen-card,.portal-card,.connection-card,.letterhead-card,.settings-card){transition:border-color var(--motion-fast),box-shadow var(--motion-fast),background var(--motion-fast)}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.master-card,.screen-card,.portal-card,.connection-card,.query-card):hover{border-color:color-mix(in srgb,var(--suite-accent) 32%,var(--mac-separator));box-shadow:0 10px 30px color-mix(in srgb,var(--suite-accent) 8%,rgba(0,0,0,.06))}
+
+/* Buttons, segmented tabs and small states use app colour consistently. */
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.primary,.query-sheet-btn){background:linear-gradient(180deg,color-mix(in srgb,var(--suite-accent) 88%,#fff),var(--suite-accent));border-color:color-mix(in srgb,var(--suite-accent) 72%,#000);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 1px 2px rgba(0,0,0,.08)}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.primary,.query-sheet-btn):active{filter:brightness(.94);transform:translateY(.5px)}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.safe-tab,.portal-tab,.letterhead-tabs button){transition:background var(--motion-fast),color var(--motion-fast),box-shadow var(--motion-fast),transform var(--motion-press)}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.safe-tab,.portal-tab,.letterhead-tabs button).active,
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.safe-tab,.portal-tab,.letterhead-tabs button)[aria-selected="true"]{background:var(--suite-soft-strong);color:var(--suite-ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--suite-accent) 18%,transparent)}
+
+/* Tables align to a clean desktop data grid and inherit suite identity. */
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) table{width:100%;border-collapse:separate;border-spacing:0}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) th{background:color-mix(in srgb,var(--suite-accent) 7%,rgba(120,120,128,.045));color:color-mix(in srgb,var(--suite-ink) 74%,var(--mac-label));font-weight:650;letter-spacing:.01em}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) tbody tr{transition:background var(--motion-fast)}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) tbody tr:hover{background:var(--suite-soft)}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(th,td){max-width:420px;overflow-wrap:anywhere}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .empty{padding:28px 16px;text-align:center;color:var(--mac-secondary-label)}
+
+/* Form rhythm and text placement. */
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .form-grid{align-items:start}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .form-grid>label{min-width:0}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]){transition:border-color var(--motion-fast),background var(--motion-fast),box-shadow var(--motion-fast)}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]):hover{border-color:color-mix(in srgb,var(--suite-accent) 24%,var(--mac-separator))}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) label{align-items:start}
+
+/* Status language: colourful but semantic. */
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.badge,.chip,.status-badge,.status-chip,.status-pill,.master-status-chip,.role-badge,.security-chip,.rotation-badge){
+  border-color:color-mix(in srgb,var(--suite-accent) 22%,var(--mac-separator));
+  background:var(--suite-soft);
+  color:var(--suite-ink);
+}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.status-chip.success,.master-status-chip.active,.status-pill.ok,.semantic-success){background:rgba(52,199,89,.12);color:#23813c;border-color:rgba(52,199,89,.24)}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.status-chip.warning,.status-pill.warn){background:rgba(255,149,0,.13);color:#9a5b08;border-color:rgba(255,149,0,.26)}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) :is(.status-chip.danger,.master-status-chip.archived){background:rgba(255,59,48,.10);color:#ad332c;border-color:rgba(255,59,48,.22)}
+
+/* App-specific details — enough identity to stop all suites feeling identical. */
+.mac-app-window[data-window-app="agreements"] :is(.agreement-wizard-panel,.party-profile-grid),
+body[data-page="agreements"] :is(.agreement-wizard-panel,.party-profile-grid){border-left:3px solid var(--suite-accent)}
+.mac-app-window[data-window-app="rooms"] :is(.stats,.room-grid),.mac-app-window[data-window-app="tenants"] :is(.stats,.master-grid){accent-color:var(--suite-accent)}
+.mac-app-window[data-window-app="queries"] .query-card{border-left:3px solid color-mix(in srgb,var(--suite-accent) 70%,transparent)}
+.mac-app-window[data-window-app="reviews"] .review-card{background:linear-gradient(135deg,color-mix(in srgb,#ffd447 10%,var(--mac-surface)),color-mix(in srgb,#ff4e8b 5%,var(--mac-surface)))}
+.mac-app-window[data-window-app="video_wall"] :is(.screen-card,.media-card){background:linear-gradient(145deg,color-mix(in srgb,#ff58af 6%,var(--mac-surface)),color-mix(in srgb,#8b5dff 5%,var(--mac-surface)))}
+.mac-app-window[data-window-app="food"] .platform-badge{background:linear-gradient(135deg,rgba(73,205,114,.16),rgba(255,154,61,.14));color:#297746;border-color:rgba(73,205,114,.22)}
+.mac-app-window[data-window-app="banking_suite"] .banking-panel{border-top:2px solid color-mix(in srgb,var(--suite-accent) 48%,transparent)}
+.mac-app-window[data-window-app="electricity_studio"] .electricity-bolt{color:#c77b00;background:linear-gradient(145deg,#fff4a8,#ffd24a)}
+.mac-app-window[data-window-app="letterhead_studio"] :is(.letterhead-preview-card,.letterhead-card){border-top:2px solid color-mix(in srgb,var(--suite-accent-2) 38%,transparent)}
+.mac-app-window[data-window-app="settings_page"] .system-settings-sidebar{background:linear-gradient(180deg,color-mix(in srgb,var(--suite-accent) 4%,var(--mac-surface-strong)),var(--mac-surface-strong))}
+
+/* Scrollbars stay quiet but gain a subtle active-suite thumb. */
+.mac-suite-surface{scrollbar-color:color-mix(in srgb,var(--suite-accent) 38%,rgba(120,120,128,.38)) transparent}
+.mac-suite-surface::-webkit-scrollbar{width:12px;height:12px}
+.mac-suite-surface::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--suite-accent) 34%,rgba(120,120,128,.40));border:3px solid transparent;background-clip:padding-box;border-radius:8px}
+
+/* Keep icon and content motion cheap. */
+.livenza-app-icon,.mac-window-mini-icon{transform:translateZ(0)}
+.mac-suite-surface :is(.safe-tab,.portal-tab,.primary,.secondary,.btn){will-change:auto}
+
+@media(max-width:900px){
+  .mac-window-title-identity{max-width:calc(100% - 8px)}
+  .mac-window-mini-icon{display:none}
+  :is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .page-head{align-items:flex-start;flex-direction:column;gap:8px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .mac-suite-surface>.shell,.mac-suite-surface>section,.mac-suite-surface>div:not(.mac-window-loading){animation:none!important}
+  .livenza-app-icon,.mac-suite-surface *{transition-duration:0ms!important}
+}
+html.settings-reduce-motion .mac-suite-surface>.shell,html.settings-reduce-motion .mac-suite-surface>section,html.settings-reduce-motion .mac-suite-surface>div:not(.mac-window-loading){animation:none!important}
+
+
+/* Hotfix 8 audit refinements: finance typography, richer suite tiles, and quiet sub-window colour. */
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .stats>div{position:relative;overflow:hidden}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .stats>div::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,var(--suite-accent),var(--suite-accent-2));opacity:.72}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .stats>div b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;letter-spacing:-.025em}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .stats>div:nth-child(2){background:linear-gradient(160deg,color-mix(in srgb,var(--suite-accent-2) 6%,var(--mac-surface-strong)),var(--mac-surface))}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .stats>div:nth-child(3){background:linear-gradient(160deg,color-mix(in srgb,var(--suite-accent) 7%,var(--mac-surface-strong)),color-mix(in srgb,var(--suite-accent-2) 3%,var(--mac-surface)))}
+.mac-app-window[data-window-app="banking_suite"] .stats>div b,body[data-page="banking_suite"] #appMain .stats>div b{color:#243d8f}
+.mac-app-window[data-window-app="electricity_studio"] .stats>div b,body[data-page="electricity_studio"] #appMain .stats>div b{color:#9a6210}
+.mac-app-window[data-window-app="letterhead_studio"] :is(.letterhead-card,.letterhead-preview-card){padding:16px}
+.mac-app-window[data-window-app="settings_page"] .settings-nav-row.active{background:color-mix(in srgb,var(--suite-accent) 15%,transparent);color:var(--suite-ink)}
+.mac-app-window:not(.is-active) .mac-window-titlebar{filter:saturate(.72)}
+.mac-app-window:not(.is-active) .mac-window-content{filter:saturate(.94)}
+/* Suite metrics use dense adaptive columns instead of the retired six-column dashboard grid. */
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .stats{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(118px,1fr));
+  gap:12px;
+  margin:12px 0 16px;
+}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .stats>div{
+  min-width:0;
+  padding:13px 15px;
+  border-radius:14px;
+}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .stats>div b{
+  font-size:22px;
+  line-height:26px;
+}
+:is(.mac-suite-surface,body:not([data-page="dashboard"]) #appMain) .stats>div span{
+  font-size:9px;
+  line-height:12px;
+  letter-spacing:.055em;
+}
+
+.wallpaper-livenza-blue{background-image:radial-gradient(circle at 78% 18%,#58aaff,transparent 34%),linear-gradient(145deg,#062258,#0e54bd 48%,#23256d)}
+.wallpaper-violet-glass{background-image:radial-gradient(circle at 20% 20%,#ff75bb,transparent 34%),radial-gradient(circle at 76% 30%,#8f62ff,transparent 38%),linear-gradient(145deg,#32145f,#1d4c91)}
+.wallpaper-ocean{background-image:radial-gradient(circle at 20% 24%,#45ead8,transparent 33%),linear-gradient(155deg,#03243a,#075274 45%,#153d91)}
+.wallpaper-sunrise{background-image:radial-gradient(circle at 22% 34%,#ffbc62,transparent 30%),radial-gradient(circle at 66% 22%,#ff6f9e,transparent 34%),linear-gradient(145deg,#6b2b6b,#614cb6 72%,#2c488b)}
