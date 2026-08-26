@@ -79,5 +79,51 @@ class MacDesktopUiContractTests(unittest.TestCase):
             self.assertIn(token, css)
         self.assertIn('border-radius:var(--mac-notification-radius)', css)
 
+    def test_exact_kit_geometry_tokens(self):
+        css = self.text('static/desktop_v2701.css').replace(' ', '')
+        for token in (
+            '--mac-dock-icon:36px',
+            '--mac-dock-running-dot:4px',
+            '--mac-dock-item-stride:45px',
+            '--mac-toolbar-unified-height:52px',
+            '--mac-toolbar-compact-height:40px',
+            '--mac-toolbar-expanded-height:77px',
+            '--mac-alert-radius:26px',
+            '--mac-control-regular:24px',
+            '--mac-focus-outer:3.5px',
+            '--mac-focus-inner:1px',
+        ):
+            self.assertIn(token, css)
+
+    def test_exact_dock_geometry_and_motion(self):
+        css = self.text('static/desktop_v2701.css').replace(' ', '')
+        js = self.text('static/desktop_v2701.js')
+        self.assertIn('width:var(--mac-dock-icon)!important', css)
+        self.assertIn('height:var(--mac-dock-icon)!important', css)
+        self.assertIn('width:var(--mac-dock-running-dot)!important', css)
+        self.assertIn('flex:00var(--mac-dock-item-stride)!important', css)
+        self.assertIn('const influenceRadius', js)
+        self.assertIn('Math.max(0, 1 - distance / influenceRadius)', js)
+        self.assertIn("prefers-reduced-motion: reduce", js)
+
+    def test_exact_app_shell_states_and_focus(self):
+        css = self.text('static/desktop_v2701.css').replace(' ', '')
+        self.assertIn('.mac-toolbar.is-compact', css)
+        self.assertIn('.mac-toolbar.is-expanded', css)
+        self.assertIn('min-height:var(--mac-control-regular)!important', css)
+        self.assertIn('border-radius:var(--mac-alert-radius)!important', css)
+        self.assertIn('outline:var(--mac-focus-inner)solidvar(--mac-focus-inner-color)!important', css)
+        self.assertIn('box-shadow:000var(--mac-focus-outer)var(--mac-focus-outer-color)!important', css)
+        self.assertIn(':disabled', css)
+        self.assertIn(':active', css)
+
+    def test_motion_and_accessibility_contracts(self):
+        css = self.text('static/desktop_v2701.css')
+        for token in ('--motion-fast:', '--motion-normal:', '--motion-spring:'):
+            self.assertIn(token, css)
+        self.assertIn('@media (prefers-reduced-motion:reduce)', css)
+        self.assertIn('transition:transform var(--motion-fast)', css)
+        self.assertIn('opacity var(--motion-fast)', css)
+
 if __name__ == '__main__':
     unittest.main()
