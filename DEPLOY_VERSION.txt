@@ -2,4 +2,4 @@ Tesla OS 27
 Version 27.0.1
 Build 27A101
 Hotfix 10 — Lightweight Home + Refined Settings + Livenza Brand/Wallpaper + Deployment Cache Fix
-Asset Revision: 27A101-H10L-20260827D
+Asset Revision: 27A101-H10L-20260827E

@@ -4,7 +4,7 @@
 **Version:** 27.0.1  
 **Build:** 27A101  
 **Release:** Hotfix 10 Light Shell  
-**Asset revision:** `27A101-H10L-20260827D`  
+**Asset revision:** `27A101-H10L-20260827E`  
 **Audit date:** 2026-08-27
 
 ## Why this Hotfix exists
@@ -74,7 +74,7 @@ The lightweight Settings layer also explicitly defines form grids, option grids,
 
 Hotfix 10 introduces the unique static revision:
 
-`27A101-H10L-20260827D`
+`27A101-H10L-20260827E`
 
 Changes:
 
@@ -134,7 +134,7 @@ Protected database writes, provider integrations and role-specific production da
 ## Deployment-survival audit — revision B
 A second package-level audit found a cache class that source/UI tests alone could miss: browser-visible logos, favicons, PWA icons and other static images could be referenced without a Hotfix revision while `/static/*` responses were marked immutable for one year. On a device that had previously loaded an earlier Hotfix 10, those files could remain stale even when the new ZIP was correctly deployed.
 
-Revision `27A101-H10L-20260827D` closes this gap:
+Revision `27A101-H10L-20260827E` closes this gap:
 - every literal template `url_for('static', ...)` is cache-busted with the current asset revision;
 - only `/static/*?rev=<current revision>` receives one-year immutable caching; unversioned static requests must revalidate;
 - PWA 192/512 icons use Hotfix-specific filenames;
@@ -153,3 +153,14 @@ The change also fixes the browser fallback that could render inline Livenza SVG 
 ## Revision D navigation recovery
 
 Revision D hardens Home navigation against partial uploads, stale JavaScript and CDN mismatches. Suites controls are real links to `/?suites=1` and the server renders the Suites drawer open when that query flag is present, while `home_light.js` progressively enhances the same links into the normal instant drawer. Dock application entries remain ordinary anchors, so Agreements, Rooms, Queries, Reviews, Banking and Settings do not depend on JavaScript for navigation. A Home runtime-ready marker/watchdog makes missing or stale Home JavaScript observable.
+
+## Revision E — interaction recovery for partial deployments
+
+**Deployment revision:** `27A101-H10L-20260827E`
+
+A production interaction failure was traced to progressive-enhancement handlers canceling real fallback links before confirming that their matching target UI existed. In a partial/mismatched deploy (for example new `home_light.js` with an older `base.html`), this could make Suites, View, Window, Help, Widgets and Search appear completely dead.
+
+Revision E binds/intercepts these controls only when the corresponding drawer, popover, widget stack, companion panel or command palette is present. Otherwise the browser follows the real server `href` normally. Dock application launchers remain ordinary links.
+
+Verification includes a dedicated partial-deployment source contract and a Chromium fixture that intentionally omits the target UI while loading the new Home runtime; fallback clicks must remain uncancelled.
+

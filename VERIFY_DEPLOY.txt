@@ -6,18 +6,18 @@ DEPLOYMENT FINGERPRINT — CHECK THIS FIRST
    - Version 27.0.1
    - Build 27A101
    - Hotfix 10 Light Shell
-   - revision `27A101-H10L-20260827D`
+   - revision `27A101-H10L-20260827E`
 2. Inspect the main document response headers. It MUST include:
    - `X-Livenza-Build: 27A101`
    - `X-Livenza-Hotfix: Hotfix 10 Light Shell`
-   - `X-Livenza-Revision: 27A101-H10L-20260827D`
+   - `X-Livenza-Revision: 27A101-H10L-20260827E`
 3. In browser DevTools → Network, reload Home and verify the new requests include:
-   - `home_light.css?rev=27A101-H10L-20260827D`
-   - `home_light.js?rev=27A101-H10L-20260827D`
+   - `home_light.css?rev=27A101-H10L-20260827E`
+   - `home_light.js?rev=27A101-H10L-20260827E`
    Home MUST NOT request `legacy_modules.css`, `macos27_system.css`, `app.js` or `tv_compat.js`.
-4. Open System Settings and verify it requests `settings_light.css?rev=27A101-H10L-20260827D`. Settings MUST NOT request `legacy_modules.css`, `app.js` or `tv_compat.js`.
+4. Open System Settings and verify it requests `settings_light.css?rev=27A101-H10L-20260827E`. Settings MUST NOT request `legacy_modules.css`, `app.js` or `tv_compat.js`.
 5. If any fingerprint above is missing, STOP: the host/CDN is still serving an older release. Do not judge the new UI from that session.
-5A. Inspect Login/Home image requests once: template static URLs must carry `?rev=27A101-H10L-20260827D`. Unversioned static responses must return a revalidation cache policy, not `immutable`. PWA manifest icons must request `icon-192-h10l.png` / `icon-512-h10l.png`.
+5A. Inspect Login/Home image requests once: template static URLs must carry `?rev=27A101-H10L-20260827E`. Unversioned static responses must return a revalidation cache policy, not `immutable`. PWA manifest icons must request `icon-192-h10l.png` / `icon-512-h10l.png`.
 
 VISIBLE HOME CONTRACT
 6. Home must visually match the packaged Hotfix 10 light-shell preview:
@@ -54,3 +54,8 @@ FUNCTION / PERFORMANCE REGRESSION
 
 CACHE NOTE
 Hotfix 10 intentionally uses a unique asset revision because static files are served with a long immutable cache lifetime. The OS version remains 27.0.1, but the asset query revision changes so browsers/CDNs cannot reuse Hotfix 9/older Hotfix 10 CSS/JS. The default wallpaper also has a revision-specific filename for the same reason.
+
+NAVIGATION FAIL-SAFE
+25. With JavaScript normally enabled, verify Suites, View, Window, Help, Widgets and Search open their enhanced panels immediately.
+26. In DevTools, temporarily block `home_light.js` and reload Home. Suites must still navigate to `/?suites=1`, Dock application links must still open their routes, and View/Window/Help/Widgets/Search/Companion must still lead to their fallback destinations instead of becoming dead controls.
+27. Re-enable `home_light.js`; the document should expose `data-home-runtime=ready`.
