@@ -1,5 +1,5 @@
 Tesla OS 27 · 27.0.1 · Build 27A101 · Hotfix 10 Light Shell — Deployment Survival Revision B
-Asset revision: 27A101-H10L-20260827B
+Asset revision: 27A101-H10L-20260827C
 
 100-file upload limit:
 1. Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX10_LIGHT_SHELL_DEPLOYMENT_SURVIVAL_REV_B_PART_01_100_FILES.zip

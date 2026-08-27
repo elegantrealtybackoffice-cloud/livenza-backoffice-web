@@ -4,7 +4,7 @@
 **Version:** 27.0.1  
 **Build:** 27A101  
 **Release:** Hotfix 10 Light Shell  
-**Asset revision:** `27A101-H10L-20260827B`  
+**Asset revision:** `27A101-H10L-20260827D`  
 **Audit date:** 2026-08-27
 
 ## Why this Hotfix exists
@@ -74,7 +74,7 @@ The lightweight Settings layer also explicitly defines form grids, option grids,
 
 Hotfix 10 introduces the unique static revision:
 
-`27A101-H10L-20260827B`
+`27A101-H10L-20260827D`
 
 Changes:
 
@@ -134,7 +134,7 @@ Protected database writes, provider integrations and role-specific production da
 ## Deployment-survival audit — revision B
 A second package-level audit found a cache class that source/UI tests alone could miss: browser-visible logos, favicons, PWA icons and other static images could be referenced without a Hotfix revision while `/static/*` responses were marked immutable for one year. On a device that had previously loaded an earlier Hotfix 10, those files could remain stale even when the new ZIP was correctly deployed.
 
-Revision `27A101-H10L-20260827B` closes this gap:
+Revision `27A101-H10L-20260827D` closes this gap:
 - every literal template `url_for('static', ...)` is cache-busted with the current asset revision;
 - only `/static/*?rev=<current revision>` receives one-year immutable caching; unversioned static requests must revalidate;
 - PWA 192/512 icons use Hotfix-specific filenames;
@@ -142,3 +142,14 @@ Revision `27A101-H10L-20260827B` closes this gap:
 - package audit found zero missing static references, zero missing literal template includes/renders, zero missing literal `url_for` endpoints, zero case-collision paths and zero whitespace/non-ASCII deployment paths.
 
 Fresh verification after these changes: 108/108 contracts pass; Python compilation passes; 9/9 production JavaScript files pass syntax validation; 73/73 Jinja templates parse; 6/6 CSS files pass structural validation; Hotfix 10 light-shell, focused runtime, brand desktop/mobile and Livenza default-wallpaper Chromium audits all pass.
+
+## Hotfix 10 Dock refinement — Revision C
+
+Revision C refines the deployed lightweight Home shell without reintroducing the legacy UI bundles. The Dock now uses a restrained macOS-like translucent navy glass material, original Livenza suite squircles with explicit SVG stroke rendering, suite-specific gradients, a visual separator before Settings, matching active dots, and requestAnimationFrame pointer-field magnification using transform-only scale/lift. The same Livenza symbol stroke contract is applied to the lightweight Settings Dock.
+
+The change also fixes the browser fallback that could render inline Livenza SVG symbols as flat black fills when the lightweight shell did not define stroke/fill semantics.
+
+
+## Revision D navigation recovery
+
+Revision D hardens Home navigation against partial uploads, stale JavaScript and CDN mismatches. Suites controls are real links to `/?suites=1` and the server renders the Suites drawer open when that query flag is present, while `home_light.js` progressively enhances the same links into the normal instant drawer. Dock application entries remain ordinary anchors, so Agreements, Rooms, Queries, Reviews, Banking and Settings do not depend on JavaScript for navigation. A Home runtime-ready marker/watchdog makes missing or stale Home JavaScript observable.

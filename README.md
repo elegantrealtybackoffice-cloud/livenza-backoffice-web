@@ -12,7 +12,7 @@ Livenza Life operations workspace presented through the Tesla OS 27 vibrant macO
 - Livenza Companion is dock-adjacent at the lower-right and loads its panel only when requested rather than occupying the desktop centre.
 - System Settings uses its own bright lightweight stylesheet with aligned sidebars, forms, switches, wallpaper controls and a persistent Dock.
 - The approved Livenza brand system uses navy `#061A3A`, emerald `#35D05B` and cyan `#10C8CF` while keeping working content surfaces bright and professional.
-- Every Hotfix 10 CSS/JS URL carries asset revision **`27A101-H10L-20260827B`** so immutable browser/CDN caches cannot silently reuse an older Hotfix shell.
+- Every Hotfix 10 CSS/JS URL carries asset revision **`27A101-H10L-20260827D`** so immutable browser/CDN caches cannot silently reuse an older Hotfix shell.
 - Tesla OS identity remains **Tesla OS 27 / Version 27.0.1 / Build 27A101**.
 
 ## Complete Backend Included
@@ -113,7 +113,7 @@ Repackages the complete cumulative Livenza operations platform under the Tesla O
 - Historical database migration filenames are retained only for schema compatibility and do not represent the current product version.
 
 ## Deployment Verification
-After deployment, first verify `/version` and response headers expose asset revision **`27A101-H10L-20260827B`**. Home must request only `home_light.css` + `home_light.js` for its Hotfix 10 shell and must not request the legacy module/application/TV bundles. Confirm the Livenza.life default wallpaper, seven curated Dock icons, lower-right Companion, on-demand Widgets, immediate View/Suites menus and refined bright System Settings match the packaged Chromium previews. Full steps are in `VERIFY_DEPLOY.txt`.
+After deployment, first verify `/version` and response headers expose asset revision **`27A101-H10L-20260827D`**. Home must request only `home_light.css` + `home_light.js` for its Hotfix 10 shell and must not request the legacy module/application/TV bundles. Confirm the Livenza.life default wallpaper, seven curated Dock icons, lower-right Companion, on-demand Widgets, immediate View/Suites menus and refined bright System Settings match the packaged Chromium previews. Full steps are in `VERIFY_DEPLOY.txt`.
 
 ## Hotfix 6 — macOS 27 Exact-Kit Pass
 
@@ -205,7 +205,7 @@ The focused Chromium Settings render confirms a bright application canvas, brigh
 Hotfix 10 continues from Hotfix 9.2 but removes the largest source of perceived lag on the desktop itself: Home no longer boots the ~304 KB legacy module stylesheet, ~101 KB general app runtime, TV compatibility layer or ~129 KB macOS application stylesheet. Home instead uses `home_light.css` and `home_light.js`; System Settings uses `settings_light.css` and avoids the legacy module/app/TV bundles. Heavy suite code remains available only where the corresponding suite actually needs it.
 
 ### Deployment cache correction
-Static files are deliberately served with a long immutable cache lifetime. Earlier hotfixes kept `?v=27.0.1`, which allowed a browser or CDN to reuse older CSS/JS even after a newer ZIP was uploaded. Hotfix 10 fixes the source rather than relying on users to clear cache: versioned static URLs now carry **`?rev=27A101-H10L-20260827B`**, `/version` reports that revision, and responses expose `X-Livenza-Revision` / `X-Livenza-Hotfix`. The default scenic wallpaper also uses revision-specific `livenza_life_live_elevated_h10l.jpg`.
+Static files are deliberately served with a long immutable cache lifetime. Earlier hotfixes kept `?v=27.0.1`, which allowed a browser or CDN to reuse older CSS/JS even after a newer ZIP was uploaded. Hotfix 10 fixes the source rather than relying on users to clear cache: versioned static URLs now carry **`?rev=27A101-H10L-20260827D`**, `/version` reports that revision, and responses expose `X-Livenza-Revision` / `X-Livenza-Hotfix`. The default scenic wallpaper also uses revision-specific `livenza_life_live_elevated_h10l.jpg`.
 
 ### Visible Home contract
 - Livenza.life scenic wallpaper is first-run/reset default.
@@ -230,4 +230,4 @@ The exact release tree is verified with the complete source regression suite, Py
 
 
 ### Hotfix 10 deployment-survival hardening — revision B
-Revision `27A101-H10L-20260827B` additionally cache-busts every browser-visible static asset referenced from Jinja templates. Unversioned `/static/*` requests now revalidate instead of receiving a one-year immutable cache header. PWA icons and the CSS-embedded compact Livenza mark use Hotfix-specific filenames. This prevents a correct server deployment from still looking like the prior release because a browser/CDN retained an older logo, favicon, icon or image URL.
+Revision `27A101-H10L-20260827D` additionally cache-busts every browser-visible static asset referenced from Jinja templates. Unversioned `/static/*` requests now revalidate instead of receiving a one-year immutable cache header. PWA icons and the CSS-embedded compact Livenza mark use Hotfix-specific filenames. This prevents a correct server deployment from still looking like the prior release because a browser/CDN retained an older logo, favicon, icon or image URL.

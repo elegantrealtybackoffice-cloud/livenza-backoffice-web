@@ -6,8 +6,8 @@ TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 10 LIGHT SHELL + DEPL
 4. Preserve DATABASE_URL / PostgreSQL data, SECRET_KEY, LIVENZA_VAULT_MASTER_KEY, INTEGRATION_ENCRYPTION_KEY and all other production environment variables.
 5. Preserve all historical migration files and persistent business uploads. Do not reset production data for this shell/performance release.
 6. Deploy/restart the web service after files are replaced.
-7. BEFORE evaluating the UI, open `/version` and confirm asset revision `27A101-H10L-20260827B`, then verify response header `X-Livenza-Revision` has the same value.
-8. In DevTools → Network, Home must request `home_light.css?rev=27A101-H10L-20260827B` and `home_light.js?rev=27A101-H10L-20260827B`. If not, the host/CDN is still serving an older deployment.
+7. BEFORE evaluating the UI, open `/version` and confirm asset revision `27A101-H10L-20260827D`, then verify response header `X-Livenza-Revision` has the same value.
+8. In DevTools → Network, Home must request `home_light.css?rev=27A101-H10L-20260827D` and `home_light.js?rev=27A101-H10L-20260827D`. If not, the host/CDN is still serving an older deployment.
 9. Confirm Home visually matches the packaged Hotfix 10 preview: Livenza.life scenic wallpaper, seven curated colorful Dock shortcuts, lower-right Companion and no permanent widget column.
 10. Open System Settings → Desktop & Dock and confirm the bright refined Settings layout with distinct Dock Size, Magnification and Auto-Hide rows.
 11. Run every acceptance check in VERIFY_DEPLOY.txt before accepting the deployment.

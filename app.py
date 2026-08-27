@@ -43,7 +43,7 @@ OS_NAME = 'Tesla OS 27'
 OS_VERSION = '27.0.1'
 OS_BUILD = '27A101'
 HOTFIX_LABEL = 'Hotfix 10 Light Shell'
-ASSET_REVISION = '27A101-H10L-20260827B'
+ASSET_REVISION = '27A101-H10L-20260827D'
 APP_VERSION = OS_VERSION
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
