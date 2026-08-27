@@ -33,7 +33,7 @@ class Hotfix10NavigationResilience(unittest.TestCase):
         self.assertIn("e.preventDefault();setDrawer", JS.replace(' ', ''))
 
     def test_navigation_release_uses_new_revision(self):
-        self.assertIn("27A101-H10L-20260827D", APP)
+        self.assertIn("27A101-H10L-20260827E", APP)
 
     def test_top_bar_controls_have_no_js_navigation_fallbacks(self):
         required = {
