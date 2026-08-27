@@ -139,7 +139,7 @@ Hotfix 7 changes the Home experience from a dashboard styled like macOS into a d
 
 ### Wallpaper and Visual Refinement
 - System Settings includes built-in wallpaper previews plus custom image upload, reset and persistent selection.
-- Wallpaper state is applied before first paint to avoid reload flashing; custom images are resized/compressed client-side before local persistence.
+- The **Livenza.life · LIVE ELEVATED.** scenic wallpaper is the first-run/reset default and is applied before first paint to avoid reload flashing; Aurora and the other built-ins remain selectable, while custom images are resized/compressed client-side before local persistence.
 - Exact supplied-kit shell geometry remains authoritative: 34px menu bar, 58px Dock, 36px Dock icons, 45px stride, 4px running dots, 16px windows, 40/52/77px toolbars, 256px sidebars, 344px widgets and 13/16 desktop body typography.
 - Legacy decorative card streaks, floating-card hover effects, hidden Home toolbar DOM and the old footer safe-area reservation are removed from the clean shell.
 - Form controls, labels and buttons use a consistent baseline/alignment contract; primary application content remains high-contrast while Liquid Glass is limited to navigation/transient surfaces.
@@ -211,6 +211,12 @@ Hotfix 10 continues directly from Hotfix 9.2 and installs the approved three-par
 
 The shared visual palette now derives its primary interaction identity from Livenza navy `#061A3A`, emerald `#35D05B` and cyan `#10C8CF`. Bright content surfaces remain readable and professional while selection, focus, buttons, Dock/system accents, Agreements, Letterhead and the default Livenza Aurora wallpaper use the new identity more deliberately. Compatibility aliases remain for stale external URLs, but visible templates/CSS reference the new `static/brand/` assets.
 
-Hotfix 10 also includes the current browser-OS reliability pass: idempotent mounted Settings initialisation, an 8-second app-window timeout with Retry, memory caching/prefetch, wallpaper fit/position/zoom, persistent widget control, titlebar double-click Zoom/Restore, Back/Forward window commands, Home-only mascot markup and a non-interactive wallpaper layer so decorative rendering cannot block controls.
+Hotfix 10 also includes the current browser-OS reliability pass: idempotent mounted Settings initialisation, an 8-second app-window timeout with Retry, memory caching/prefetch, wallpaper fit/position/zoom, on-demand top-bar widget control, titlebar double-click Zoom/Restore, Back/Forward window commands, Home-only mascot markup and a non-interactive wallpaper layer so decorative rendering cannot block controls.
 
 Agreement PDF and Letterhead PDF paths now have approved-logo defaults while still allowing a configured custom Letterhead logo to take precedence. See `HOTFIX10_AUDIT.md` for the complete scope and verification evidence.
+
+### Hotfix 10 clean Home contract
+- Home stays visually empty apart from wallpaper and system chrome until the user opens something.
+- The Dock contains **Suites only**; application shortcuts live inside the Suites launcher/search.
+- Widgets are on-demand from the top-bar Widgets control instead of being permanently attached to Home.
+- The floating mascot is hidden from the desktop; Help opens the Companion panel when needed.

@@ -35,11 +35,12 @@
     'control.fullscreen':true,
     'focus.enabled':false,
     'focus.companion':true,
+    'wallpaper.variant':'livenza-life',
     'wallpaper.fit':'fill',
     'wallpaper.positionX':'50',
     'wallpaper.positionY':'50',
     'wallpaper.zoom':'100',
-    'widgets.visible':true
+    'widgets.visible':false
   };
   let preferences = {...DEFAULT_PREFERENCES, ...readPreferences()};
 
@@ -73,7 +74,7 @@
   }
 
   function applyWallpaper(value, persist = true) {
-    const allowed = new Set(['aurora', 'spectrum', 'sequoia', 'midnight', 'livenza-blue', 'violet-glass', 'ocean', 'sunrise', 'custom']);
+    const allowed = new Set(['livenza-life', 'aurora', 'spectrum', 'sequoia', 'midnight', 'livenza-blue', 'violet-glass', 'ocean', 'sunrise', 'custom']);
     const desktop = $('.mac-desktop-home');
     const wallpaperLayer = $('#desktopWallpaperLayer');
     const transitionLayer = $('#wallpaperTransitionLayer');
@@ -88,11 +89,11 @@
       transitionLayer.classList.add('is-fading');
       window.setTimeout(() => { transitionLayer.hidden = true; transitionLayer.classList.remove('is-fading'); transitionLayer.style.removeProperty('background-image'); }, 280);
     }
-    let next = allowed.has(value) ? value : 'aurora';
+    let next = allowed.has(value) ? value : 'livenza-life';
     let custom = '';
     if (next === 'custom') {
       try { custom = localStorage.getItem(CUSTOM_WALLPAPER_KEY) || ''; } catch (_) {}
-      if (!custom) next = 'aurora';
+      if (!custom) next = 'livenza-life';
     }
     root.dataset.wallpaper = next;
     applyWallpaperGeometry();
@@ -145,7 +146,7 @@
   }
 
   setRootPreferenceClasses();
-  applyWallpaper(preferences['wallpaper.variant'] || root.dataset.wallpaper || 'aurora', false);
+  applyWallpaper(preferences['wallpaper.variant'] || root.dataset.wallpaper || 'livenza-life', false);
   function applySharedSuiteDesign(scope) {
     if (!scope || body?.dataset.page === 'dashboard' && scope.id === 'appMain') return;
     scope.classList.add('app-standard-page');
@@ -361,7 +362,7 @@
 
   reduceMotion.addEventListener?.('change', () => { resetDock(); cacheDockCenters(); });
 
-  function setWidgetsVisible(visible, persist = true) {
+  function setWidgetsVisible(visible, persist = false) {
     const next = visible !== false;
     body.classList.toggle('desktop-widgets-hidden', !next);
     $$('[data-home-widgets-toggle]').forEach((button) => {
@@ -378,10 +379,10 @@
       const key = widget.dataset.homeWidget;
       widget.hidden = preferences.widgets?.[key] === false;
     });
-    setWidgetsVisible(preferences['widgets.visible'] !== false, false);
+    setWidgetsVisible(false, false);
   }
   applyHomeWidgetPreferences();
-  $$('[data-home-widgets-toggle]').forEach((button) => button.addEventListener('click', () => setWidgetsVisible(preferences['widgets.visible'] === false)));
+  $$('[data-home-widgets-toggle]').forEach((button) => button.addEventListener('click', () => setWidgetsVisible(body.classList.contains('desktop-widgets-hidden'))));
 
   /* ---------- Settings ---------- */
   function applyPreferenceControls(settingsRoot = $('[data-system-settings]')) {
@@ -404,7 +405,7 @@
       const input = $('input[type="checkbox"]', card);
       if (input) input.checked = preferences.widgets?.[card.dataset.widgetKey] !== false;
     });
-    applyWallpaper(preferences['wallpaper.variant'] || 'aurora', false);
+    applyWallpaper(preferences['wallpaper.variant'] || 'livenza-life', false);
   }
 
   function initSystemSettings(scope = document) {
@@ -499,9 +500,9 @@
       }
       if (event.target.closest?.('[data-wallpaper-remove-custom]')) {
         try { localStorage.removeItem(CUSTOM_WALLPAPER_KEY); } catch (_) {}
-        preferences['wallpaper.variant'] = 'aurora';
+        preferences['wallpaper.variant'] = 'livenza-life';
         writePreferences(preferences);
-        applyWallpaper('aurora', false);
+        applyWallpaper('livenza-life', false);
         const preview = $('.wallpaper-custom', settingsRoot);
         if (preview) preview.style.removeProperty('background-image');
         const status = $('#wallpaperStatus', settingsRoot);
@@ -510,7 +511,7 @@
       }
       if (event.target.closest?.('[data-reset-widgets]')) {
         preferences.widgets = {};
-        preferences['widgets.visible'] = true;
+        preferences['widgets.visible'] = false;
         writePreferences(preferences);
         applyPreferenceControls(settingsRoot);
         applyHomeWidgetPreferences();
@@ -518,7 +519,7 @@
       }
       if (event.target.closest?.('[data-reset-local-prefs]')) {
         const widgets = preferences.widgets || {};
-        preferences = {...DEFAULT_PREFERENCES, widgets, 'wallpaper.variant': preferences['wallpaper.variant'] || 'aurora'};
+        preferences = {...DEFAULT_PREFERENCES, widgets, 'wallpaper.variant': preferences['wallpaper.variant'] || 'livenza-life'};
         writePreferences(preferences);
         applyPreferenceControls(settingsRoot);
       }
@@ -1076,7 +1077,7 @@
     const command = event.target.closest('[data-window-menu-command]'); if (!command) return;
     const active = activeWindowId ? windowRecord(activeWindowId)?.el : null;
     const name = command.dataset.windowMenuCommand;
-    if (name === 'toggle-widgets') setWidgetsVisible(preferences['widgets.visible'] === false);
+    if (name === 'toggle-widgets') setWidgetsVisible(body.classList.contains('desktop-widgets-hidden'));
     else if (name === 'back-active' && active) await navigateWindowHistory(active, -1);
     else if (name === 'forward-active' && active) await navigateWindowHistory(active, 1);
     else if (name === 'show-desktop') desktopWindows.forEach((entry) => { if (!entry.el.classList.contains('is-minimized')) minimizeAppWindow(entry.el.id); });

@@ -43,7 +43,7 @@ The new primary brand tokens are:
 
 The shared macOS-inspired shell remains bright and restrained. Brand colour is concentrated in primary actions, selected states, focus, Dock/system details, wallpaper light, login/kiosk identity, Agreements and Letterhead accents instead of flooding content surfaces. Dark/on-glass contexts use navy/graphite material with high-contrast logo variants.
 
-The default Livenza Aurora wallpaper is now a navy/emerald/cyan environment rather than the older generic blue/violet treatment.
+The final **Livenza.life · LIVE ELEVATED.** scenic wallpaper is now the true first-run and reset default. It is packaged as `static/wallpapers/livenza_life_live_elevated.jpg` at 1920×1080, uses the approved navy/emerald/cyan identity, and is cropped free of generated preview chrome so Tesla OS supplies its own menu bar and Dock. Livenza Aurora and the remaining built-in wallpapers remain selectable in System Settings.
 
 ## Document branding
 
@@ -57,11 +57,27 @@ The cumulative Hotfix 10 source also includes the approved runtime work started 
 - Window loads have an 8-second abort timeout, readable error state and in-window Retry action.
 - Same-origin app documents use in-memory caching plus pointer/focus prefetch to avoid repeatedly fetching identical resources.
 - Wallpaper supports Fill/Fit/Stretch/Center, X/Y positioning and zoom controls.
-- Desktop widgets use a persistent top-bar toggle.
+- Desktop widgets are closed by default and open only from the persistent top-bar Widgets control; the desktop remains clean between uses.
 - Window titlebar double-click toggles Zoom/Restore.
 - Contextual View menu exposes Back/Forward for the active app window.
-- Mascot markup is restricted to Home rather than leaking into application content.
+- Companion markup remains Home-scoped for compatibility, but the floating mascot is hidden from the desktop; Help opens the companion panel on demand.
 - Wallpaper rendering is explicitly `pointer-events:none` after Chromium exposed that the visual layer could intercept Home controls.
+
+
+## Hotfix 10 clean-Home correction
+
+A post-package screenshot exposed that the first Hotfix 10 archive still rendered the previous Home composition. Root-cause review confirmed this was present in production templates, not merely browser cache: `dashboard.html` still contained an always-visible widget stack and `base.html` still invoked `render_dock_apps()` after the Suites launcher. The floating Home mascot also remained visible.
+
+The corrected Hotfix 10 source now enforces the approved desktop contract:
+
+- Home is wallpaper/system chrome only between interactions.
+- The persistent Dock renders exactly one launcher: **Suites**.
+- Application icons remain available inside the Suites launcher and command search rather than cluttering the Dock.
+- Widgets are closed on every Home load and open transiently from the top-bar Widgets control. Individual widget enable/disable preferences remain in System Settings.
+- The floating mascot is hidden; **Help** opens the Livenza Companion panel on demand.
+- Existing app-window loading/retry/cache/prefetch, Settings behavior, wallpaper controls, window Zoom/Restore and Back/Forward behavior are retained.
+
+Dedicated source contracts and the focused Chromium fixture verify the corrected Home state.
 
 ## Verification evidence
 
@@ -79,7 +95,7 @@ The dedicated Hotfix 10 brand browser fixture validates the exact new PNGs, hori
 
 Final verification on the packaged source line:
 
-- **86/86** Python unit/source contracts passed.
+- **90/90** Python unit/source contracts passed.
 - Python `compileall` passed.
 - **8/8** production JavaScript files passed `node --check`.
 - **73/73** Jinja templates parsed.
@@ -98,3 +114,10 @@ The older large Hotfix 9 real-template Playwright batch does not complete reliab
 - Existing permissions and secure server-side write handlers remain authoritative.
 - Existing custom Letterhead logos remain supported and override the new default where configured.
 - Apple proprietary fonts or artwork are not bundled.
+
+
+### Default Livenza.life wallpaper verification
+
+- Dedicated source contracts verify packaged asset, picker registration, default/fallback/reset behavior and CSS mapping.
+- Focused Chromium verifies first-run `data-wallpaper="livenza-life"`, Dock/Settings runtime behavior and wallpaper geometry controls.
+- Dedicated wallpaper Chromium render verifies the approved image composition at desktop viewport size.
