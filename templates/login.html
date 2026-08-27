@@ -4,7 +4,7 @@
 {% set auth_error = login_error or {} %}
 {% set fallback_mode = 'pattern' if login_method=='pattern' else 'password' %}
 <div class="login-card auth-login-card biometric-first-login">
-  <img src="{{url_for('static',filename='livenza_logo.png')}}" class="login-logo" alt="Livenza Life">
+  <img src="{{url_for('static',filename='brand/livenza_wordmark_tagline.png')}}" class="login-logo" alt="Livenza Life">
   <p class="eyebrow">SECURE WEB ACCESS</p>
   <h1>Welcome to Livenza</h1>
   <p class="muted">Enter your Login ID, then verify with this device. Password and gesture options stay hidden until you request them.</p>

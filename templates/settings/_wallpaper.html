@@ -2,7 +2,7 @@
   <article class="settings-card settings-wallpaper-card">
     <div class="settings-section-title"><div><h2>Wallpaper</h2><p>Choose the desktop background used on Home. Your selection is applied before first paint and stays on this browser.</p></div></div>
     <div class="wallpaper-grid" role="radiogroup" aria-label="Desktop wallpaper">
-      <button type="button" class="wallpaper-choice" data-wallpaper-value="aurora" role="radio" aria-checked="false"><span class="wallpaper-preview wallpaper-aurora" aria-hidden="true"></span><span class="wallpaper-choice-copy"><b>Aurora</b><small>Blue and violet liquid light</small></span></button>
+      <button type="button" class="wallpaper-choice" data-wallpaper-value="aurora" role="radio" aria-checked="false"><span class="wallpaper-preview wallpaper-aurora" aria-hidden="true"></span><span class="wallpaper-choice-copy"><b>Livenza Aurora</b><small>Navy, emerald and cyan liquid light</small></span></button>
       <button type="button" class="wallpaper-choice" data-wallpaper-value="spectrum" role="radio" aria-checked="false"><span class="wallpaper-preview wallpaper-spectrum" aria-hidden="true"></span><span class="wallpaper-choice-copy"><b>Spectrum</b><small>Vivid violet, blue and coral</small></span></button>
       <button type="button" class="wallpaper-choice" data-wallpaper-value="sequoia" role="radio" aria-checked="false"><span class="wallpaper-preview wallpaper-sequoia" aria-hidden="true"></span><span class="wallpaper-choice-copy"><b>Sequoia</b><small>Cool teal and indigo depth</small></span></button>
       <button type="button" class="wallpaper-choice" data-wallpaper-value="midnight" role="radio" aria-checked="false"><span class="wallpaper-preview wallpaper-midnight" aria-hidden="true"></span><span class="wallpaper-choice-copy"><b>Midnight</b><small>Deep blue low-light desktop</small></span></button>
@@ -17,6 +17,15 @@
       <input id="wallpaperCustomInput" type="file" accept="image/jpeg,image/png,image/webp,image/avif" hidden>
       <button type="button" class="secondary wallpaper-remove-button" data-wallpaper-remove-custom>Remove Custom</button>
       <small id="wallpaperStatus" class="settings-note" aria-live="polite">Custom images are resized locally; nothing is uploaded to the server.</small>
+    </div>
+    <div class="wallpaper-layout-controls">
+      <div class="form-grid">
+        <label>Image scaling<select data-pref="wallpaper.fit"><option value="fill">Fill Screen</option><option value="fit">Fit to Screen</option><option value="stretch">Stretch to Fill</option><option value="center">Center at Natural Size</option></select></label>
+        <label>Zoom <output data-pref-output="wallpaper.zoom">100%</output><input type="range" min="80" max="160" step="1" value="100" data-pref="wallpaper.zoom"></label>
+        <label>Horizontal position <output data-pref-output="wallpaper.positionX">50%</output><input type="range" min="0" max="100" step="1" value="50" data-pref="wallpaper.positionX"></label>
+        <label>Vertical position <output data-pref-output="wallpaper.positionY">50%</output><input type="range" min="0" max="100" step="1" value="50" data-pref="wallpaper.positionY"></label>
+      </div>
+      <p class="settings-note">Fill, Fit, Stretch and Center apply instantly on Home. Position and zoom are saved on this browser.</p>
     </div>
   </article>
 </section>

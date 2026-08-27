@@ -160,8 +160,9 @@ class Hotfix9VisualContracts(unittest.TestCase):
         self.assertNotIn('id="macHistoryForward"', BASE)
         self.assertRegex(CSS, r'\.mac-toolbar\.mac-route-toolbar\s*\{[^}]*grid-template-columns\s*:\s*86px\s+minmax\(0,1fr\)\s+86px')
 
-    def test_direct_app_routes_hide_desktop_only_dock(self):
-        self.assertRegex(CSS, r'body\.macos27-clean:not\(\[data-page="dashboard"\]\) \.mac-dock\s*\{[^}]*display\s*:\s*none')
+    def test_direct_app_routes_keep_global_dock_available(self):
+        self.assertNotRegex(CSS, r'body\.macos27-clean:not\(\[data-page="dashboard"\]\) \.mac-dock\s*\{[^}]*display\s*:\s*none')
+        self.assertIn('padding-bottom:calc(var(--mac-dock-height) + 36px)', CSS)
 
 
 if __name__ == '__main__':
