@@ -24,7 +24,7 @@
 {% block content %}
 <div class="page-head agreement-page-head"><div><p class="eyebrow">LIVENZA AGREEMENT STUDIO</p><h1>{{'Edit Agreement' if ag else 'New Agreement'}}</h1><p class="muted">A focused four-step workspace for party details, property terms, clauses, review and signature.</p></div></div>
 <section class="agreement-brand-banner liquid-card" aria-label="Livenza secure agreement workspace">
-  <div class="agreement-brand-mark"><img src="{{url_for('static',filename='brand/livenza_wordmark.png')}}" alt=""><i></i><i></i><i></i></div>
+  <div class="agreement-brand-mark"><img src="{{url_for('static',filename='brand/livenza_wordmark.png')}}?rev={{asset_revision}}" alt=""><i></i><i></i><i></i></div>
   <div><p class="eyebrow">FORMAL OPERATIONS WORKSPACE</p><h2>Agreements shaped for Livenza Life</h2><p>325 G, Sector 38, Gurugram, Haryana – 122001 · Livenza Life LLP</p></div>
   <div class="agreement-trust-badge"><span aria-hidden="true">{{icons.symbol('privacy')}}</span><div><b>Protected workspace</b><small>HTTPS session · Aadhaar uploads processed transiently</small></div></div>
 </section>
@@ -82,5 +82,5 @@
     <div class="sticky-actions"><button name="save_lang" value="en" class="primary">Save & Preview English</button><button name="save_lang" value="hi" class="secondary">Save & Preview हिंदी</button></div>
   </section>
 </form>
-<script src="{{url_for('static',filename='party_masters.js')}}?v={{app_version|replace('Web ','')}}"></script>
+<script src="{{url_for('static',filename='party_masters.js')}}?rev={{asset_revision}}"></script>
 {% endblock %}

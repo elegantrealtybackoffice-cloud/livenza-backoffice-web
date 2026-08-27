@@ -5,14 +5,14 @@ Livenza Life operations workspace presented through the Tesla OS 27 vibrant macO
 > **Tesla OS 27 is a cumulative release.** The macOS-style interface is only the newest presentation layer. The backend and operational features from the earlier Web 1.7.0, 1.7.1, 1.8.0 and 1.9.0 releases remain included in this build.
 
 ## Interface
-- Vibrant macOS 27-style desktop Home with the original Livenza liquid wallpaper, a 34 px menu bar and a fixed 58 px Liquid Glass Dock.
-- Permission-aware individual Suite icons in the Dock, with active indicators, hover magnification and horizontal overflow support where needed.
-- Right-side macOS-style desktop widgets for live operations, weather, Livenza Suggestions and Ask Livenza.
-- Official-kit-derived scale tokens: 256 px sidebars, 344 px notification/widget width, 24 px regular menu rows, 13/16 body typography and 22/26 Title 1 typography.
-- Liquid Glass is reserved for navigation and transient surfaces (Dock, sidebars, menus, widgets, popovers) while primary content uses high-contrast readable surfaces.
-- macOS system-color-inspired accents restore blue, violet, green, orange, cyan and pink personality instead of the previous beige/grayscale presentation.
-- Existing inner Suite pages inherit the same clearer typography, brighter surfaces, system controls, menu treatment and responsive spacing without altering their backend workflows.
-- The 3D Livenza Companion remains available but is visually subordinate to the workspace and no longer forced into grayscale.
+- **Hotfix 10 Light Shell** Home: dedicated lightweight CSS/JS instead of the legacy module, TV and general application bundles.
+- First-run/reset Home uses the **Livenza.life · LIVE ELEVATED.** scenic wallpaper with a compact 34 px macOS-style menu bar.
+- Curated colorful Dock shortcuts for **Suites, Agreement Studio, Rooms, Queries, Reviews, Banking and System Settings**, with restrained magnification and reduced-motion fallback.
+- Widgets are asleep/hidden by default and open only from the top-bar Widgets control; no weather/live-operation polling runs on idle Home.
+- Livenza Companion is dock-adjacent at the lower-right and loads its panel only when requested rather than occupying the desktop centre.
+- System Settings uses its own bright lightweight stylesheet with aligned sidebars, forms, switches, wallpaper controls and a persistent Dock.
+- The approved Livenza brand system uses navy `#061A3A`, emerald `#35D05B` and cyan `#10C8CF` while keeping working content surfaces bright and professional.
+- Every Hotfix 10 CSS/JS URL carries asset revision **`27A101-H10L-20260827B`** so immutable browser/CDN caches cannot silently reuse an older Hotfix shell.
 - Tesla OS identity remains **Tesla OS 27 / Version 27.0.1 / Build 27A101**.
 
 ## Complete Backend Included
@@ -113,12 +113,7 @@ Repackages the complete cumulative Livenza operations platform under the Tesla O
 - Historical database migration filenames are retained only for schema compatibility and do not represent the current product version.
 
 ## Deployment Verification
-After deployment:
-1. Open `/version` and confirm **Tesla OS 27**, **27.0.1**, **27A101**.
-2. Confirm the Home workspace shows the vibrant desktop wallpaper, 34 px menu bar, right-side widgets and persistent multi-Suite Dock.
-3. Open Suites and confirm the authorized operational modules above are available.
-4. Verify System Settings → About shows the OS name, version and build.
-5. Re-test protected Admin, Vault, Agreement, Electricity, Banking, Integration and Letterhead write actions before production use.
+After deployment, first verify `/version` and response headers expose asset revision **`27A101-H10L-20260827B`**. Home must request only `home_light.css` + `home_light.js` for its Hotfix 10 shell and must not request the legacy module/application/TV bundles. Confirm the Livenza.life default wallpaper, seven curated Dock icons, lower-right Companion, on-demand Widgets, immediate View/Suites menus and refined bright System Settings match the packaged Chromium previews. Full steps are in `VERIFY_DEPLOY.txt`.
 
 ## Hotfix 6 — macOS 27 Exact-Kit Pass
 
@@ -205,18 +200,34 @@ The Dock is restored as a persistent signed-in navigation surface on direct appl
 The focused Chromium Settings render confirms a bright application canvas, bright Settings detail/card surfaces and a visible 58px Dock. Source verification and deployment notes are recorded in `HOTFIX92_AUDIT.md` and `VERIFY_DEPLOY.txt`.
 
 
-## Hotfix 10 — Livenza Brand System + Runtime Reliability
+## Hotfix 10 — Lightweight Shell, Brand System & Deployment Cache Fix
 
-Hotfix 10 continues directly from Hotfix 9.2 and installs the approved three-part Livenza Life identity across the complete Tesla OS experience. The primary `livenza.life / LIVE ELEVATED.` lockup is used on authentication, kiosk, formal Agreement and Letterhead surfaces; the clean horizontal `livenza.life` wordmark is used for compact wide UI branding; and the `.life` roundel is used for favicons, PWA icons and compact system identity. Controlled on-dark variants preserve contrast without changing logo geometry.
+Hotfix 10 continues from Hotfix 9.2 but removes the largest source of perceived lag on the desktop itself: Home no longer boots the ~304 KB legacy module stylesheet, ~101 KB general app runtime, TV compatibility layer or ~129 KB macOS application stylesheet. Home instead uses `home_light.css` and `home_light.js`; System Settings uses `settings_light.css` and avoids the legacy module/app/TV bundles. Heavy suite code remains available only where the corresponding suite actually needs it.
 
-The shared visual palette now derives its primary interaction identity from Livenza navy `#061A3A`, emerald `#35D05B` and cyan `#10C8CF`. Bright content surfaces remain readable and professional while selection, focus, buttons, Dock/system accents, Agreements, Letterhead and the default Livenza Aurora wallpaper use the new identity more deliberately. Compatibility aliases remain for stale external URLs, but visible templates/CSS reference the new `static/brand/` assets.
+### Deployment cache correction
+Static files are deliberately served with a long immutable cache lifetime. Earlier hotfixes kept `?v=27.0.1`, which allowed a browser or CDN to reuse older CSS/JS even after a newer ZIP was uploaded. Hotfix 10 fixes the source rather than relying on users to clear cache: versioned static URLs now carry **`?rev=27A101-H10L-20260827B`**, `/version` reports that revision, and responses expose `X-Livenza-Revision` / `X-Livenza-Hotfix`. The default scenic wallpaper also uses revision-specific `livenza_life_live_elevated_h10l.jpg`.
 
-Hotfix 10 also includes the current browser-OS reliability pass: idempotent mounted Settings initialisation, an 8-second app-window timeout with Retry, memory caching/prefetch, wallpaper fit/position/zoom, on-demand top-bar widget control, titlebar double-click Zoom/Restore, Back/Forward window commands, Home-only mascot markup and a non-interactive wallpaper layer so decorative rendering cannot block controls.
+### Visible Home contract
+- Livenza.life scenic wallpaper is first-run/reset default.
+- New Livenza wordmark in the menu bar.
+- Seven curated Dock shortcuts: Suites, Agreement Studio, Rooms, Queries, Reviews, Banking and System Settings, respecting permissions where applicable.
+- Widgets are hidden until requested.
+- Livenza Companion sits above the Dock at the lower-right; its panel opens on demand.
+- View/Suites/Search interactions are local lightweight operations with no network dependency before opening.
+- Dock proximity motion uses requestAnimationFrame/GPU transforms and respects Reduced Motion.
 
-Agreement PDF and Letterhead PDF paths now have approved-logo defaults while still allowing a configured custom Letterhead logo to take precedence. See `HOTFIX10_AUDIT.md` for the complete scope and verification evidence.
+### Refined lightweight System Settings
+System Settings renders a bright macOS-style sidebar/detail surface without inherited purple/black slabs. Desktop & Dock now visibly separates Dock Size from Magnification and Auto-Hide switch rows; the same lightweight layer defines form grids, switches, wallpaper cards, range/value rows, action controls and responsive behavior so the real Jinja templates do not collapse into browser-default flow.
 
-### Hotfix 10 clean Home contract
-- Home stays visually empty apart from wallpaper and system chrome until the user opens something.
-- The Dock contains **Suites only**; application shortcuts live inside the Suites launcher/search.
-- Widgets are on-demand from the top-bar Widgets control instead of being permanently attached to Home.
-- The floating mascot is hidden from the desktop; Help opens the Companion panel when needed.
+### Livenza identity
+The approved three-logo package remains authoritative: `livenza_wordmark_tagline.png` for formal/authentication/document contexts, `livenza_wordmark.png` for horizontal UI identity and `livenza_life_mark.png` for compact system/PWA/favicon contexts. Agreement and Letterhead PDF defaults use the approved lockup while retaining custom Letterhead-logo override behavior.
+
+### Runtime reliability retained
+Hotfix 10 retains the 8-second application timeout with Retry, wallpaper fit/position/zoom, window Zoom/Restore, contextual history controls where used, non-interactive wallpaper layers and protected backend/role behavior.
+
+### Verification
+The exact release tree is verified with the complete source regression suite, Python compilation, all production JavaScript syntax checks, all Jinja templates, CSS structure checks and focused Chromium audits. The Home audit covers 1920×1080 and 1366×768, verifies seven Dock items, widgets asleep on load, immediate View-menu execution, lower-right Companion and no horizontal overflow. The Settings audit verifies bright geometry/no overflow, and the actual `system_settings.html` Desktop & Dock template is rendered separately to confirm properly separated controls and switches. Live production verification remains a separate deployment step using the revision fingerprint in `VERIFY_DEPLOY.txt`.
+
+
+### Hotfix 10 deployment-survival hardening — revision B
+Revision `27A101-H10L-20260827B` additionally cache-busts every browser-visible static asset referenced from Jinja templates. Unversioned `/static/*` requests now revalidate instead of receiving a one-year immutable cache header. PWA icons and the CSS-embedded compact Livenza mark use Hotfix-specific filenames. This prevents a correct server deployment from still looking like the prior release because a browser/CDN retained an older logo, favicon, icon or image URL.

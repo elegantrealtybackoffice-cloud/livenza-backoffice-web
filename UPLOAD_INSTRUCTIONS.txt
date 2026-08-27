@@ -1,11 +1,19 @@
-TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 10 LIVENZA BRAND SYSTEM + RUNTIME RELIABILITY
+TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 10 LIGHT SHELL + DEPLOYMENT CACHE FIX
 
 1. Back up the current application tree, persistent database/instance data and uploads before replacing application files.
-2. Upload/extract the COMPLETE Hotfix 10 package into the application repository root, preserving paths and overwriting matching application/static/template files.
-3. If the upload interface has a 100-file limit, upload PART_01_100_FILES first and PART_02 second into the exact same application root. Neither split archive is a standalone application.
+2. Upload/extract the COMPLETE Hotfix 10 Light Shell package into the application repository root, preserving paths and overwriting matching application/static/template files.
+3. If the upload interface has a 100-file limit, upload PART_01_100_FILES first and PART_02_86_FILES second into the exact same application root. Neither split archive is standalone.
 4. Preserve DATABASE_URL / PostgreSQL data, SECRET_KEY, LIVENZA_VAULT_MASTER_KEY, INTEGRATION_ENCRYPTION_KEY and all other production environment variables.
-5. Preserve all historical migration files and persistent business uploads. Do not reset production data for this UI/brand release.
-6. Deploy with the supplied Dockerfile/render.yaml and confirm `/version` still reports Tesla OS 27, Version 27.0.1 and Build 27A101.
-7. Hard-refresh once after deployment so browsers/PWA caches receive the new Hotfix 10 brand icons, CSS and JavaScript.
-8. Confirm the new Livenza logo system appears everywhere appropriate: wordmark in the Home menu bar, tagline lockup on login/kiosk/formal documents and `.life` mark in compact system/app-icon contexts.
-9. Run every acceptance check in VERIFY_DEPLOY.txt before accepting the deployment.
+5. Preserve all historical migration files and persistent business uploads. Do not reset production data for this shell/performance release.
+6. Deploy/restart the web service after files are replaced.
+7. BEFORE evaluating the UI, open `/version` and confirm asset revision `27A101-H10L-20260827B`, then verify response header `X-Livenza-Revision` has the same value.
+8. In DevTools → Network, Home must request `home_light.css?rev=27A101-H10L-20260827B` and `home_light.js?rev=27A101-H10L-20260827B`. If not, the host/CDN is still serving an older deployment.
+9. Confirm Home visually matches the packaged Hotfix 10 preview: Livenza.life scenic wallpaper, seven curated colorful Dock shortcuts, lower-right Companion and no permanent widget column.
+10. Open System Settings → Desktop & Dock and confirm the bright refined Settings layout with distinct Dock Size, Magnification and Auto-Hide rows.
+11. Run every acceptance check in VERIFY_DEPLOY.txt before accepting the deployment.
+
+A manual browser cache clear should not be required for this release because static CSS/JS URLs carry the new Hotfix revision and the default wallpaper uses a revision-specific filename.
+
+
+REVISION B PACKAGE
+Use only `Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX10_LIGHT_SHELL_DEPLOYMENT_SURVIVAL_REV_B.zip` or its two split archives. Revision B hardens image/logo/favicon/PWA caching in addition to CSS/JS cache busting.

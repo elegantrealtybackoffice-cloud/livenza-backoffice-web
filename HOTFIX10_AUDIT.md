@@ -1,123 +1,144 @@
-# Hotfix 10 Audit — Livenza Brand System + Runtime Reliability
+# Hotfix 10 Audit — Lightweight Shell + Refined Settings + Livenza Identity + Deployment Cache Fix
 
 **Product:** Tesla OS 27  
 **Version:** 27.0.1  
 **Build:** 27A101  
-**Release:** Hotfix 10  
+**Release:** Hotfix 10 Light Shell  
+**Asset revision:** `27A101-H10L-20260827B`  
 **Audit date:** 2026-08-27
 
-## Scope
+## Why this Hotfix exists
 
-Hotfix 10 continues directly from Hotfix 9.2. It preserves the existing Flask backend, routes, permissions, database compatibility and operational suites while completing two approved areas: browser-OS runtime reliability and the new Livenza Life identity system.
+Screenshots from the deployed host showed that earlier Hotfix 10 ZIPs could still look almost identical to the previous release: the old desktop composition could remain visible, the Dock changes could fail to appear, and menus could feel heavy. Root-cause analysis found two independent issues:
 
-## New Livenza identity system
+1. Home still inherited large runtime/presentation bundles that were unnecessary for an idle desktop.
+2. Static assets are served with a one-year immutable cache policy, while earlier hotfix URLs were versioned only with the unchanged OS version `27.0.1`. A browser/CDN could therefore legally reuse old CSS/JS after a new ZIP was uploaded.
 
-The user-approved three-logo package is now the visual source of truth. Its three roles are intentionally contextual rather than interchangeable:
+Hotfix 10 fixes both at the source. It does not depend on asking users to clear browser cache.
 
-- **`livenza_wordmark_tagline.png`** — primary lockup with **LIVE ELEVATED.** for authentication, kiosk/lock, agreement paper, Letterhead and formal identity surfaces.
-- **`livenza_wordmark.png`** — compact horizontal `livenza.life` wordmark for menu bars, agreement application branding and other wide UI placements.
-- **`livenza_life_mark.png`** — compact `.life` roundel for favicons, PWA/app icons, Suites/system identity, Easter-egg and square/circular placements.
+## Lightweight Home architecture
 
-Each has a controlled on-dark variant. The dark variants preserve the approved emerald/cyan identity while lifting only the dark navy portions for contrast. Proportions are preserved.
+Home is now a dedicated lightweight shell:
 
-Compatibility files `static/livenza_logo.png` and `static/livenza_logo_transparent.png` are retained only so stale external references do not break; visible templates and CSS no longer use those legacy paths.
+- `static/home_light.css`
+- `static/home_light.js`
 
-### Icon generation
+The dashboard no longer loads the large `legacy_modules.css`, `macos27_system.css`, `app.js` or `tv_compat.js` bundles. The fast dashboard template context also skips settings/companion preference reads that are not needed to paint Home.
 
-The `.life` mark now drives:
+Measured source sizes in this release are approximately:
 
-- `favicon.ico`
-- `favicon-32x32.png`
-- `apple-touch-icon.png`
-- `icon-192.png`
-- `icon-512.png`
+- `home_light.css`: 13 KB
+- `home_light.js`: 5 KB
 
-## Brand-aware UI palette
+compared with the avoided Home bundles:
 
-The new primary brand tokens are:
+- `legacy_modules.css`: ~305 KB
+- `app.js`: ~101 KB
+- `tv_compat.js`: ~9 KB
+- `macos27_system.css`: ~129 KB
 
-- Navy: `#061A3A`
-- Emerald: `#35D05B`
-- Cyan: `#10C8CF`
-- Primary brand gradient: emerald → cyan
+The suite-specific heavy code is still retained for the application routes that need it.
 
-The shared macOS-inspired shell remains bright and restrained. Brand colour is concentrated in primary actions, selected states, focus, Dock/system details, wallpaper light, login/kiosk identity, Agreements and Letterhead accents instead of flooding content surfaces. Dark/on-glass contexts use navy/graphite material with high-contrast logo variants.
+## Visible Home contract
 
-The final **Livenza.life · LIVE ELEVATED.** scenic wallpaper is now the true first-run and reset default. It is packaged as `static/wallpapers/livenza_life_live_elevated.jpg` at 1920×1080, uses the approved navy/emerald/cyan identity, and is cropped free of generated preview chrome so Tesla OS supplies its own menu bar and Dock. Livenza Aurora and the remaining built-in wallpapers remain selectable in System Settings.
+The actual Jinja Home template now renders:
 
-## Document branding
+- the Livenza.life · LIVE ELEVATED. scenic wallpaper;
+- the approved horizontal Livenza wordmark in the top menu bar;
+- functional Suites / View / Window / Help controls;
+- seven curated Dock shortcuts — Suites, Agreement Studio, Rooms, Queries, Reviews, Banking and System Settings — subject to relevant permissions;
+- Widgets hidden on initial load and opened only from the top-bar control;
+- a compact Livenza Companion at the lower-right immediately above the Dock rather than in the middle of the wallpaper;
+- no idle weather or operations polling;
+- local menu/drawer interaction without waiting for a network request.
 
-Agreement previews and generated Agreement PDFs use the new primary lockup. Letterhead previews/editors/final review use the same official lockup, and the PDF rendering path now has a server-side default logo fallback from `static/brand/livenza_wordmark_tagline.png` whenever a published Letterhead template has no custom logo. A configured custom published logo still takes precedence.
+Dock proximity motion uses requestAnimationFrame/GPU transforms and respects Reduced Motion / low-capability behavior.
 
-## Hotfix 10 runtime reliability
+## Lightweight System Settings
 
-The cumulative Hotfix 10 source also includes the approved runtime work started after Hotfix 9.2:
+System Settings has a dedicated `settings_light.css` path and avoids the legacy module stylesheet, general `app.js` runtime and TV compatibility script.
 
-- System Settings re-initializes idempotently when mounted inside the Home desktop window manager.
-- Window loads have an 8-second abort timeout, readable error state and in-window Retry action.
-- Same-origin app documents use in-memory caching plus pointer/focus prefetch to avoid repeatedly fetching identical resources.
-- Wallpaper supports Fill/Fit/Stretch/Center, X/Y positioning and zoom controls.
-- Desktop widgets are closed by default and open only from the persistent top-bar Widgets control; the desktop remains clean between uses.
-- Window titlebar double-click toggles Zoom/Restore.
-- Contextual View menu exposes Back/Forward for the active app window.
-- Companion markup remains Home-scoped for compatibility, but the floating mascot is hidden from the desktop; Help opens the companion panel on demand.
-- Wallpaper rendering is explicitly `pointer-events:none` after Chromium exposed that the visual layer could intercept Home controls.
+The actual `system_settings.html` Desktop & Dock template was rendered after the final CSS refinement. The final render confirms:
 
+- bright white detail canvas;
+- clear sidebar and title hierarchy;
+- Dock Size on its own control row;
+- Magnification and Auto-Hide as separate 58 px rows with proper macOS-style switches;
+- no text bunching;
+- no horizontal overflow;
+- persistent curated Dock beneath the Settings window.
 
-## Hotfix 10 clean-Home correction
+The lightweight Settings layer also explicitly defines form grids, option grids, wallpaper cards, switches, range/value rows, action controls, status cards and responsive layouts so other panes do not fall back to browser-default flow.
 
-A post-package screenshot exposed that the first Hotfix 10 archive still rendered the previous Home composition. Root-cause review confirmed this was present in production templates, not merely browser cache: `dashboard.html` still contained an always-visible widget stack and `base.html` still invoked `render_dock_apps()` after the Suites launcher. The floating Home mascot also remained visible.
+## Deployment-cache correction
 
-The corrected Hotfix 10 source now enforces the approved desktop contract:
+Hotfix 10 introduces the unique static revision:
 
-- Home is wallpaper/system chrome only between interactions.
-- The persistent Dock renders exactly one launcher: **Suites**.
-- Application icons remain available inside the Suites launcher and command search rather than cluttering the Dock.
-- Widgets are closed on every Home load and open transiently from the top-bar Widgets control. Individual widget enable/disable preferences remain in System Settings.
-- The floating mascot is hidden; **Help** opens the Livenza Companion panel on demand.
-- Existing app-window loading/retry/cache/prefetch, Settings behavior, wallpaper controls, window Zoom/Restore and Back/Forward behavior are retained.
+`27A101-H10L-20260827B`
 
-Dedicated source contracts and the focused Chromium fixture verify the corrected Home state.
+Changes:
 
-## Verification evidence
+- versioned static template URLs use `?rev={{ asset_revision }}` instead of the unchanged OS version;
+- `/version` reports the hotfix label and asset revision;
+- responses include `X-Livenza-Revision`, `X-Livenza-Hotfix` and the existing build header;
+- Home/Settings HTML includes `data-build-revision`;
+- the default scenic wallpaper uses the revision-specific filename `static/wallpapers/livenza_life_live_elevated_h10l.jpg` so an immutable image cache cannot reuse an older file under the same URL.
 
-The final package must be verified from the exact packaged working tree. The current final verification commands cover:
+A deployed host is not considered verified until these fingerprints are visible. Full steps are in `VERIFY_DEPLOY.txt`.
 
-- full Python unit/source regression suite, including Hotfix 8/9/9.1/9.2 and Hotfix 10 contracts;
+## Livenza identity system
+
+The approved three-logo package remains the source of truth:
+
+- `static/brand/livenza_wordmark_tagline.png` — formal/authentication/Agreement/Letterhead identity;
+- `static/brand/livenza_wordmark.png` — horizontal UI wordmark;
+- `static/brand/livenza_life_mark.png` — compact `.life` mark for PWA/favicon/system identity.
+
+The UI palette remains deep navy `#061A3A`, emerald `#35D05B` and cyan `#10C8CF`, with bright professional working surfaces. Agreement and Letterhead PDF defaults use the approved logo while a configured custom Letterhead logo continues to take precedence.
+
+## Default wallpaper
+
+The Livenza.life · LIVE ELEVATED. scenic wallpaper is the first-run/reset default. The source image was cropped free of generated preview chrome so Tesla OS supplies its own menu bar and Dock. Wallpaper Fill/Fit/Stretch/Center, position and zoom preferences remain supported.
+
+## Automated verification scope
+
+The release gate covers:
+
+- complete Python unit/source regression suite, including inherited Hotfix 8/9/9.1/9.2 contracts and current Hotfix 10 light-shell contracts;
 - Python source compilation;
 - every production JavaScript file under `static/` with `node --check`;
 - every Jinja template parse;
-- CSS brace/basic structure validation;
-- dedicated Hotfix 10 brand Chromium fixture at desktop and mobile dimensions;
-- focused Hotfix 10 runtime Chromium fixture.
+- CSS structure/brace validation;
+- Hotfix 10 lightweight Chromium audit at 1920×1080 and 1366×768;
+- focused Settings Chromium render;
+- actual Jinja Home render;
+- actual Jinja Desktop & Dock Settings render after final styling.
 
-The dedicated Hotfix 10 brand browser fixture validates the exact new PNGs, horizontal overflow, menu-bar fit, login lockup, agreement branding, Letterhead branding and compact `.life` mark at 1440×1000 and 390×844. The focused runtime fixture validates the affected Home/Settings interaction paths.
+The lightweight Home browser audit specifically asserts seven Dock items, widgets hidden on load, immediate View-menu click execution below the fixture threshold, lower-right Companion geometry, on-demand panel behavior and no horizontal overflow.
 
-Final verification on the packaged source line:
+## Production limitation
 
-- **90/90** Python unit/source contracts passed.
-- Python `compileall` passed.
-- **8/8** production JavaScript files passed `node --check`.
-- **73/73** Jinja templates parsed.
-- **4/4** production CSS files passed balanced-block and parser-aware validation.
-- Hotfix 10 brand Chromium audit: **PASS** at desktop + mobile fixture sizes.
-- Hotfix 10 focused runtime Chromium audit: **PASS**.
+The packaged source can be deterministically exercised in Chromium, but a ZIP test is not proof that a remote server has deployed it. The main-site verification therefore starts with `/version`, response headers and actual Network asset URLs. If the revision fingerprint is absent, the server/CDN is still serving an older release regardless of what files were uploaded.
 
-### Broad Chromium environment limitation
+Protected database writes, provider integrations and role-specific production data remain mandatory live checks after deployment.
 
-The older large Hotfix 9 real-template Playwright batch does not complete reliably in this packaging environment and exits through the Playwright Node transport with `EPIPE`/command timeout. It is therefore **not** counted as a Hotfix 10 pass. The dedicated Hotfix 10 browser fixtures are used for the changed surfaces, and the live deployment checks in `VERIFY_DEPLOY.txt` remain mandatory.
-
-## Non-goals / compatibility
+## Compatibility / non-goals
 
 - No agreement/legal semantics are changed.
-- No production database reset or migration deletion is required.
-- Existing permissions and secure server-side write handlers remain authoritative.
-- Existing custom Letterhead logos remain supported and override the new default where configured.
-- Apple proprietary fonts or artwork are not bundled.
+- No production database reset is required.
+- Historical migrations remain intact.
+- Existing permissions and server-side authorization remain authoritative.
+- Heavy suite runtimes are not deleted; they are simply not booted on idle Home/Settings when unnecessary.
+- Apple proprietary font files or artwork are not bundled.
 
+## Deployment-survival audit — revision B
+A second package-level audit found a cache class that source/UI tests alone could miss: browser-visible logos, favicons, PWA icons and other static images could be referenced without a Hotfix revision while `/static/*` responses were marked immutable for one year. On a device that had previously loaded an earlier Hotfix 10, those files could remain stale even when the new ZIP was correctly deployed.
 
-### Default Livenza.life wallpaper verification
+Revision `27A101-H10L-20260827B` closes this gap:
+- every literal template `url_for('static', ...)` is cache-busted with the current asset revision;
+- only `/static/*?rev=<current revision>` receives one-year immutable caching; unversioned static requests must revalidate;
+- PWA 192/512 icons use Hotfix-specific filenames;
+- the CSS-embedded compact Livenza mark uses a Hotfix-specific filename;
+- package audit found zero missing static references, zero missing literal template includes/renders, zero missing literal `url_for` endpoints, zero case-collision paths and zero whitespace/non-ASCII deployment paths.
 
-- Dedicated source contracts verify packaged asset, picker registration, default/fallback/reset behavior and CSS mapping.
-- Focused Chromium verifies first-run `data-wallpaper="livenza-life"`, Dock/Settings runtime behavior and wallpaper geometry controls.
-- Dedicated wallpaper Chromium render verifies the approved image composition at desktop viewport size.
+Fresh verification after these changes: 108/108 contracts pass; Python compilation passes; 9/9 production JavaScript files pass syntax validation; 73/73 Jinja templates parse; 6/6 CSS files pass structural validation; Hotfix 10 light-shell, focused runtime, brand desktop/mobile and Livenza default-wallpaper Chromium audits all pass.

@@ -1,8 +1,8 @@
-Tesla OS 27 · 27.0.1 · Build 27A101 · Hotfix 10
-Livenza Brand System + Runtime Reliability
+Tesla OS 27 · 27.0.1 · Build 27A101 · Hotfix 10 Light Shell — Deployment Survival Revision B
+Asset revision: 27A101-H10L-20260827B
 
 100-file upload limit:
-1. Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX10_LIVENZA_BRAND_SYSTEM_PART_01_100_FILES.zip
-2. Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX10_LIVENZA_BRAND_SYSTEM_PART_02_75_FILES.zip
+1. Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX10_LIGHT_SHELL_DEPLOYMENT_SURVIVAL_REV_B_PART_01_100_FILES.zip
+2. Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX10_LIGHT_SHELL_DEPLOYMENT_SURVIVAL_REV_B_PART_02_90_FILES.zip
 
-Extract both into the SAME project root, in order, overwriting matching application files. Preserve production data, uploads, historical migrations and environment variables.
+Extract both into the SAME project root, in order, overwriting matching application files. Preserve production data, uploads, historical migrations and environment variables. Restart/redeploy, then verify `/version`, `X-Livenza-Revision`, cache-busted static image URLs and Home/Settings Network requests before judging the UI.

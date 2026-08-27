@@ -42,6 +42,8 @@ DEFAULT_BRAND_LOGO_PATH = os.path.join(BASE_DIR, 'static', 'brand', 'livenza_wor
 OS_NAME = 'Tesla OS 27'
 OS_VERSION = '27.0.1'
 OS_BUILD = '27A101'
+HOTFIX_LABEL = 'Hotfix 10 Light Shell'
+ASSET_REVISION = '27A101-H10L-20260827B'
 APP_VERSION = OS_VERSION
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -2546,15 +2548,24 @@ def inject_common():
     # a deployment is waiting on a settings/mascot schema migration.
     if request.endpoint in {'login','logout','diagnostics_runtime'}:
         return dict(
-            current_user=None, app_version=APP_VERSION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
+            current_user=None, app_version=APP_VERSION, asset_revision=ASSET_REVISION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
             can_access=can_access, module_labels=MODULES, is_admin=False, masked_aadhaar=masked_aadhaar,
             kiosk_mode_enabled=False, companion_enabled=False,
             companion_default_city='Gurugram', companion_weather_effects=False, mascot_preferences={}, dock_apps=[], ui_app_available=lambda endpoint: False, ui_app_meta=ui_app_meta
         )
+    if request.endpoint == 'dashboard':
+        user=current_user()
+        return dict(
+            current_user=user, app_version=APP_VERSION, asset_revision=ASSET_REVISION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
+            can_access=can_access, module_labels=MODULES,
+            is_admin=bool(user and (user.role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar,
+            kiosk_mode_enabled=False, companion_enabled=False, companion_default_city='Gurugram', companion_weather_effects=False,
+            mascot_preferences={}, dock_apps=[], ui_app_available=lambda endpoint: endpoint in {row['endpoint'] for row in LIVENZA_APP_REGISTRY}, ui_app_meta=ui_app_meta
+        )
     user=current_user()
     mascot_preferences=mascot_preferences_for(user) if user else {}
     return dict(
-        current_user=user, app_version=APP_VERSION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
+        current_user=user, app_version=APP_VERSION, asset_revision=ASSET_REVISION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
         can_access=can_access, module_labels=MODULES,
         is_admin=bool(user and (user.role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar,
         kiosk_mode_enabled=setting('kiosk_mode_enabled','0')=='1',
@@ -2618,11 +2629,16 @@ def livenza_cache_policy(response):
     # Versioned static assets may be cached aggressively; HTML must revalidate so
     # deploys become visible without forcing every CSS/JS/image request to reload.
     if request.path.startswith('/static/'):
-        response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        if request.args.get('rev') == ASSET_REVISION:
+            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        else:
+            response.headers['Cache-Control'] = 'no-cache, max-age=0, must-revalidate'
     elif response.mimetype == 'text/html':
         response.headers['Cache-Control'] = 'no-cache, max-age=0, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
     response.headers['X-Livenza-Build'] = APP_VERSION
+    response.headers['X-Livenza-Revision'] = ASSET_REVISION
+    response.headers['X-Livenza-Hotfix'] = HOTFIX_LABEL
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['Permissions-Policy'] = 'publickey-credentials-get=(self)'
@@ -2741,7 +2757,7 @@ def diagnostics_authenticated():
 @app.route('/version')
 def version():
     return jsonify(
-        name=OS_NAME, version=OS_VERSION, build=OS_BUILD,
+        name=OS_NAME, version=OS_VERSION, build=OS_BUILD, hotfix=HOTFIX_LABEL, revision=ASSET_REVISION,
         features=[
             'tesla-os-27','macos27-clean-shell','wallpaper-picker','functional-app-registry','raf-dock-motion',
             'unified-system-settings','livenza-symbol-system','ai-logo-identity','reduced-motion',

@@ -1,28 +1,56 @@
-TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 10 LIVENZA BRAND SYSTEM + RUNTIME RELIABILITY
+TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 10 LIGHT SHELL DEPLOYMENT CONTRACT
 
-1. Open `/version` and confirm Tesla OS 27, Version 27.0.1 and Build 27A101.
-2. Hard-refresh once and confirm the browser favicon/PWA icon uses the circular `.life` identity rather than an older Livenza icon.
-3. Open Home and confirm the horizontal `livenza.life` wordmark is crisp and correctly proportioned in the macOS-style menu bar on both light and dark/glass backgrounds.
-4. Confirm no visible page uses an older Livenza logo generation. Check Home, Login, kiosk/lock, Suites/System Settings, Agreements, Letterhead, document previews and compact brand marks.
-5. Open Login and kiosk/lock flows and confirm the `livenza.life / LIVE ELEVATED.` lockup is legible, centered and not stretched.
-6. Open Agreement Studio and its Preview/PDF flow. Confirm the application banner uses the clean wordmark and formal paper/PDF uses the tagline lockup without clipping.
-7. Open Letterhead Studio editor, template editor, final review and generated PDF. Confirm the approved tagline lockup is the default when the template has no custom published logo. Confirm a deliberately configured custom Letterhead logo still overrides the default.
-8. Check the Home/Suites compact system identity and installed/PWA icons for the circular `.life` mark.
-9. Confirm the core brand palette is navy/emerald/cyan while content surfaces remain bright/readable and professional rather than becoming saturated full-page gradients.
-10. Select explicit Dark appearance and confirm on-dark logo variants remain readable and do not lose the emerald/cyan identity.
-11. Open System Settings inside Home. Confirm controls initialize and respond rather than rendering as inert static controls.
-12. Simulate or observe a failed/slow app-window request and confirm the loading state ends after about 8 seconds with a readable Retry action rather than staying on “Opening…” forever.
-13. Hover/focus frequently used suite links and open them repeatedly. Confirm cached/prefetched navigation does not duplicate the same window/resource unnecessarily.
-14. In Wallpaper Settings, confirm Fill/Fit/Stretch/Center, X/Y positioning and zoom visibly affect the desktop wallpaper and persist as designed.
-15. Confirm the wallpaper never intercepts clicks/taps on menu-bar, widgets, windows or Dock controls.
-16. Confirm the top-bar Widgets control hides/shows Home widgets and the state remains observable.
-17. Double-click a managed window titlebar and confirm Zoom/Restore toggles. Verify Back/Forward contextual actions when a mounted app has history.
-18. Confirm mascot/assistant UI is confined to Home and does not overlap application content.
-19. Confirm the persistent Dock remains usable on direct signed-in application routes, keeps its bottom safe area, and does not cover long-page controls.
-20. With Dock Magnification on, confirm nearby icons scale and lift smoothly; turning Magnification off clears active transforms immediately. Verify Auto-Hide and Dock Size also produce visible changes.
-21. Confirm there is no operational marquee/status strip anywhere.
-22. Open Agreements, Banking, Rooms, Residents, Queries, Reviews, Billing, Electricity, Food, WhatsApp, Email, Drive, Letterhead and Settings. Check for text clipping, horizontal overflow, old beige/purple logo treatments or dark legacy slabs.
-23. Check common desktop widths (1920, 1600, 1440, 1366, 1280, 1152 where practical) plus a modern mobile viewport for logo fit, menu-bar overflow, controls and Dock clipping.
-24. Re-test protected Admin, Vault, Agreement create/update/PDF, Electricity, Billing, Banking, Letterhead, WhatsApp/Email/Drive and provider-backed production writes under the correct roles.
-25. Preserve the production database, uploaded business files, environment variables and historical migrations during deployment.
-26. If a live-only issue remains, capture the route, screenshot, browser Console error and Network failure before changing code.
+DEPLOYMENT FINGERPRINT — CHECK THIS FIRST
+1. Open `/version` on the deployed host. It MUST report:
+   - Tesla OS 27
+   - Version 27.0.1
+   - Build 27A101
+   - Hotfix 10 Light Shell
+   - revision `27A101-H10L-20260827B`
+2. Inspect the main document response headers. It MUST include:
+   - `X-Livenza-Build: 27A101`
+   - `X-Livenza-Hotfix: Hotfix 10 Light Shell`
+   - `X-Livenza-Revision: 27A101-H10L-20260827B`
+3. In browser DevTools → Network, reload Home and verify the new requests include:
+   - `home_light.css?rev=27A101-H10L-20260827B`
+   - `home_light.js?rev=27A101-H10L-20260827B`
+   Home MUST NOT request `legacy_modules.css`, `macos27_system.css`, `app.js` or `tv_compat.js`.
+4. Open System Settings and verify it requests `settings_light.css?rev=27A101-H10L-20260827B`. Settings MUST NOT request `legacy_modules.css`, `app.js` or `tv_compat.js`.
+5. If any fingerprint above is missing, STOP: the host/CDN is still serving an older release. Do not judge the new UI from that session.
+5A. Inspect Login/Home image requests once: template static URLs must carry `?rev=27A101-H10L-20260827B`. Unversioned static responses must return a revalidation cache policy, not `immutable`. PWA manifest icons must request `icon-192-h10l.png` / `icon-512-h10l.png`.
+
+VISIBLE HOME CONTRACT
+6. Home must visually match the packaged Hotfix 10 light-shell preview:
+   - Livenza.life · LIVE ELEVATED. scenic wallpaper on first run/reset.
+   - New `livenza.life` wordmark in the top menu bar.
+   - Compact macOS-like top bar with Suites / View / Window / Help.
+   - Seven curated Dock tiles: Suites, Agreement Studio, Rooms, Queries, Reviews, Banking and System Settings (subject to permissions where applicable).
+   - Compact Livenza Companion at the lower-right above the Dock, not floating in the middle of the desktop.
+   - Widgets hidden on first load and shown only when the Widgets control is pressed.
+7. Click View repeatedly. The menu should materialize immediately with no network request or visible pause.
+8. Open/close Suites repeatedly. The launcher must react immediately and must not initialize weather, app prefetch or heavy suite runtimes in the background.
+9. Hover the Dock. Magnification should remain smooth and GPU-transform based; weak/reduced-motion devices may intentionally suppress magnification.
+10. Verify the wallpaper, menu bar, mascot and Dock do not intercept one another's clicks.
+
+SYSTEM SETTINGS CONTRACT
+11. Open System Settings → Desktop & Dock. Confirm a bright white detail canvas, clear 292px-style sidebar, separated controls and no purple/black inherited slabs.
+12. Confirm Dock Size is a distinct select row and Magnification / Automatically Hide are separate rows with visible macOS-style switches.
+13. Test Dock size, magnification and auto-hide and confirm the live Dock visibly responds.
+14. Open Appearance, Wallpaper and Accessibility. Confirm forms, toggles, wallpaper cards and range controls are aligned and do not bunch text together.
+15. Wallpaper Reset/Remove Custom must return to the versioned Livenza.life default wallpaper.
+
+BRAND / DOCUMENT CONTRACT
+16. Confirm no visible legacy Livenza logo remains on Home, Login, Settings, Agreement or Letterhead surfaces.
+17. Confirm the clean horizontal wordmark is used in wide UI contexts, the `.life` roundel in compact/icon contexts, and `livenza.life / LIVE ELEVATED.` on formal/login/document surfaces.
+18. Open Agreement preview/PDF and Letterhead preview/PDF and confirm official branding is not clipped. A deliberately configured custom Letterhead logo must still override the default.
+
+FUNCTION / PERFORMANCE REGRESSION
+19. Verify Search, Suites, View, Window and Help open without visible lag on a normal desktop browser.
+20. Verify Widgets and Companion remain lazy/on-demand and do not start weather/live-operation polling while closed.
+21. Check 1920×1080, 1440×900, 1366×768 and at least one modern mobile viewport for horizontal overflow, Dock clipping and menu collisions.
+22. Re-test protected Admin, Vault, Agreement create/update/PDF, Electricity, Billing, Banking, Letterhead, WhatsApp/Email/Drive and provider-backed writes under the correct roles.
+23. Preserve the production database, uploaded business files, environment variables and all historical migration files during deployment.
+24. If a live-only issue remains, capture `/version`, response headers, the Network asset URLs, route, screenshot and browser Console error before changing code.
+
+CACHE NOTE
+Hotfix 10 intentionally uses a unique asset revision because static files are served with a long immutable cache lifetime. The OS version remains 27.0.1, but the asset query revision changes so browsers/CDNs cannot reuse Hotfix 9/older Hotfix 10 CSS/JS. The default wallpaper also has a revision-specific filename for the same reason.
