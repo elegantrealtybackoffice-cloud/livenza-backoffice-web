@@ -1,6 +1,6 @@
 <section class="settings-panel" id="mascot-settings">
   <div class="settings-companion-preview settings-card">
-    <img src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}" alt="Livenza Companion">
+    <img src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}?rev={{asset_revision}}" alt="Livenza Companion">
     <div><p class="eyebrow">LIVENZA COMPANION</p><h2>Livenza Companion</h2><p>Live operational context, weather reactions and assistance with restrained macOS-style motion.</p></div>
   </div>
   <form method="post" action="{{url_for('account_mascot_settings')}}" class="settings-card settings-form-stack">

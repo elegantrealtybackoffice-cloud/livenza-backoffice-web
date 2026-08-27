@@ -90,5 +90,5 @@
 </article>
 {% else %}<div class="placeholder liquid-card">No electricity bills saved yet.</div>{% endfor %}
 </div>
-<script src="{{url_for('static',filename='electricity.js')}}?v={{app_version|replace('Web ','')}}"></script>
+<script src="{{url_for('static',filename='electricity.js')}}?rev={{asset_revision}}"></script>
 {% endblock %}

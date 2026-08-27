@@ -61,7 +61,7 @@ class Hotfix10BrandSystemContracts(unittest.TestCase):
         for name in ('favicon-32x32.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'):
             self.assertTrue((STATIC / name).is_file(), name)
         self.assertIn('icon-192.png', BASE)
-        self.assertIn('icon-512.png', MANIFEST)
+        self.assertRegex(MANIFEST, r'icon-512(?:-h10l)?\.png')
 
     def test_brand_palette_tokens_drive_primary_interaction_system(self):
         for token in (

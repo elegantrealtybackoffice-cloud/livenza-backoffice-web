@@ -1,5 +1,7 @@
 <!doctype html>
 <html lang="en">
+{% set lightweight_settings_route = request.endpoint in ['settings_page','system_settings_pane','admin_panel','admin_vault','integrations_center'] %}
+{% set lightweight_shell_route = request.endpoint == 'dashboard' or lightweight_settings_route %}
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -10,23 +12,29 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Livenza Life">
   <meta name="msapplication-TileColor" content="#061a3a">
-  <meta name="msapplication-TileImage" content="{{ url_for('static',filename='icon-192.png') }}">
-  <link rel="icon" type="image/x-icon" href="{{ url_for('static',filename='favicon.ico') }}">
-  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static',filename='favicon-32x32.png') }}">
-  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static',filename='icon-192.png') }}">
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static',filename='apple-touch-icon.png') }}">
-  <link rel="manifest" href="{{ url_for('static',filename='site.webmanifest') }}">
+  <meta name="msapplication-TileImage" content="{{ url_for('static',filename='icon-192.png') }}?rev={{asset_revision}}">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static',filename='favicon.ico') }}?rev={{asset_revision}}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static',filename='favicon-32x32.png') }}?rev={{asset_revision}}">
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static',filename='icon-192.png') }}?rev={{asset_revision}}">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static',filename='apple-touch-icon.png') }}?rev={{asset_revision}}">
+  <link rel="manifest" href="{{ url_for('static',filename='site.webmanifest') }}?rev={{asset_revision}}">
   <title>{% block title %}Tesla OS 27 · Livenza Life{% endblock %}</title>
   <script>(()=>{const small=matchMedia('(max-width:820px)').matches,lowMemory=Number(navigator.deviceMemory||8)<=4,lowCpu=Number(navigator.hardwareConcurrency||8)<=4,saveData=Boolean(navigator.connection?.saveData);if(small||lowMemory||lowCpu||saveData)document.documentElement.classList.add('mobile-performance')})();</script>
   <script data-wallpaper-bootstrap>(()=>{try{const next=JSON.parse(localStorage.getItem('livenza.settings.v2702')||'{}')||{},previous=JSON.parse(localStorage.getItem('livenza.settings.v2701')||'{}')||{},old=JSON.parse(localStorage.getItem('livenza.systemSettings.v190')||'{}')||{},legacy={...old,...previous};delete legacy['appearance.mode'];const prefs={...legacy,...next},variant=prefs['wallpaper.variant']||'livenza-life',mode=prefs['appearance.mode']==='dark'?'dark':'light',fit=['fill','fit','stretch','center'].includes(prefs['wallpaper.fit'])?prefs['wallpaper.fit']:'fill',px=Math.max(0,Math.min(100,Number(prefs['wallpaper.positionX']??50))),py=Math.max(0,Math.min(100,Number(prefs['wallpaper.positionY']??50))),zoom=Math.max(80,Math.min(160,Number(prefs['wallpaper.zoom']??100)));document.documentElement.dataset.wallpaper=variant;document.documentElement.dataset.appearance=mode;document.documentElement.dataset.wallpaperFit=fit;document.documentElement.style.setProperty('--wallpaper-position-x',`${px}%`);document.documentElement.style.setProperty('--wallpaper-position-y',`${py}%`);document.documentElement.style.setProperty('--wallpaper-zoom',String(zoom/100));if(prefs['appearance.contrast'])document.documentElement.classList.add('settings-increase-contrast');if(prefs['appearance.reduceTransparency']||prefs['accessibility.reduceTransparency'])document.documentElement.classList.add('settings-reduce-transparency');if(prefs['accessibility.largeText'])document.documentElement.classList.add('settings-large-text');if(variant==='custom'){const custom=localStorage.getItem('livenza.wallpaper.custom');if(custom)document.documentElement.style.setProperty('--user-wallpaper',`url("${custom.replace(/"/g,'%22')}")`)}}catch(_){document.documentElement.dataset.wallpaper='livenza-life';document.documentElement.dataset.appearance='light'}})();</script>
-  <script src="{{url_for('static',filename='tv_capability.js')}}?v={{app_version|replace('Web ','')}}"></script>
-  <link rel="stylesheet" href="{{url_for('static',filename='legacy_modules.css')}}?v={{app_version|replace('Web ','')}}">
-  {% if current_user and can_access('letterhead') and request.endpoint and request.endpoint.startswith('letterhead') %}<link rel="stylesheet" href="{{url_for('static',filename='letterhead.css')}}?v={{app_version|replace('Web ','')}}">{% endif %}
+  {% if request.endpoint == 'dashboard' %}
+  <link rel="stylesheet" href="{{url_for('static',filename='home_light.css')}}?rev={{asset_revision}}">
+  {% elif lightweight_settings_route %}
+  <link rel="stylesheet" href="{{url_for('static',filename='settings_light.css')}}?rev={{asset_revision}}">
+  {% else %}
+  <script src="{{url_for('static',filename='tv_capability.js')}}?rev={{asset_revision}}"></script>
+  {% if not lightweight_settings_route %}<link rel="stylesheet" href="{{url_for('static',filename='legacy_modules.css')}}?rev={{asset_revision}}">{% endif %}
+  {% if current_user and can_access('letterhead') and request.endpoint and request.endpoint.startswith('letterhead') %}<link rel="stylesheet" href="{{url_for('static',filename='letterhead.css')}}?rev={{asset_revision}}">{% endif %}
+  <link rel="stylesheet" href="{{url_for('static',filename='macos27_system.css')}}?rev={{asset_revision}}">
+  {% endif %}
   {% block page_styles %}{% endblock %}
-  <link rel="stylesheet" href="{{url_for('static',filename='macos27_system.css')}}?v={{app_version|replace('Web ','')}}">
 </head>
 {% set current_app_ui = ui_app_meta(request.endpoint or '') if current_user else {} %}
-<body class="app-liquid-shell macos27-clean{% if request.endpoint == 'dashboard' %} desktop-widgets-hidden{% endif %}" data-page="{{request.endpoint or ''}}" data-app-family="{{current_app_ui.family or ''}}" style="--suite-accent:{{current_app_ui.accent or '#248CFF'}};--suite-accent-2:{{current_app_ui.accent2 or '#6757E8'}}">
+<body class="app-liquid-shell macos27-clean{% if request.endpoint == 'dashboard' %} desktop-widgets-hidden{% endif %}" data-page="{{request.endpoint or ''}}" data-build-revision="{{asset_revision}}" data-app-family="{{current_app_ui.family or ''}}" style="--suite-accent:{{current_app_ui.accent or '#248CFF'}};--suite-accent-2:{{current_app_ui.accent2 or '#6757E8'}}">
   {% import '_application_groups.html' as appgroups with context %}
   {% import '_livenza_symbols.html' as icons with context %}
 
@@ -64,38 +72,52 @@
     <div id="appsMenuBackdrop" class="apps-drawer-backdrop side-drawer-backdrop no-print" hidden></div>
     <nav id="appsDrawer" class="apps-drawer no-print grouped-apps-drawer suites-launcher" aria-label="Suites" aria-hidden="true" hidden>
       <div class="apps-drawer-head"><div><p class="eyebrow">TESLA OS 27</p><b>Suites</b><small>Open a Livenza suite or System Settings.</small></div><button type="button" id="appsDrawerClose" data-drawer-close aria-label="Close Suites">{{icons.symbol('close')}}</button></div>
-      <div class="apps-drawer-scroll grouped-apps-scroll">{{appgroups.render_application_groups('launcher')}}</div>
+      <div class="apps-drawer-scroll grouped-apps-scroll">
+        {% if lightweight_shell_route %}
+        <div class="light-suite-grid">
+          <a class="light-suite-card" href="{{url_for('settings_page')}}" style="--tile-bg:linear-gradient(145deg,#edf2f7,#9ba8b8)"><i>{{icons.symbol('settings')}}</i><span><b>System Settings</b><small>Appearance, Dock and controls</small></span></a>
+          {% if can_access('agreements') %}<a class="light-suite-card" href="{{url_for('agreements')}}" style="--tile-bg:linear-gradient(145deg,#1c8cff,#7567ff)"><i>{{icons.symbol('agreement')}}</i><span><b>Agreement Studio</b><small>Draft and manage agreements</small></span></a>{% endif %}
+          {% if can_access('rooms') %}<a class="light-suite-card" href="{{url_for('rooms')}}" style="--tile-bg:linear-gradient(145deg,#10c8cf,#2778ff)"><i>{{icons.symbol('room')}}</i><span><b>Rooms</b><small>Inventory and vacancy</small></span></a>{% endif %}
+          {% if can_access('queries') %}<a class="light-suite-card" href="{{url_for('queries')}}" style="--tile-bg:linear-gradient(145deg,#ff9d42,#ff5b45)"><i>{{icons.symbol('queries')}}</i><span><b>Queries</b><small>Leads and follow-up</small></span></a>{% endif %}
+          {% if can_access('reviews') %}<a class="light-suite-card" href="{{url_for('reviews')}}" style="--tile-bg:linear-gradient(145deg,#ffd84d,#ff62a8)"><i>{{icons.symbol('review')}}</i><span><b>Reviews</b><small>Google review studio</small></span></a>{% endif %}
+          {% if can_access('banking') %}<a class="light-suite-card" href="{{url_for('banking_suite')}}" style="--tile-bg:linear-gradient(145deg,#4568d9,#172d73)"><i>{{icons.symbol('banking')}}</i><span><b>Banking</b><small>Statements and reconciliation</small></span></a>{% endif %}
+          {% if can_access('electricity') %}<a class="light-suite-card" href="{{url_for('electricity_studio')}}" style="--tile-bg:linear-gradient(145deg,#ffd24a,#ff8a2d)"><i>{{icons.symbol('electricity')}}</i><span><b>Electricity</b><small>Bills and payments</small></span></a>{% endif %}
+          {% if can_access('letterhead') %}<a class="light-suite-card" href="{{url_for('letterhead_studio')}}" style="--tile-bg:linear-gradient(145deg,#ff5b6c,#8b57ff)"><i>{{icons.symbol('letterhead')}}</i><span><b>Letterhead</b><small>Official Livenza documents</small></span></a>{% endif %}
+        </div>
+        {% else %}{{appgroups.render_application_groups('launcher')}}{% endif %}
+      </div>
       <div class="apps-drawer-foot suites-account-bar"><span class="suites-account-copy"><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} · Livenza session</small></span><a class="suites-logout" href="{{url_for('logout')}}" aria-label="Log out of Livenza">{{icons.symbol('logout')}}<span>Logout</span></a></div>
     </nav>
     <nav id="macDock" class="mac-dock no-print" aria-label="Tesla OS Dock">
-      <button type="button" class="mac-dock-item mac-dock-launcher" data-suites-dock data-drawer-target="appsDrawer" aria-label="Open Suites" aria-controls="appsDrawer" aria-expanded="false" title="Suites">
-        <span class="mac-dock-icon">{{icons.symbol('grid')}}</span><span class="mac-dock-tooltip" role="tooltip">Suites</span><i class="mac-dock-running" aria-hidden="true"></i>
-      </button>
+      <button type="button" class="mac-dock-item mac-dock-launcher is-active" data-suites-dock aria-label="Suites" aria-controls="appsDrawer" aria-expanded="false" title="Suites"><span class="mac-dock-icon">{{icons.symbol('grid')}}</span><span class="mac-dock-tooltip">Suites</span><i class="mac-dock-running"></i></button>
+      {% if can_access('agreements') %}<a class="mac-dock-item mac-dock-app dock-agreement" href="{{url_for('agreements')}}" data-dock-app="agreements" data-app-endpoint="agreements" aria-label="Agreement Studio" title="Agreement Studio"><span class="mac-dock-icon">{{icons.symbol('agreement')}}</span><span class="mac-dock-tooltip">Agreement Studio</span><i class="mac-dock-running"></i></a>{% endif %}
+      {% if can_access('rooms') %}<a class="mac-dock-item mac-dock-app dock-rooms" href="{{url_for('rooms')}}" data-dock-app="rooms" data-app-endpoint="rooms" aria-label="Rooms" title="Rooms"><span class="mac-dock-icon">{{icons.symbol('room')}}</span><span class="mac-dock-tooltip">Rooms</span><i class="mac-dock-running"></i></a>{% endif %}
+      {% if can_access('queries') %}<a class="mac-dock-item mac-dock-app dock-queries" href="{{url_for('queries')}}" data-dock-app="queries" data-app-endpoint="queries" aria-label="Queries" title="Queries"><span class="mac-dock-icon">{{icons.symbol('queries')}}</span><span class="mac-dock-tooltip">Queries</span><i class="mac-dock-running"></i></a>{% endif %}
+      {% if can_access('reviews') %}<a class="mac-dock-item mac-dock-app dock-reviews" href="{{url_for('reviews')}}" data-dock-app="reviews" data-app-endpoint="reviews" aria-label="Reviews" title="Reviews"><span class="mac-dock-icon">{{icons.symbol('review')}}</span><span class="mac-dock-tooltip">Reviews</span><i class="mac-dock-running"></i></a>{% endif %}
+      {% if can_access('banking') %}<a class="mac-dock-item mac-dock-app dock-banking" href="{{url_for('banking_suite')}}" data-dock-app="banking_suite" data-app-endpoint="banking_suite" aria-label="Banking" title="Banking"><span class="mac-dock-icon">{{icons.symbol('banking')}}</span><span class="mac-dock-tooltip">Banking</span><i class="mac-dock-running"></i></a>{% endif %}
+      <a class="mac-dock-item mac-dock-app dock-settings" href="{{url_for('settings_page')}}" data-dock-app="settings_page" data-app-endpoint="settings_page" aria-label="System Settings" title="System Settings"><span class="mac-dock-icon">{{icons.symbol('settings')}}</span><span class="mac-dock-tooltip">System Settings</span><i class="mac-dock-running"></i></a>
     </nav>
-    <aside id="accountDrawer" class="apps-drawer side-drawer side-drawer-right account-side-drawer no-print" aria-label="Account" aria-hidden="true" hidden>
+    {% if not lightweight_shell_route %}<aside id="accountDrawer" class="apps-drawer side-drawer side-drawer-right account-side-drawer no-print" aria-label="Account" aria-hidden="true" hidden>
       <div class="apps-drawer-head account-drawer-head"><div class="account-drawer-identity">{% if current_user.avatar_data_uri or current_user.photo_data_uri %}<img src="{{current_user.avatar_data_uri or current_user.photo_data_uri}}" alt="">{% else %}<span class="profile-initial">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}<span><p class="eyebrow">LIVENZA ACCOUNT</p><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} · Personal workspace</small></span></div><button type="button" id="accountDrawerClose" data-drawer-close aria-label="Close account menu">{{icons.symbol('close')}}</button></div>
       <div class="apps-drawer-scroll"><section class="apps-drawer-section"><p>Account & System</p><div class="apps-drawer-items"><a class="apps-drawer-item" href="{{url_for('system_settings_pane',pane='account')}}" data-app-nav><i>{{icons.symbol('account')}}</i><span><b>System Settings</b><small>Profile, appearance, integrations and controls</small></span></a><a class="apps-drawer-item" href="{{url_for('system_settings_pane',pane='intelligence')}}#mascot-settings" data-app-nav><i>{{icons.symbol('intelligence')}}</i><span><b>Livenza Companion</b><small>Assistant behavior and live intelligence</small></span></a></div></section>{% if kiosk_mode_enabled %}<section class="apps-drawer-section"><p>Security</p><div class="apps-drawer-items"><form method="post" action="{{url_for('kiosk_relock')}}" class="account-drawer-form"><button type="submit" class="apps-drawer-item account-drawer-action"><i>{{icons.symbol('lock')}}</i><span><b>Lock Screen</b><small>Require PIN or password</small></span></button></form></div></section>{% endif %}</div>
       <div class="apps-drawer-foot"><span><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} session</small></span><a href="{{url_for('logout')}}">{{icons.symbol('logout')}} Logout</a></div>
-    </aside>
+    </aside>{% endif %}
 
     <div id="macCommandPalette" class="mac-command-backdrop" aria-hidden="true" hidden>
       <section class="mac-command-palette" role="dialog" aria-modal="true" aria-label="Search Livenza">
         <div class="mac-command-search-wrap">{{icons.symbol('search')}}<input id="macGlobalSearch" type="search" autocomplete="off" placeholder="Search applications and settings" aria-label="Search Livenza"><button type="button" id="macCommandClose" aria-label="Close search">{{icons.symbol('close')}}</button></div>
-        <div id="macCommandResults" class="mac-command-results">{{appgroups.render_command_items()}}</div>
+        <div id="macCommandResults" class="mac-command-results">{% if lightweight_shell_route %}
+          <a class="mac-command-item" href="{{url_for('settings_page')}}" data-command-item data-command-label="System Settings" data-command-keywords="settings appearance dock wallpaper"><span>{{icons.symbol('settings')}}</span><span><b>System Settings</b><small>Appearance, Dock and controls</small></span><kbd>↵</kbd></a>
+          {% if can_access('agreements') %}<a class="mac-command-item" href="{{url_for('agreements')}}" data-command-item data-command-label="Agreement Studio" data-command-keywords="agreements documents"><span>{{icons.symbol('agreement')}}</span><span><b>Agreement Studio</b><small>Draft and manage agreements</small></span><kbd>↵</kbd></a>{% endif %}
+          {% if can_access('rooms') %}<a class="mac-command-item" href="{{url_for('rooms')}}" data-command-item data-command-label="Rooms" data-command-keywords="rooms vacancy residents"><span>{{icons.symbol('room')}}</span><span><b>Rooms</b><small>Inventory and vacancy</small></span><kbd>↵</kbd></a>{% endif %}
+          {% if can_access('queries') %}<a class="mac-command-item" href="{{url_for('queries')}}" data-command-item data-command-label="Queries" data-command-keywords="queries leads follow up"><span>{{icons.symbol('queries')}}</span><span><b>Queries</b><small>Leads and follow-up</small></span><kbd>↵</kbd></a>{% endif %}
+          {% if can_access('reviews') %}<a class="mac-command-item" href="{{url_for('reviews')}}" data-command-item data-command-label="Reviews" data-command-keywords="google reviews"><span>{{icons.symbol('review')}}</span><span><b>Reviews</b><small>Google review studio</small></span><kbd>↵</kbd></a>{% endif %}
+          {% if can_access('banking') %}<a class="mac-command-item" href="{{url_for('banking_suite')}}" data-command-item data-command-label="Banking" data-command-keywords="banking reconciliation"><span>{{icons.symbol('banking')}}</span><span><b>Banking</b><small>Statements and reconciliation</small></span><kbd>↵</kbd></a>{% endif %}
+        {% else %}{{appgroups.render_command_items()}}{% endif %}</div>
       </section>
     </div>
 
-    {% if companion_enabled and request.endpoint == 'dashboard' %}
-    <section id="mascotCompanionPanel" class="mascot-companion-panel liquid-card" aria-label="Live weather, operations and Livenza help" aria-hidden="true" hidden>
-      <header class="companion-panel-head"><div><span class="companion-ai-star">{{icons.symbol('intelligence')}}</span><span><b>Livenza Companion</b><small>Live updates · Assistance · System context</small></span></div><button type="button" id="mascotCompanionClose" aria-label="Close Livenza companion">{{icons.symbol('close')}}</button></header>
-      <nav class="companion-mode-tabs safe-tabs safe-scroll-tabs" role="tablist" aria-label="Companion mode"><button type="button" class="safe-tab active" role="tab" aria-selected="true" data-tv-tab="companion-live" data-tv-group="companion" data-tv-target="companion-live" data-companion-tab="live">{{icons.symbol('network')}}<span>Live</span></button><button type="button" class="safe-tab" role="tab" aria-selected="false" data-tv-tab="companion-chat" data-tv-group="companion" data-tv-target="companion-chat" data-companion-tab="chat">{{icons.symbol('intelligence')}}<span>Ask Livenza</span></button></nav>
-      <div class="companion-mode-view active" data-tv-panel="companion-live" data-tv-group="companion" data-companion-view="live"><div class="companion-weather-hero"><span id="companionWeatherIcon" class="companion-weather-icon">{{icons.symbol('brightness')}}</span><div><small id="companionWeatherCity">{{companion_default_city}}</small><strong id="companionWeatherTemperature">—°</strong><span id="companionWeatherCondition">Loading live weather…</span></div><div class="companion-weather-meta"><span id="companionWeatherFeels">Feels —°</span><span id="companionWeatherHumidity">Humidity —%</span><span id="companionWeatherWind">Wind — km/h</span></div></div><div id="companionCityTabs" class="companion-city-tabs" aria-label="Forecast city"></div><div id="companionForecast" class="companion-forecast" aria-label="Four day forecast"></div><div class="companion-section-label"><span>LIVE OPERATIONS</span><i></i></div><div id="companionOperations" class="companion-operations"><div class="companion-loading">Syncing Livenza status…</div></div><div class="companion-quote-card"><span>{{icons.symbol('intelligence')}}</span><div><small>TODAY’S THOUGHT</small><blockquote id="companionQuote">Small improvements become remarkable systems.</blockquote></div><button type="button" id="companionNextQuote" aria-label="Show another thought">{{icons.symbol('sync')}}</button></div><footer class="companion-panel-footer"><small id="companionWeatherSource">Live forecast</small><button type="button" id="companionReplayWeather">Replay weather scene</button></footer></div>
-      <div class="companion-mode-view companion-chat-view" data-tv-panel="companion-chat" data-tv-group="companion" data-companion-view="chat" hidden><div class="companion-chat-intro"><span>{{icons.symbol('intelligence')}}</span><div><b>How can I help?</b><small>Ask about any Livenza feature or workflow.</small></div></div><div id="assistantMessages" class="assistant-messages companion-chat-messages" aria-live="polite"><div class="assistant-message bot">Hi. I can explain Agreements, Rooms, Queries, Billing, Video Wall, access controls and the rest of your workspace.</div></div><div class="assistant-suggestions companion-chat-suggestions"><button type="button" data-help-prompt="How do I create an agreement?">Agreements</button><button type="button" data-help-prompt="How does the Query Manager work?">Queries</button><button type="button" data-help-prompt="How do I use Video Wall Studio?">Video Wall</button></div><form id="assistantForm" class="assistant-form companion-chat-form"><label class="sr-only" for="assistantInput">Ask Livenza</label><input id="assistantInput" autocomplete="off" placeholder="Ask Livenza about any feature…"><button class="primary" type="submit">Send</button></form></div>
-    </section>
-    <aside id="mascotCompanion" class="mascot-companion no-print is-live mascot-pos-{{mascot_preferences.position}} mascot-size-{{mascot_preferences.size}} mascot-motion-{{mascot_preferences.intensity}}" data-default-city="{{companion_default_city}}" data-weather-effects="{{'1' if companion_weather_effects else '0'}}" aria-label="Livenza companion and assistant" hidden><button type="button" id="mascotCompanionButton" class="mascot-companion-button" aria-expanded="false" aria-controls="mascotCompanionPanel" title="Open Livenza Companion"><span class="mascot-side-glow" aria-hidden="true"></span><span class="mascot-side-character"><img src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}" alt=""></span><span class="mascot-side-shadow" aria-hidden="true"></span></button></aside>
-    <div id="livenzaWeatherScene" class="livenza-weather-scene no-print" aria-hidden="true"></div>
-    {% endif %}
-    <button type="button" id="livenzaEasterEgg" class="livenza-easter-egg no-print" title="A little Livenza touch" aria-label="Livenza easter egg"><img src="{{url_for('static',filename='brand/livenza_life_mark_on_dark.png')}}" alt=""></button><div id="easterToast" class="easter-toast no-print" hidden>Live the Livenza Life</div>
+    {% if request.endpoint != 'dashboard' %}<button type="button" id="livenzaEasterEgg" class="livenza-easter-egg no-print" title="A little Livenza touch" aria-label="Livenza easter egg"><img src="{{url_for('static',filename='brand/livenza_life_mark_on_dark.png')}}?rev={{asset_revision}}" alt=""></button><div id="easterToast" class="easter-toast no-print" hidden>Live the Livenza Life</div>{% endif %}
 
     {% if request.endpoint != 'dashboard' %}<footer class="site-footer liquid-footer utility-legal-footer" data-livenza-footer="true"><div class="footer-company"><b>© <span id="footerYear"></span> Livenza Life LLP. All rights reserved.</b><small>Head Office: 325 G, Sector 38, Gurugram, Haryana - 122001</small></div><div class="footer-created"><span>Created by</span> <strong>Rishabh Kothari</strong></div><div class="footer-time"><span id="footerClock">--</span></div></footer>{% endif %}
   {% else %}
@@ -107,10 +129,13 @@
   <section id="viewMenu" class="rotate-menu-global header-display-menu no-print" role="dialog" aria-label="Display orientation" hidden><div class="rotate-menu-head"><b>Display Orientation</b><small>Keep the workspace aligned to this screen.</small></div><button type="button" data-home-display="lock" aria-pressed="false"><span>{{icons.symbol('lock')}}</span><div><b>Rotation Lock</b><small>Prevent automatic orientation changes</small></div></button><button type="button" data-home-display="landscape" aria-pressed="false"><span>{{icons.symbol('display')}}</span><div><b>Horizontal</b><small>Use a wide landscape workspace</small></div></button><button type="button" data-home-display="portrait" aria-pressed="false"><span>{{icons.symbol('display')}}</span><div><b>Vertical</b><small>Use a tall portrait workspace</small></div></button><p id="orientationStatus" class="view-orientation-status" role="status" aria-live="polite">Automatic display active.</p></section>
   {% endif %}
 
-  <script src="{{url_for('static',filename='tv_compat.js')}}?v={{app_version|replace('Web ','')}}"></script>
-  <script src="{{url_for('static',filename='app.js')}}?v={{app_version|replace('Web ','')}}"></script>
-  {% if current_user and can_access('letterhead') and request.endpoint and request.endpoint.startswith('letterhead') %}<script src="{{url_for('static',filename='letterhead.js')}}?v={{app_version|replace('Web ','')}}"></script>{% endif %}
+  {% if request.endpoint == 'dashboard' %}
+  <script src="{{url_for('static',filename='home_light.js')}}?rev={{asset_revision}}"></script>
+  {% else %}
+  {% if not lightweight_settings_route %}<script src="{{url_for('static',filename='tv_compat.js')}}?rev={{asset_revision}}"></script><script src="{{url_for('static',filename='app.js')}}?rev={{asset_revision}}"></script>{% endif %}
+  {% if current_user and can_access('letterhead') and request.endpoint and request.endpoint.startswith('letterhead') %}<script src="{{url_for('static',filename='letterhead.js')}}?rev={{asset_revision}}"></script>{% endif %}
   {% block scripts %}{% endblock %}
-  <script src="{{url_for('static',filename='macos27_shell.js')}}?v={{app_version|replace('Web ','')}}"></script>
+  <script src="{{url_for('static',filename='macos27_shell.js')}}?rev={{asset_revision}}"></script>
+  {% endif %}
 </body>
 </html>

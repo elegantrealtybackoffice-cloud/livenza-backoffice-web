@@ -47,8 +47,9 @@ class Hotfix8VisualContracts(unittest.TestCase):
     def test_no_hotfix8_stylesheet_was_added(self):
         self.assertNotIn('hotfix8.css', BASE.lower())
 
-    def test_dashboard_suggestions_use_app_icon_component(self):
-        self.assertIn('suggestion-app-icon', DASH)
+    def test_dashboard_suggestions_are_replaced_by_lightweight_quick_actions(self):
+        self.assertNotIn('suggestion-app-icon', DASH)
+        self.assertIn('home-widget-links', DASH)
 
     def test_dock_does_not_render_unavailable_apps_directly(self):
         self.assertIn('for app_item in dock_apps', APPS)

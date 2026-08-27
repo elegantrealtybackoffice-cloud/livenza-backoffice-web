@@ -6,13 +6,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#061a3a">
   <title>Locked · Tesla OS 27</title>
-  <link rel="stylesheet" href="{{url_for('static',filename='legacy_modules.css')}}?v={{app_version|replace('Web ','')}}">
-  <link rel="stylesheet" href="{{url_for('static',filename='macos27_system.css')}}?v={{app_version|replace('Web ','')}}">
+  <link rel="stylesheet" href="{{url_for('static',filename='legacy_modules.css')}}?rev={{asset_revision}}">
+  <link rel="stylesheet" href="{{url_for('static',filename='macos27_system.css')}}?rev={{asset_revision}}">
 </head>
 <body class="kiosk-lock-body macos27-clean" data-page="kiosk_lock">
   <main class="kiosk-lock-stage">
     <section class="kiosk-lock-card liquid-card">
-      <img src="{{url_for('static',filename='brand/livenza_wordmark_tagline.png')}}" alt="Livenza Life">
+      <img src="{{url_for('static',filename='brand/livenza_wordmark_tagline.png')}}?rev={{asset_revision}}" alt="Livenza Life">
       <div class="kiosk-lock-icon">{{icons.symbol('lock')}}</div>
       <p class="eyebrow">LIVENZA SECURE SCREEN</p>
       <h1>Workspace locked</h1>
@@ -37,6 +37,6 @@
       <small>Windows Assigned Access provides the operating-system lock. This PIN protects all Livenza routes.</small>
     </section>
   </main>
-  <script src="{{url_for('static',filename='app.js')}}?v={{app_version|replace('Web ','')}}"></script>
+  <script src="{{url_for('static',filename='app.js')}}?rev={{asset_revision}}"></script>
 </body>
 </html>

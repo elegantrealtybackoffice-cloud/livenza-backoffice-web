@@ -6,7 +6,7 @@ JS = (ROOT / 'static/macos27_shell.js').read_text(encoding='utf-8')
 CSS = (ROOT / 'static/macos27_system.css').read_text(encoding='utf-8')
 BASE = (ROOT / 'templates/base.html').read_text(encoding='utf-8')
 WALL = (ROOT / 'templates/settings/_wallpaper.html').read_text(encoding='utf-8')
-ASSET = ROOT / 'static/wallpapers/livenza_life_live_elevated.jpg'
+ASSET = ROOT / 'static/wallpapers/livenza_life_live_elevated_h10l.jpg'
 
 class Hotfix10DefaultLivenzaWallpaperTests(unittest.TestCase):
     def test_final_livenza_wallpaper_asset_is_packaged(self):
@@ -18,7 +18,7 @@ class Hotfix10DefaultLivenzaWallpaperTests(unittest.TestCase):
         self.assertIn('wallpaper-livenza-life', WALL)
         self.assertIn('Livenza.life · Live Elevated', WALL)
         self.assertIn('data-wallpaper="livenza-life"', CSS)
-        self.assertIn('wallpapers/livenza_life_live_elevated.jpg', CSS)
+        self.assertIn('wallpapers/livenza_life_live_elevated_h10l.jpg', CSS)
 
     def test_final_livenza_wallpaper_is_true_default_and_reset_target(self):
         self.assertIn("'wallpaper.variant':'livenza-life'", JS)

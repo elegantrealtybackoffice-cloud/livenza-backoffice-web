@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}System Settings · Livenza Life{% endblock %}
-{% block page_styles %}<link rel="stylesheet" href="{{url_for('static',filename='integrations.css')}}?v={{app_version|replace('Web ','')}}">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{url_for('static',filename='integrations.css')}}?rev={{asset_revision}}">{% endblock %}
 {% block content %}
 <div class="system-settings" data-system-settings>
   <aside class="system-settings-sidebar" id="systemSettingsSidebar">

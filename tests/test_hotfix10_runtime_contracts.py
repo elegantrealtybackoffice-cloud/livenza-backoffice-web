@@ -57,14 +57,15 @@ class Hotfix10RuntimeContracts(unittest.TestCase):
         self.assertIn("titlebar?.addEventListener('dblclick'", SHELLJS)
         self.assertIn('maximizeAppWindow(windowEl.id)', SHELLJS)
 
-    def test_mascot_markup_is_dashboard_only(self):
-        self.assertRegex(BASE, r"\{% if companion_enabled and request\.endpoint == 'dashboard' %\}")
+    def test_legacy_companion_markup_is_removed_from_base(self):
+        self.assertNotIn('id="mascotCompanion"', BASE)
+        self.assertIn('home-companion-launcher', DASH)
 
-    def test_contextual_window_menu_has_history_commands(self):
-        self.assertIn('data-window-menu-command="back-active"', DASH)
-        self.assertIn('data-window-menu-command="forward-active"', DASH)
-        self.assertIn("name === 'back-active'", SHELLJS)
-        self.assertIn("name === 'forward-active'", SHELLJS)
+    def test_light_home_menu_exposes_only_immediate_commands(self):
+        self.assertIn('data-home-command="toggle-widgets"', DASH)
+        self.assertIn('data-home-command="fullscreen"', DASH)
+        self.assertNotIn('data-window-menu-command="back-active"', DASH)
+        self.assertIn("name === 'back-active'", SHELLJS)  # retained for managed app windows
 
 
     def test_legacy_compatibility_css_has_balanced_blocks(self):

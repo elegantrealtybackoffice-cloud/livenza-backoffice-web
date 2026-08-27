@@ -11,13 +11,14 @@ WIDGET_SETTINGS = (ROOT / 'templates/settings/_widgets.html').read_text(encoding
 
 
 class Hotfix10CleanHomeContracts(unittest.TestCase):
-    def test_dock_renders_only_suites_launcher(self):
+    def test_dock_renders_curated_lightweight_launchers(self):
         dock = re.search(r'<nav id="macDock"[\s\S]*?</nav>', BASE)
         self.assertIsNotNone(dock)
         markup = dock.group(0)
         self.assertIn('data-suites-dock', markup)
+        for endpoint in ('agreements','rooms','queries','reviews','banking_suite','settings_page'):
+            self.assertIn(f'data-dock-app="{endpoint}"', markup)
         self.assertNotIn('render_dock_apps()', markup)
-        self.assertNotIn('mac-dock-divider', markup)
 
     def test_widgets_are_closed_by_default_and_opened_from_top_bar(self):
         self.assertIn('data-home-widgets-toggle', DASH)
@@ -26,8 +27,10 @@ class Hotfix10CleanHomeContracts(unittest.TestCase):
         self.assertIn('desktop-widgets-hidden', SHELLJS)
         self.assertRegex(CSS, r'body\.desktop-widgets-hidden \.home-widget-stack\{[^}]*pointer-events:none')
 
-    def test_floating_mascot_is_not_visible_on_home(self):
-        self.assertRegex(BASE, r'id="mascotCompanion"[^>]*\shidden(?:\s|>)')
+    def test_compact_mascot_is_dock_adjacent_and_lazy(self):
+        self.assertNotIn('id="mascotCompanion"', BASE)
+        self.assertIn('home-companion-launcher', DASH)
+        self.assertIn('home-companion-panel', DASH)
         self.assertIn('data-home-companion-open', DASH)
 
     def test_widget_settings_describe_on_demand_panel_not_permanent_stack(self):

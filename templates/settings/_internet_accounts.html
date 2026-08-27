@@ -38,4 +38,4 @@
     {% else %}<div class="integration-empty"><span>{{icons.symbol('integrations')}}</span><h2>Select an integration</h2><p>Choose a provider to open its workflow, inspect connection state or manage configuration.</p></div>{% endif %}
   </section>
 </div>
-<script src="{{url_for('static',filename='integrations.js')}}?v={{app_version|replace('Web ','')}}" defer></script>
+<script src="{{url_for('static',filename='integrations.js')}}?rev={{asset_revision}}" defer></script>

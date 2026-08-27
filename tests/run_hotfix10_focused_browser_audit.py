@@ -38,7 +38,7 @@ def main():
         assert page.locator('body').evaluate("e=>e.classList.contains('desktop-widgets-hidden')") is True
         assert page.locator('html').get_attribute('data-wallpaper') == 'livenza-life'
         wallpaper_bg = page.locator('#desktopWallpaperLayer').evaluate("e=>getComputedStyle(e).backgroundImage")
-        assert 'livenza_life_live_elevated.jpg' in wallpaper_bg, wallpaper_bg
+        assert 'livenza_life_live_elevated_h10l.jpg' in wallpaper_bg, wallpaper_bg
         assert page.locator('#macDock .mac-dock-item').count() == 1
         page.screenshot(path=str(ROOT/'tests'/'audit_artifacts'/'hotfix10_clean_home.png'), full_page=False)
         page.locator('[data-home-widgets-toggle]').click()
@@ -47,7 +47,7 @@ def main():
         assert page.locator('body').evaluate("e=>e.classList.contains('desktop-widgets-hidden')") is True
         assert page.locator('html').get_attribute('data-wallpaper') == 'livenza-life'
         wallpaper_bg = page.locator('#desktopWallpaperLayer').evaluate("e=>getComputedStyle(e).backgroundImage")
-        assert 'livenza_life_live_elevated.jpg' in wallpaper_bg, wallpaper_bg
+        assert 'livenza_life_live_elevated_h10l.jpg' in wallpaper_bg, wallpaper_bg
 
         settings_url = 'data:text/html;charset=utf-8,' + quote(SETTINGS)
         page.evaluate("url=>window.LivenzaWindowManager.openAppWindow({endpoint:'settings_page',url,title:'System Settings',tone:'settings',family:'system',accent:'#7c86f8',accent2:'#67707e',iconMarkup:''})", settings_url)
