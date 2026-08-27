@@ -6,15 +6,15 @@ ROOT = Path(__file__).resolve().parents[1]
 CSS = (ROOT / 'static' / 'macos27_system.css').read_text(encoding='utf-8')
 JS = str(ROOT / 'static' / 'macos27_shell.js')
 
-HOME = '''<!doctype html><html data-wallpaper="aurora" data-appearance="light"><body data-page="dashboard" class="macos27-clean">
+HOME = '''<!doctype html><html data-appearance="light"><body data-page="dashboard" class="macos27-clean desktop-widgets-hidden">
 <div class="mac-desktop-home">
-  <button data-home-widgets-toggle aria-pressed="true">Widgets</button>
+  <button data-home-widgets-toggle aria-pressed="false">Widgets</button>
   <div id="desktopWallpaperLayer" class="desktop-wallpaper-layer"></div>
   <div id="wallpaperTransitionLayer" class="wallpaper-transition-layer" hidden></div>
   <div id="desktopWindowLayer" class="desktop-window-layer" data-desktop-window-host></div>
   <aside class="home-widget-stack"><section data-home-widget="weather">Weather</section></aside>
 </div>
-<nav id="macDock" class="mac-dock"><a class="mac-dock-item mac-dock-app" data-dock-app data-app-nav data-app-endpoint="settings_page" href="http://livenza.test/settings/desktop-dock"><span class="mac-dock-icon"></span></a></nav>
+<nav id="macDock" class="mac-dock"><button class="mac-dock-item mac-dock-launcher" data-suites-dock><span class="mac-dock-icon">▦</span></button></nav>
 </body></html>'''
 
 SETTINGS = '''<!doctype html><html><head><title>System Settings · Livenza</title></head><body>
@@ -35,10 +35,19 @@ def main():
         page.add_script_tag(path=JS)
         page.wait_for_timeout(100)
 
-        page.locator('[data-home-widgets-toggle]').click()
         assert page.locator('body').evaluate("e=>e.classList.contains('desktop-widgets-hidden')") is True
+        assert page.locator('html').get_attribute('data-wallpaper') == 'livenza-life'
+        wallpaper_bg = page.locator('#desktopWallpaperLayer').evaluate("e=>getComputedStyle(e).backgroundImage")
+        assert 'livenza_life_live_elevated.jpg' in wallpaper_bg, wallpaper_bg
+        assert page.locator('#macDock .mac-dock-item').count() == 1
+        page.screenshot(path=str(ROOT/'tests'/'audit_artifacts'/'hotfix10_clean_home.png'), full_page=False)
         page.locator('[data-home-widgets-toggle]').click()
         assert page.locator('body').evaluate("e=>e.classList.contains('desktop-widgets-hidden')") is False
+        page.locator('[data-home-widgets-toggle]').click()
+        assert page.locator('body').evaluate("e=>e.classList.contains('desktop-widgets-hidden')") is True
+        assert page.locator('html').get_attribute('data-wallpaper') == 'livenza-life'
+        wallpaper_bg = page.locator('#desktopWallpaperLayer').evaluate("e=>getComputedStyle(e).backgroundImage")
+        assert 'livenza_life_live_elevated.jpg' in wallpaper_bg, wallpaper_bg
 
         settings_url = 'data:text/html;charset=utf-8,' + quote(SETTINGS)
         page.evaluate("url=>window.LivenzaWindowManager.openAppWindow({endpoint:'settings_page',url,title:'System Settings',tone:'settings',family:'system',accent:'#7c86f8',accent2:'#67707e',iconMarkup:''})", settings_url)

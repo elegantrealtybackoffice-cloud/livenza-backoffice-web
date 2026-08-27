@@ -1,6 +1,6 @@
 <section class="settings-panel">
   <article class="settings-card">
-    <div class="settings-section-title"><div><h2>Widgets</h2><p>Choose the live cards shown in the right-side Home desktop stack.</p></div><button type="button" class="secondary" data-reset-widgets>Restore Defaults</button></div>
+    <div class="settings-section-title"><div><h2>Widgets</h2><p>Choose which live cards appear when you open the top-bar Widgets control. Home stays clean until you ask for them.</p></div><button type="button" class="secondary" data-reset-widgets>Restore Defaults</button></div>
     <div class="widget-settings-grid">
       {% for key,label,desc in [('occupancy','Today','Current operational summary'),('weather','Weather','Live weather and forecast range'),('tasks','Livenza Suggestions','Working shortcuts and assistant')] %}
       <label class="widget-settings-card" data-widget-key="{{key}}"><span class="widget-mini-icon">{{icons.symbol('widgets')}}</span><span><b>{{label}}</b><small>{{desc}}</small></span><span class="mac-switch"><input type="checkbox" checked><i></i></span></label>

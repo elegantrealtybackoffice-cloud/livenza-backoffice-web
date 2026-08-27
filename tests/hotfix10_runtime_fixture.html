@@ -2,8 +2,8 @@
 <html data-wallpaper="aurora" data-appearance="light"><head><meta charset="utf-8"><style>
 body{margin:0}.mac-desktop-home{position:fixed;inset:0}.home-widget-stack{position:fixed;right:20px;top:50px}.mac-dock{position:fixed;bottom:5px;left:50%}.mac-dock-item{display:inline-block;width:45px;height:45px}.mac-dock-icon{display:block;width:36px;height:36px}
 </style></head>
-<body data-page="dashboard" class="macos27-clean">
-<div class="mac-desktop-home"><button id="widgets" data-home-widgets-toggle aria-pressed="true">Widgets</button><div id="desktopWallpaperLayer"></div><div id="wallpaperTransitionLayer" hidden></div><div id="desktopWindowLayer" data-desktop-window-host></div><aside class="home-widget-stack"><section data-home-widget="weather">Weather</section></aside></div>
+<body data-page="dashboard" class="macos27-clean desktop-widgets-hidden">
+<div class="mac-desktop-home"><button id="widgets" data-home-widgets-toggle aria-pressed="false">Widgets</button><div id="desktopWallpaperLayer"></div><div id="wallpaperTransitionLayer" hidden></div><div id="desktopWindowLayer" data-desktop-window-host></div><aside class="home-widget-stack"><section data-home-widget="weather">Weather</section></aside></div>
 <nav id="macDock" class="mac-dock"><button class="mac-dock-item"><span class="mac-dock-icon"></span></button></nav>
 <div id="dynamicRoot"></div><pre id="result">PENDING</pre>
 <script src="../static/macos27_shell.js"></script>
@@ -11,10 +11,11 @@ body{margin:0}.mac-desktop-home{position:fixed;inset:0}.home-widget-stack{positi
 (async()=>{
   const failures=[];
   try{
-    document.getElementById('widgets').click();
-    if(!document.body.classList.contains('desktop-widgets-hidden')) failures.push('widgets-hide');
+    if(!document.body.classList.contains('desktop-widgets-hidden')) failures.push('widgets-initial');
     document.getElementById('widgets').click();
     if(document.body.classList.contains('desktop-widgets-hidden')) failures.push('widgets-show');
+    document.getElementById('widgets').click();
+    if(!document.body.classList.contains('desktop-widgets-hidden')) failures.push('widgets-hide');
     const host=document.getElementById('dynamicRoot');
     host.innerHTML='<div data-system-settings><input id="autoHide" type="checkbox" data-pref="dock.autohide"><input id="zoom" type="range" min="80" max="160" value="100" data-pref="wallpaper.zoom"><output data-pref-output="wallpaper.zoom"></output></div>';
     window.dispatchEvent(new CustomEvent('livenza:content-swapped',{detail:{root:host}}));

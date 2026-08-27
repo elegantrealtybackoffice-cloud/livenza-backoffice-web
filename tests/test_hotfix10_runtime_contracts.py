@@ -43,9 +43,9 @@ class Hotfix10RuntimeContracts(unittest.TestCase):
         self.assertIn('--wallpaper-position-x', CSS)
         self.assertIn('--wallpaper-position-y', CSS)
 
-    def test_widgets_have_persistent_top_bar_toggle(self):
+    def test_widgets_are_on_demand_from_persistent_top_bar_toggle(self):
         self.assertIn('data-home-widgets-toggle', DASH)
-        self.assertIn("'widgets.visible':true", SHELLJS)
+        self.assertIn("'widgets.visible':false", SHELLJS)
         self.assertIn('function setWidgetsVisible', SHELLJS)
         self.assertIn("preferences['widgets.visible']", SHELLJS)
 
