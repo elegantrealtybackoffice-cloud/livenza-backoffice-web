@@ -8,9 +8,9 @@ HOME_JS=str(ROOT/'static/home_light.js')
 SETTINGS_CSS=(ROOT/'static/settings_light.css').read_text(encoding='utf-8')
 WALL=(ROOT/'static/wallpapers/livenza_life_live_elevated_h10l.jpg').read_bytes()
 WALL_URI='data:image/jpeg;base64,'+base64.b64encode(WALL).decode('ascii')
-ICON='<svg class="lz-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 9h6M9 12h6M9 15h6"/></svg>'
+ICON='<svg class="lz-symbol" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 9h6M9 12h6M9 15h6"/></svg>'
 
-HOME=f'''<!doctype html><html data-wallpaper="livenza-life" data-wallpaper-fit="fill"><body data-page="dashboard" data-build-revision="27A101-H10L-20260827B" class="app-liquid-shell macos27-clean desktop-widgets-hidden">
+HOME=f'''<!doctype html><html data-wallpaper="livenza-life" data-wallpaper-fit="fill"><body data-page="dashboard" data-build-revision="27A101-H10L-20260827C" class="app-liquid-shell macos27-clean desktop-widgets-hidden">
 <div id="appViewport"><div id="macShell" class="mac-shell"><div class="mac-shell-body"><section class="mac-workspace"><main id="appMain"><section class="mac-desktop-home">
 <nav class="mac-desktop-menubar"><div class="desktop-menu-left"><a class="desktop-menu-logo"><span>L</span></a><strong class="desktop-active-app">Livenza Life</strong><button class="desktop-menu-command" data-suites-dock>Suites</button><button class="desktop-menu-command" data-window-menu-trigger="view">View</button><button class="desktop-menu-command" data-window-menu-trigger="window">Window</button><button class="desktop-menu-command" data-home-companion-open>Help</button></div><div class="desktop-menu-right"><button class="desktop-status-button" data-home-widgets-toggle>W</button><button class="desktop-status-button" data-mac-command-open>S</button><time id="homeCurrentDate"></time><time id="homeCurrentTime"></time></div></nav>
 <div class="desktop-menu-popover" data-window-menu="view" hidden><button data-home-command="toggle-widgets">Toggle Widgets</button><button data-home-command="fullscreen">Full Screen</button></div><div class="desktop-menu-popover" data-window-menu="window" hidden><a>System Settings</a><button data-suites-dock>Open Suites</button></div>
@@ -31,6 +31,9 @@ def audit_home(page,width,height,name):
     page.add_style_tag(content=HOME_CSS+f"\n.desktop-wallpaper-layer{{background-image:url('{WALL_URI}')!important}}")
     page.add_script_tag(path=HOME_JS)
     assert page.locator('#macDock .mac-dock-item').count()==7
+    svg_style=page.locator('#macDock .lz-symbol').first.evaluate("e=>({fill:getComputedStyle(e).fill,stroke:getComputedStyle(e).stroke,sw:getComputedStyle(e).strokeWidth})")
+    assert svg_style['fill'] == 'none', svg_style
+    assert svg_style['stroke'] != 'none', svg_style
     assert page.locator('body').evaluate("e=>e.classList.contains('desktop-widgets-hidden')") is True
     elapsed=page.evaluate("""()=>{const b=document.querySelector('[data-window-menu-trigger="view"]');const t=performance.now();b.click();return performance.now()-t} """)
     assert elapsed < 25, elapsed

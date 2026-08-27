@@ -6,20 +6,20 @@
     <div class="desktop-menu-left">
       <a class="desktop-menu-logo" href="{{url_for('dashboard')}}" aria-label="Livenza Life Home"><img src="{{url_for('static',filename='brand/livenza_wordmark_on_dark.png')}}?rev={{asset_revision}}" alt=""></a>
       <strong class="desktop-active-app">Livenza Life</strong>
-      <button type="button" class="desktop-menu-command" data-suites-dock aria-controls="appsDrawer" aria-expanded="false">Suites</button>
-      <button type="button" class="desktop-menu-command" data-window-menu-trigger="view">View</button>
-      <button type="button" class="desktop-menu-command" data-window-menu-trigger="window">Window</button>
-      <button type="button" class="desktop-menu-command" data-home-companion-open>Help</button>
+      <a class="desktop-menu-command" href="{{url_for('dashboard',suites=1)}}" data-suites-dock aria-controls="appsDrawer" aria-expanded="false">Suites</a>
+      <a class="desktop-menu-command" href="{{url_for('system_settings_pane',pane='appearance')}}" data-window-menu-trigger="view">View</a>
+      <a class="desktop-menu-command" href="{{url_for('settings_page')}}" data-window-menu-trigger="window">Window</a>
+      <a class="desktop-menu-command" href="{{url_for('system_settings_pane',pane='intelligence')}}" data-home-companion-open>Help</a>
     </div>
     <div class="desktop-menu-right">
-      <button type="button" class="desktop-status-button" data-home-widgets-toggle aria-label="Toggle widgets" aria-pressed="false" title="Widgets">{{icons.symbol('widgets')}}</button>
-      <button type="button" class="desktop-status-button" data-mac-command-open aria-label="Search Livenza" title="Search">{{icons.symbol('search')}}</button>
+      <a class="desktop-status-button" href="{{url_for('system_settings_pane',pane='widgets')}}" data-home-widgets-toggle aria-label="Toggle widgets" aria-pressed="false" title="Widgets">{{icons.symbol('widgets')}}</a>
+      <a class="desktop-status-button" href="{{url_for('dashboard',suites=1)}}" data-mac-command-open aria-label="Search Livenza" title="Search">{{icons.symbol('search')}}</a>
       <a class="desktop-status-button" href="{{url_for('settings_page')}}" aria-label="System Settings" title="System Settings">{{icons.symbol('control-centre')}}</a>
       <time id="homeCurrentDate" class="desktop-menu-date">—</time><time id="homeCurrentTime" class="desktop-menu-time">—</time>
     </div>
   </nav>
   <div class="desktop-menu-popover" data-window-menu="view" hidden><button type="button" data-home-command="toggle-widgets">Toggle Widgets</button><button type="button" data-home-command="fullscreen">Enter Full Screen</button></div>
-  <div class="desktop-menu-popover" data-window-menu="window" hidden><a href="{{url_for('settings_page')}}">System Settings</a><button type="button" data-suites-dock>Open Suites</button></div>
+  <div class="desktop-menu-popover" data-window-menu="window" hidden><a href="{{url_for('settings_page')}}">System Settings</a><a href="{{url_for('dashboard',suites=1)}}" data-suites-dock>Open Suites</a></div>
   <div id="desktopWallpaperLayer" class="desktop-wallpaper-layer" aria-hidden="true"></div>
   <div id="wallpaperTransitionLayer" class="wallpaper-transition-layer" aria-hidden="true"></div>
   <div class="home-wallpaper-sheen" aria-hidden="true"></div>
@@ -30,7 +30,7 @@
     <section class="home-widget"><header><b>Hotfix 10 Light Shell</b><small>{{asset_revision}}</small></header><small>Widgets stay asleep until you open them. No weather polling or application prefetch runs on Home.</small></section>
   </aside>
 
-  <button type="button" class="home-companion-launcher" data-home-companion-open aria-label="Open Livenza Companion" title="Livenza Companion"><img src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}?rev={{asset_revision}}" alt=""></button>
+  <a class="home-companion-launcher" href="{{url_for('system_settings_pane',pane='intelligence')}}" data-home-companion-open aria-label="Open Livenza Companion" title="Livenza Companion"><img src="{{url_for('static',filename='livenza_companion_mascot_v2.png')}}?rev={{asset_revision}}" alt=""></a>
   <aside class="home-companion-panel" hidden aria-label="Livenza Companion">
     <header><div><b>Livenza Companion</b><small>Quick help</small></div><button type="button" data-home-companion-close aria-label="Close">×</button></header>
     <p>Companion is now lightweight on Home. Live weather and background polling remain off until a dedicated workflow needs them.</p>

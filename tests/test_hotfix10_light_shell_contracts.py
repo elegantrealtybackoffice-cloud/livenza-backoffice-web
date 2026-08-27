@@ -13,11 +13,11 @@ SETTINGS_CSS_PATH = ROOT / 'static/settings_light.css'
 
 class Hotfix10LightShellContracts(unittest.TestCase):
     def test_dashboard_uses_dedicated_light_assets_only(self):
-        self.assertIn("request.endpoint == 'dashboard'", BASE)
+        self.assertIn("lightweight_home_route", BASE)
         self.assertIn("filename='home_light.css'", BASE)
         self.assertIn("filename='home_light.js'", BASE)
         # Heavy application bundles must be behind the non-dashboard branch.
-        dashboard_branch = BASE.split("{% if request.endpoint == 'dashboard' %}",1)[1].split('{% elif lightweight_settings_route %}',1)[0]
+        dashboard_branch = BASE.split("{% if lightweight_home_route %}",1)[1].split('{% elif lightweight_settings_route %}',1)[0]
         self.assertNotIn("filename='legacy_modules.css'", dashboard_branch)
         self.assertNotIn("filename='app.js'", dashboard_branch)
         self.assertIn("filename='legacy_modules.css'", BASE)
@@ -94,6 +94,33 @@ class Hotfix10LightShellContracts(unittest.TestCase):
         css = SETTINGS_CSS_PATH.read_text(encoding='utf-8')
         for selector in ('.form-grid','.settings-toggle-row','.settings-toggle-list','.mac-switch','.settings-section-title','.appearance-samples','.wallpaper-grid'):
             self.assertIn(selector, css)
+
+    def test_dock_uses_mac_like_glass_and_original_colored_icon_system(self):
+        css = HOME_CSS_PATH.read_text(encoding='utf-8').replace(' ', '')
+        self.assertIn('.mac-dock{', css)
+        self.assertIn('backdrop-filter:blur(14px)saturate(1.25)', css)
+        self.assertIn('.mac-dock.lz-symbol', css)
+        self.assertIn('fill:none', css)
+        self.assertIn('stroke:currentColor', css)
+        for family in ('launcher','agreement','rooms','queries','reviews','banking','settings'):
+            selector = '.mac-dock-launcher' if family == 'launcher' else f'.dock-{family}'
+            self.assertIn(selector, css)
+        self.assertIn('--dock-dot:', css)
+        self.assertIn('.dock-settings::before', css)
+
+    def test_dock_magnification_uses_neighbor_field_without_layout_animation(self):
+        js = HOME_JS_PATH.read_text(encoding='utf-8').replace(' ', '')
+        self.assertIn('d/112', js)
+        self.assertIn('influence*.36', js)
+        self.assertIn('influence*12', js)
+        self.assertNotIn('style.width=', js)
+        self.assertNotIn('style.height=', js)
+
+    def test_settings_dock_uses_same_livenza_symbol_stroke_contract(self):
+        css = SETTINGS_CSS_PATH.read_text(encoding='utf-8').replace(' ', '')
+        self.assertIn('.mac-dock.lz-symbol', css)
+        self.assertIn('fill:none', css)
+        self.assertIn('stroke:currentColor', css)
 
 
 if __name__ == '__main__':
