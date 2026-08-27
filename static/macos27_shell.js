@@ -5,7 +5,8 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const root = document.documentElement;
   const body = document.body;
-  const PREF_KEY = 'livenza.settings.v2701';
+  const PREF_KEY = 'livenza.settings.v2702';
+  const PREVIOUS_PREF_KEY = 'livenza.settings.v2701';
   const OLD_PREF_KEY = 'livenza.systemSettings.v190';
   const CUSTOM_WALLPAPER_KEY = 'livenza.wallpaper.custom';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -15,7 +16,9 @@
   }
   function readPreferences() {
     try {
-      return {...safeParse(localStorage.getItem(OLD_PREF_KEY)), ...safeParse(localStorage.getItem(PREF_KEY))};
+      const legacy = {...safeParse(localStorage.getItem(OLD_PREF_KEY)), ...safeParse(localStorage.getItem(PREVIOUS_PREF_KEY))};
+      delete legacy['appearance.mode'];
+      return {...legacy, ...safeParse(localStorage.getItem(PREF_KEY))};
     } catch (_) { return {}; }
   }
   function writePreferences(prefs) {
@@ -31,7 +34,12 @@
     'control.display':true,
     'control.fullscreen':true,
     'focus.enabled':false,
-    'focus.companion':true
+    'focus.companion':true,
+    'wallpaper.fit':'fill',
+    'wallpaper.positionX':'50',
+    'wallpaper.positionY':'50',
+    'wallpaper.zoom':'100',
+    'widgets.visible':true
   };
   let preferences = {...DEFAULT_PREFERENCES, ...readPreferences()};
 
@@ -53,12 +61,27 @@
     root.classList.toggle('dock-autohide', Boolean(preferences['dock.autohide']));
   }
 
+  function applyWallpaperGeometry() {
+    const fit = ['fill','fit','stretch','center'].includes(preferences['wallpaper.fit']) ? preferences['wallpaper.fit'] : 'fill';
+    const x = Math.max(0, Math.min(100, Number(preferences['wallpaper.positionX'] ?? 50)));
+    const y = Math.max(0, Math.min(100, Number(preferences['wallpaper.positionY'] ?? 50)));
+    const zoom = Math.max(80, Math.min(160, Number(preferences['wallpaper.zoom'] ?? 100)));
+    root.dataset.wallpaperFit = fit;
+    root.style.setProperty('--wallpaper-position-x', `${x}%`);
+    root.style.setProperty('--wallpaper-position-y', `${y}%`);
+    root.style.setProperty('--wallpaper-zoom', String(zoom / 100));
+  }
+
   function applyWallpaper(value, persist = true) {
     const allowed = new Set(['aurora', 'spectrum', 'sequoia', 'midnight', 'livenza-blue', 'violet-glass', 'ocean', 'sunrise', 'custom']);
     const desktop = $('.mac-desktop-home');
+    const wallpaperLayer = $('#desktopWallpaperLayer');
     const transitionLayer = $('#wallpaperTransitionLayer');
     if (desktop && transitionLayer && !reduceMotion.matches && !root.classList.contains('settings-reduce-motion')) {
-      transitionLayer.style.backgroundImage = getComputedStyle(desktop).backgroundImage;
+      const sourceStyle = getComputedStyle(wallpaperLayer || desktop);
+      transitionLayer.style.backgroundImage = sourceStyle.backgroundImage;
+      transitionLayer.style.backgroundSize = sourceStyle.backgroundSize;
+      transitionLayer.style.backgroundPosition = sourceStyle.backgroundPosition;
       transitionLayer.classList.remove('is-fading');
       transitionLayer.hidden = false;
       void transitionLayer.offsetWidth;
@@ -72,6 +95,7 @@
       if (!custom) next = 'aurora';
     }
     root.dataset.wallpaper = next;
+    applyWallpaperGeometry();
     if (custom) root.style.setProperty('--user-wallpaper', `url("${custom.replace(/"/g, '%22')}")`);
     else if (next !== 'custom') root.style.removeProperty('--user-wallpaper');
     if (persist) {
@@ -273,6 +297,7 @@
   const dock = $('#macDock');
   const DOCK_INFLUENCE = 104;
   const DOCK_MAX_SCALE = 1.38;
+  const DOCK_MAX_LIFT = 13;
   let dockCenters = [];
   let dockPointerX = 0;
   let dockFrame = 0;
@@ -291,6 +316,7 @@
       const influence = Math.max(0, 1 - distance / DOCK_INFLUENCE);
       const eased = influence * influence * (3 - 2 * influence);
       point.item.style.setProperty('--dock-scale', (1 + eased * (DOCK_MAX_SCALE - 1)).toFixed(3));
+      point.item.style.setProperty('--dock-lift', `${(eased * DOCK_MAX_LIFT).toFixed(2)}px`);
     }
   }
   function scheduleDock(event) {
@@ -300,7 +326,10 @@
   function resetDock() {
     if (dockFrame) cancelAnimationFrame(dockFrame);
     dockFrame = 0;
-    $$('.mac-dock-item', dock || document).forEach((item) => item.style.removeProperty('--dock-scale'));
+    $$('.mac-dock-item', dock || document).forEach((item) => {
+      item.style.removeProperty('--dock-scale');
+      item.style.removeProperty('--dock-lift');
+    });
   }
   if (dock) {
     cacheDockCenters();
@@ -332,35 +361,59 @@
 
   reduceMotion.addEventListener?.('change', () => { resetDock(); cacheDockCenters(); });
 
+  function setWidgetsVisible(visible, persist = true) {
+    const next = visible !== false;
+    body.classList.toggle('desktop-widgets-hidden', !next);
+    $$('[data-home-widgets-toggle]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(next));
+      button.title = next ? 'Hide Widgets' : 'Show Widgets';
+    });
+    if (persist) {
+      preferences['widgets.visible'] = next;
+      writePreferences(preferences);
+    }
+  }
   function applyHomeWidgetPreferences() {
     $$('[data-home-widget]').forEach((widget) => {
       const key = widget.dataset.homeWidget;
       widget.hidden = preferences.widgets?.[key] === false;
     });
+    setWidgetsVisible(preferences['widgets.visible'] !== false, false);
   }
   applyHomeWidgetPreferences();
+  $$('[data-home-widgets-toggle]').forEach((button) => button.addEventListener('click', () => setWidgetsVisible(preferences['widgets.visible'] === false)));
 
   /* ---------- Settings ---------- */
-  const settingsRoot = $('[data-system-settings]');
-  function applyPreferenceControls() {
+  function applyPreferenceControls(settingsRoot = $('[data-system-settings]')) {
     setRootPreferenceClasses();
-    settingsRoot?.querySelectorAll('[data-pref]').forEach((control) => {
+    applyWallpaperGeometry();
+    if (!settingsRoot) return;
+    settingsRoot.querySelectorAll('[data-pref]').forEach((control) => {
       const key = control.dataset.pref;
       if (control.type === 'checkbox') control.checked = Boolean(preferences[key]);
       else if (preferences[key] != null) control.value = preferences[key];
+      const output = settingsRoot.querySelector(`[data-pref-output="${CSS.escape(key)}"]`);
+      if (output) output.textContent = key === 'wallpaper.zoom' ? `${control.value}%` : `${control.value}%`;
     });
-    settingsRoot?.querySelectorAll('[data-pref-button]').forEach((button) => {
+    settingsRoot.querySelectorAll('[data-pref-button]').forEach((button) => {
       const selected = preferences[button.dataset.prefButton] === button.dataset.value;
       button.classList.toggle('selected', selected);
       button.setAttribute('aria-pressed', String(selected));
     });
-    settingsRoot?.querySelectorAll('[data-widget-key]').forEach((card) => {
+    settingsRoot.querySelectorAll('[data-widget-key]').forEach((card) => {
       const input = $('input[type="checkbox"]', card);
       if (input) input.checked = preferences.widgets?.[card.dataset.widgetKey] !== false;
     });
     applyWallpaper(preferences['wallpaper.variant'] || 'aurora', false);
   }
-  if (settingsRoot) {
+
+  function initSystemSettings(scope = document) {
+    const settingsRoot = scope?.matches?.('[data-system-settings]') ? scope : scope?.querySelector?.('[data-system-settings]');
+    if (!settingsRoot || settingsRoot.dataset.macosSettingsBound === '1') {
+      if (settingsRoot) applyPreferenceControls(settingsRoot);
+      return settingsRoot || null;
+    }
+    settingsRoot.dataset.macosSettingsBound = '1';
     const settingsSearch = $('#settingsSearch', settingsRoot);
     const navItems = $$('[data-settings-search]', settingsRoot);
     const navToggle = $('#settingsNavToggle', settingsRoot);
@@ -382,12 +435,20 @@
     navToggle?.addEventListener('click', () => setSettingsNav(!settingsRoot.classList.contains('settings-nav-open')));
     navItems.forEach((item) => item.addEventListener('click', () => setSettingsNav(false)));
 
+    settingsRoot.addEventListener('input', (event) => {
+      const pref = event.target.closest?.('[data-pref]');
+      if (!pref || !['range'].includes(pref.type)) return;
+      preferences[pref.dataset.pref] = pref.value;
+      writePreferences(preferences);
+      applyPreferenceControls(settingsRoot);
+    });
     settingsRoot.addEventListener('change', async (event) => {
       const pref = event.target.closest?.('[data-pref]');
       if (pref) {
         preferences[pref.dataset.pref] = pref.type === 'checkbox' ? pref.checked : pref.value;
         writePreferences(preferences);
-        applyPreferenceControls();
+        applyPreferenceControls(settingsRoot);
+        if (pref.dataset.pref === 'dock.magnification') resetDock();
         return;
       }
       const widget = event.target.closest?.('[data-widget-key]');
@@ -398,7 +459,7 @@
         applyHomeWidgetPreferences();
       }
       if (event.target.id === 'wallpaperCustomInput') {
-        const status = $('#wallpaperStatus');
+        const status = $('#wallpaperStatus', settingsRoot);
         const file = event.target.files?.[0];
         if (!file) return;
         if (status) status.textContent = 'Preparing wallpaper…';
@@ -422,7 +483,7 @@
       if (prefButton) {
         preferences[prefButton.dataset.prefButton] = prefButton.dataset.value;
         writePreferences(preferences);
-        applyPreferenceControls();
+        applyPreferenceControls(settingsRoot);
         return;
       }
       const wallpaper = event.target.closest?.('[data-wallpaper-value]');
@@ -431,7 +492,7 @@
         if (value === 'custom') {
           let custom = '';
           try { custom = localStorage.getItem(CUSTOM_WALLPAPER_KEY) || ''; } catch (_) {}
-          if (!custom) { $('#wallpaperCustomInput')?.click(); return; }
+          if (!custom) { $('#wallpaperCustomInput', settingsRoot)?.click(); return; }
         }
         applyWallpaper(value);
         return;
@@ -441,16 +502,17 @@
         preferences['wallpaper.variant'] = 'aurora';
         writePreferences(preferences);
         applyWallpaper('aurora', false);
-        const preview = $('.wallpaper-custom');
+        const preview = $('.wallpaper-custom', settingsRoot);
         if (preview) preview.style.removeProperty('background-image');
-        const status = $('#wallpaperStatus');
+        const status = $('#wallpaperStatus', settingsRoot);
         if (status) status.textContent = 'Custom wallpaper removed.';
         return;
       }
       if (event.target.closest?.('[data-reset-widgets]')) {
         preferences.widgets = {};
+        preferences['widgets.visible'] = true;
         writePreferences(preferences);
-        applyPreferenceControls();
+        applyPreferenceControls(settingsRoot);
         applyHomeWidgetPreferences();
         return;
       }
@@ -458,11 +520,14 @@
         const widgets = preferences.widgets || {};
         preferences = {...DEFAULT_PREFERENCES, widgets, 'wallpaper.variant': preferences['wallpaper.variant'] || 'aurora'};
         writePreferences(preferences);
-        applyPreferenceControls();
+        applyPreferenceControls(settingsRoot);
       }
     });
-    applyPreferenceControls();
+    applyPreferenceControls(settingsRoot);
+    return settingsRoot;
   }
+  initSystemSettings(document);
+  window.addEventListener('livenza:content-swapped', (event) => initSystemSettings(event.detail?.root || document));
 
   /* ---------- Desktop window manager ---------- */
   const desktopWindowHost = $('#desktopWindowLayer');
@@ -533,6 +598,11 @@
       item.disabled = !windowEl;
       item.setAttribute('aria-disabled', String(!windowEl));
     });
+    const record = windowEl ? windowRecord(windowEl.id) : null;
+    const historyIndex = record?.historyIndex ?? -1;
+    const historyLength = record?.history?.length || 0;
+    $$('[data-window-menu-command="back-active"]').forEach((item) => { item.disabled = !windowEl || historyIndex <= 0; item.setAttribute('aria-disabled', String(item.disabled)); });
+    $$('[data-window-menu-command="forward-active"]').forEach((item) => { item.disabled = !windowEl || historyIndex < 0 || historyIndex >= historyLength - 1; item.setAttribute('aria-disabled', String(item.disabled)); });
   }
   function focusAppWindow(windowId) {
     const record = windowRecord(windowId);
@@ -584,6 +654,27 @@
     }
     focusAppWindow(windowId);
   }
+  function updateWindowZoomControl(windowEl) {
+    const control = $('[data-window-action="maximize"]', windowEl);
+    if (!control) return;
+    const maximized = windowEl.classList.contains('is-maximized');
+    control.setAttribute('aria-label', maximized ? 'Restore' : 'Zoom');
+    control.title = maximized ? 'Restore' : 'Zoom';
+  }
+
+  async function navigateWindowHistory(windowEl, delta) {
+    const record = windowEl ? windowRecord(windowEl.id) : null;
+    if (!record?.history?.length) return false;
+    const nextIndex = Math.max(0, Math.min(record.history.length - 1, (record.historyIndex ?? 0) + delta));
+    if (nextIndex === record.historyIndex) return false;
+    const previousIndex = record.historyIndex;
+    record.historyIndex = nextIndex;
+    const ok = await loadWindowDocument(windowEl, record.history[nextIndex], false);
+    if (!ok) record.historyIndex = previousIndex;
+    updateDesktopMenuContext(windowEl);
+    return ok;
+  }
+
   function maximizeAppWindow(windowId) {
     const record = windowRecord(windowId);
     const windowEl = record?.el;
@@ -604,6 +695,7 @@
       windowEl.style.height = `${safe.bottom - safe.top}px`;
       windowEl.classList.add('is-maximized');
     }
+    updateWindowZoomControl(windowEl);
     focusAppWindow(windowId);
   }
   function closeAppWindow(windowId) {
@@ -622,6 +714,52 @@
       if (next) focusAppWindow(next.id); else updateDesktopMenuContext(null);
     };
     window.setTimeout(remove, reduceMotion.matches || root.classList.contains('settings-reduce-motion') ? 0 : 200);
+  }
+
+  const WINDOW_LOAD_TIMEOUT_MS = 8000;
+  const WINDOW_CACHE_TTL_MS = 45_000;
+  const windowDocumentCache = new Map();
+  const windowDocumentPending = new Map();
+
+  async function fetchWindowDocument(url, {force = false} = {}) {
+    const absolute = new URL(url, location.href).href;
+    const cached = windowDocumentCache.get(absolute);
+    if (!force && cached && cached.expires > Date.now()) return cached.html;
+    if (!force && windowDocumentPending.has(absolute)) return windowDocumentPending.get(absolute);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), WINDOW_LOAD_TIMEOUT_MS);
+    const request = (async () => {
+      try {
+        const response = await fetch(absolute, {credentials:'same-origin', headers:{'X-Livenza-Partial':'1', 'Accept':'text/html'}, signal:controller.signal});
+        if (!response.ok) throw new Error(`App returned ${response.status}`);
+        const type = response.headers.get('content-type') || '';
+        if (type && !type.includes('text/html')) throw new Error('App returned an unsupported response.');
+        const html = await response.text();
+        windowDocumentCache.set(absolute, {html, expires:Date.now() + WINDOW_CACHE_TTL_MS});
+        return html;
+      } finally {
+        window.clearTimeout(timeout);
+        windowDocumentPending.delete(absolute);
+      }
+    })();
+    windowDocumentPending.set(absolute, request);
+    return request;
+  }
+
+  function prefetchWindowDocument(url) {
+    if (!url || document.hidden || navigator.connection?.saveData) return;
+    let absolute;
+    try { absolute = new URL(url, location.href); } catch (_) { return; }
+    if (absolute.origin !== location.origin || /^\/(logout|api\/|static\/)/.test(absolute.pathname)) return;
+    fetchWindowDocument(absolute.href).catch(() => {});
+  }
+
+  function renderWindowLoadError(windowEl, error) {
+    const content = $('.mac-window-content', windowEl);
+    if (!content) return;
+    const timedOut = error?.name === 'AbortError';
+    const message = timedOut ? 'This app took longer than 8 seconds to respond.' : (error?.message || 'The app could not be opened in this window.');
+    content.innerHTML = `<div class="mac-window-load-error" role="alert"><span aria-hidden="true">!</span><div><b>${timedOut ? 'Still trying to open this app?' : 'App could not open'}</b><p>${String(message).replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}</p><div class="mac-window-error-actions"><button type="button" class="primary mac-window-retry" data-window-retry>Retry</button><a class="secondary" href="${String(windowEl.dataset.windowPendingUrl || windowEl.dataset.windowUrl || '#').replace(/"/g, '%22')}">Open Full Page</a></div></div></div>`;
   }
 
   async function ensureWindowAssets(doc, baseUrl = location.href) {
@@ -685,22 +823,19 @@
     }
   }
 
-  async function loadWindowDocument(windowEl, url, pushHistory = true) {
+  async function loadWindowDocument(windowEl, url, pushHistory = true, {force = false} = {}) {
     if (!windowEl) return false;
     const content = $('.mac-window-content', windowEl);
     content?.classList.add('mac-suite-surface');
     const titleLabel = $('.mac-window-title', windowEl);
     if (!content) return false;
+    windowEl.dataset.windowPendingUrl = url;
     windowEl.classList.add('is-loading');
     try {
-      const response = await fetch(url, {credentials:'same-origin', headers:{'X-Livenza-Partial':'1', 'Accept':'text/html'}});
-      if (!response.ok) throw new Error(`App returned ${response.status}`);
-      const type = response.headers.get('content-type') || '';
-      if (type && !type.includes('text/html')) return false;
-      const html = await response.text();
+      const html = await fetchWindowDocument(url, {force});
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const nextMain = doc.getElementById('appMain');
-      if (!nextMain || doc.querySelector('.login-card')) return false;
+      if (!nextMain || doc.querySelector('.login-card')) throw new Error('Your session may have expired. Open the full page to sign in again.');
       content.innerHTML = windowMarkupWithoutExecutableScripts(nextMain);
       applySharedSuiteDesign(content);
       await ensureWindowAssets(doc, url);
@@ -708,11 +843,12 @@
       const fetchedTitle = doc.querySelector('#macPageTitle')?.textContent?.trim() || doc.title?.split('·')[0]?.trim();
       if (fetchedTitle && titleLabel) titleLabel.textContent = fetchedTitle;
       windowEl.dataset.windowUrl = url;
+      windowEl.dataset.windowPendingUrl = '';
       if (pushHistory) {
         const record = windowRecord(windowEl.id);
         if (record) {
           record.history = (record.history || []).slice(0, (record.historyIndex ?? -1) + 1);
-          record.history.push(url);
+          if (record.history[record.history.length - 1] !== url) record.history.push(url);
           record.historyIndex = record.history.length - 1;
         }
       }
@@ -721,6 +857,7 @@
       return true;
     } catch (error) {
       console.warn('Desktop app window load failed', error);
+      renderWindowLoadError(windowEl, error);
       return false;
     } finally {
       windowEl.classList.remove('is-loading');
@@ -751,6 +888,11 @@
         if (moveFrame) cancelAnimationFrame(moveFrame); moveFrame = 0; pendingMove = null; saveWindowGeometry(windowEl);
       };
       titlebar.addEventListener('pointermove', move); titlebar.addEventListener('pointerup', end); titlebar.addEventListener('pointercancel', end);
+    });
+    titlebar?.addEventListener('dblclick', (event) => {
+      if (event.button !== 0 || event.target.closest('[data-window-action], a, button')) return;
+      event.preventDefault();
+      maximizeAppWindow(windowEl.id);
     });
     $$('.mac-window-resize-handle', windowEl).forEach((handle) => handle.addEventListener('pointerdown', (event) => {
       if (event.button !== 0 || windowEl.classList.contains('is-maximized')) return;
@@ -821,8 +963,7 @@
     requestAnimationFrame(() => windowEl.classList.remove('is-opening'));
     focusAppWindow(windowId);
     updateDockWindowState(meta.endpoint);
-    const loaded = await loadWindowDocument(windowEl, meta.url, true);
-    if (!loaded) { closeAppWindow(windowId); location.assign(meta.url); return null; }
+    await loadWindowDocument(windowEl, meta.url, true);
     return windowEl;
   }
 
@@ -866,9 +1007,16 @@
         if (action === 'close') closeAppWindow(windowEl.id);
         else if (action === 'minimize') minimizeAppWindow(windowEl.id);
         else if (action === 'maximize') maximizeAppWindow(windowEl.id);
-        else if (action === 'reload') await loadWindowDocument(windowEl, windowEl.dataset.windowUrl, false);
+        else if (action === 'reload') await loadWindowDocument(windowEl, windowEl.dataset.windowUrl, false, {force:true});
         else if (action === 'fullpage') return;
         event.preventDefault(); return;
+      }
+      const retry = event.target.closest('[data-window-retry]');
+      if (retry) {
+        const windowEl = retry.closest('.mac-app-window');
+        if (windowEl) await loadWindowDocument(windowEl, windowEl.dataset.windowPendingUrl || windowEl.dataset.windowUrl, false, {force:true});
+        event.preventDefault();
+        return;
       }
       const anchor = event.target.closest('a[href]');
       if (!anchor || anchor.dataset.windowAction === 'fullpage' || anchor.hasAttribute('download') || anchor.target === '_blank') return;
@@ -885,8 +1033,7 @@
         return;
       }
       event.preventDefault();
-      const ok = await loadWindowDocument(windowEl, url.href, true);
-      if (!ok) location.assign(url.href);
+      await loadWindowDocument(windowEl, url.href, true);
     });
     document.addEventListener('click', async (event) => {
       const anchor = event.target.closest('[data-app-nav]');
@@ -897,6 +1044,14 @@
       await openAppWindow(meta);
     }, true);
   }
+
+  function prefetchFromAnchor(anchor) {
+    if (!desktopHostEnabled || !anchor || !anchor.matches('[data-app-nav], [data-dock-app]')) return;
+    prefetchWindowDocument(anchor.href);
+  }
+  document.addEventListener('pointerover', (event) => prefetchFromAnchor(event.target.closest?.('[data-app-nav], [data-dock-app]')), {passive:true});
+  document.addEventListener('focusin', (event) => prefetchFromAnchor(event.target.closest?.('[data-app-nav], [data-dock-app]')));
+
 
   /* ---------- Contextual desktop menus ---------- */
   const desktopMenus = $$('[data-window-menu]');
@@ -921,12 +1076,14 @@
     const command = event.target.closest('[data-window-menu-command]'); if (!command) return;
     const active = activeWindowId ? windowRecord(activeWindowId)?.el : null;
     const name = command.dataset.windowMenuCommand;
-    if (name === 'toggle-widgets') body.classList.toggle('desktop-widgets-hidden');
+    if (name === 'toggle-widgets') setWidgetsVisible(preferences['widgets.visible'] === false);
+    else if (name === 'back-active' && active) await navigateWindowHistory(active, -1);
+    else if (name === 'forward-active' && active) await navigateWindowHistory(active, 1);
     else if (name === 'show-desktop') desktopWindows.forEach((entry) => { if (!entry.el.classList.contains('is-minimized')) minimizeAppWindow(entry.el.id); });
     else if (name === 'minimize-active' && active) minimizeAppWindow(active.id);
     else if (name === 'zoom-active' && active) maximizeAppWindow(active.id);
     else if (name === 'close-active' && active) closeAppWindow(active.id);
-    else if (name === 'reload-active' && active) await loadWindowDocument(active, active.dataset.windowUrl, false);
+    else if (name === 'reload-active' && active) await loadWindowDocument(active, active.dataset.windowUrl, false, {force:true});
     else if (name === 'open-full-page' && active) location.assign(active.dataset.windowUrl);
     else if (name === 'bring-all-front') {
       desktopWindows.forEach((entry) => { if (entry.el.classList.contains('is-minimized')) restoreAppWindow(entry.el.id); });
@@ -1006,8 +1163,9 @@
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
       palette?.classList.contains('is-open') ? closePalette() : openPalette();
-    } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f' && settingsRoot) {
-      const search = $('#settingsSearch', settingsRoot);
+    } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
+      const settingsRoot = $('[data-system-settings]');
+      const search = settingsRoot ? $('#settingsSearch', settingsRoot) : null;
       if (search) { event.preventDefault(); search.focus(); search.select(); }
     } else if (event.key === 'Escape') {
       if (palette?.classList.contains('is-open')) closePalette();

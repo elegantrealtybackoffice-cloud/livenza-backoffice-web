@@ -1,20 +1,11 @@
-TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 9.1 MARQUEE-FREE VIBRANT SUITE REFINEMENT
+TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 10 LIVENZA BRAND SYSTEM + RUNTIME RELIABILITY
 
-1. Back up the current application tree plus persistent database/instance/uploads before replacing application files.
-2. Upload/extract the COMPLETE Hotfix 9.1 package into the application repository root, preserving paths and overwriting matching application/static/template files.
-3. For a 100-file upload limit, upload PART_01_100_FILES first and PART_02_61_FILES second into the exact same application root. Neither part is a standalone application.
-4. Preserve DATABASE_URL / PostgreSQL data, SECRET_KEY, LIVENZA_VAULT_MASTER_KEY, INTEGRATION_ENCRYPTION_KEY and all other production environment variables so existing encrypted/business data remains readable.
-5. Preserve historical migration files, persistent instance/database data and uploaded business files. Do not reset production data as part of this UI deployment.
-6. Deploy with the supplied Dockerfile/render.yaml and confirm `/version` reports Tesla OS 27, Version 27.0.1 and Build 27A101.
-7. Hard-refresh once after deployment so the browser receives the Hotfix 9.1 system assets.
-8. Confirm no operational marquee/status strip appears anywhere on Home, direct application routes, Suites or Settings.
-9. Confirm System Settings no longer contains marquee/live-status configuration in Automations, Control Centre or Focus.
-10. Confirm Windows/browser dark mode by itself does not turn suite canvases black. Light is the default application material; explicit Dark remains user-selectable.
-11. Open Electricity and confirm the utility workspace is light, aligned and colourful with amber/orange/mint accents and no status strip above the app header.
-12. Open Agreements, Banking, Rooms, Queries, WhatsApp/Email/Drive, Letterhead and Settings and confirm the shared Hotfix 9 window language remains consistent while each app keeps its own accent identity.
-13. Confirm direct application routes do not display a second Dock, desktop mascot or legacy utility footer.
-14. Verify forms, cards, tables, labels and actions remain readable and aligned at common desktop widths.
-15. Verify window focus, drag, resize, minimise, restore, Zoom/maximise and Close from the Home desktop window manager.
-16. Verify System Settings → Wallpaper persistence and Reduced Motion.
-17. Re-test protected Admin, Vault, Agreement, Electricity, Billing, Banking, Letterhead and provider-backed write actions under the correct roles.
-18. Run every acceptance check in VERIFY_DEPLOY.txt before treating the deployment as accepted.
+1. Back up the current application tree, persistent database/instance data and uploads before replacing application files.
+2. Upload/extract the COMPLETE Hotfix 10 package into the application repository root, preserving paths and overwriting matching application/static/template files.
+3. If the upload interface has a 100-file limit, upload PART_01_100_FILES first and PART_02 second into the exact same application root. Neither split archive is a standalone application.
+4. Preserve DATABASE_URL / PostgreSQL data, SECRET_KEY, LIVENZA_VAULT_MASTER_KEY, INTEGRATION_ENCRYPTION_KEY and all other production environment variables.
+5. Preserve all historical migration files and persistent business uploads. Do not reset production data for this UI/brand release.
+6. Deploy with the supplied Dockerfile/render.yaml and confirm `/version` still reports Tesla OS 27, Version 27.0.1 and Build 27A101.
+7. Hard-refresh once after deployment so browsers/PWA caches receive the new Hotfix 10 brand icons, CSS and JavaScript.
+8. Confirm the new Livenza logo system appears everywhere appropriate: wordmark in the Home menu bar, tagline lockup on login/kiosk/formal documents and `.life` mark in compact system/app-icon contexts.
+9. Run every acceptance check in VERIFY_DEPLOY.txt before accepting the deployment.

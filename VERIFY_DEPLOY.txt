@@ -1,22 +1,28 @@
-TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 9.1 MARQUEE-FREE VIBRANT SUITE REFINEMENT
+TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101 — HOTFIX 10 LIVENZA BRAND SYSTEM + RUNTIME RELIABILITY
 
-1. Open `/version` and confirm Tesla OS 27, Version 27.0.1 and Build 27A101. Confirm features include `status-strip-removed` and `vibrant-suite-materials`.
-2. Sign in and confirm Home occupies one viewport without unintended horizontal scrolling or Dock/widget collision.
-3. Confirm there is NO scrolling operational marquee/status strip anywhere on Home, Suites or any direct application route.
-4. Open System Settings → Automations, Control Centre and Focus. Confirm there is no marquee/live-status builder or toggle.
-5. With Windows/browser dark mode enabled but Tesla OS Appearance set to its default, confirm application suites remain bright/readable rather than automatically becoming black.
-6. If you explicitly choose Tesla OS Dark appearance, confirm suite surfaces use graphite/blue-gray tinted materials rather than near-black slabs.
-7. Open Electricity. Confirm the title/header is fully visible directly below the 52px application titlebar, with no status strip between them.
-8. Verify Electricity Saved Connections, Current Records, Due/Attention and Providers cards use distinct amber/cyan/coral/mint accents and all text remains legible.
-9. Verify Electricity forms, fields, labels and primary buttons are evenly aligned and do not touch card edges.
-10. Open Agreements, Banking, Rooms, Queries and Settings. Confirm they still use the same shared titlebar/header/button/tab/card/table design language.
-11. Repeat with Billing, Food, Reviews, WhatsApp, Email, Drive and Letterhead. Colour may differ; structure and control rhythm should remain consistent.
-12. Confirm direct full-page application routes do not show a duplicate desktop Dock, mascot or legacy footer.
-13. Inspect headings, cards, tabs, tables, financial values and buttons for clipping, broken words, uneven vertical centring or low contrast.
-14. From Home, test managed-window focus/z-order, drag, resize, minimise, restore, Zoom/maximise and Close. Open two windows and confirm correct layering and safe bounds.
-15. Verify System Settings → Wallpaper: built-ins, custom image, Reset, instant transition and persistence after reload with no default-wallpaper flash.
-16. Hover the Dock and verify smooth proximity magnification. Enable Reduced Motion and confirm travel/magnification and other spatial motion are reduced.
-17. Verify right-side widgets remain aligned and do not collide with the Dock; loading states should look intentional.
-18. Check common desktop widths (1920, 1600, 1440, 1366, 1280 and 1152 where practical) for horizontal overflow, clipped tabs and broken content.
-19. Re-test protected Admin, Vault, Agreement create/update/PDF, Electricity, Billing, Banking, Letterhead, WhatsApp/Email/Drive and production writes/integrations under appropriate roles.
-20. Preserve historical migrations, production database, uploaded business files and environment variables during deployment. Capture route, screenshot, Console error and Network failure for any live-only issue.
+1. Open `/version` and confirm Tesla OS 27, Version 27.0.1 and Build 27A101.
+2. Hard-refresh once and confirm the browser favicon/PWA icon uses the circular `.life` identity rather than an older Livenza icon.
+3. Open Home and confirm the horizontal `livenza.life` wordmark is crisp and correctly proportioned in the macOS-style menu bar on both light and dark/glass backgrounds.
+4. Confirm no visible page uses an older Livenza logo generation. Check Home, Login, kiosk/lock, Suites/System Settings, Agreements, Letterhead, document previews and compact brand marks.
+5. Open Login and kiosk/lock flows and confirm the `livenza.life / LIVE ELEVATED.` lockup is legible, centered and not stretched.
+6. Open Agreement Studio and its Preview/PDF flow. Confirm the application banner uses the clean wordmark and formal paper/PDF uses the tagline lockup without clipping.
+7. Open Letterhead Studio editor, template editor, final review and generated PDF. Confirm the approved tagline lockup is the default when the template has no custom published logo. Confirm a deliberately configured custom Letterhead logo still overrides the default.
+8. Check the Home/Suites compact system identity and installed/PWA icons for the circular `.life` mark.
+9. Confirm the core brand palette is navy/emerald/cyan while content surfaces remain bright/readable and professional rather than becoming saturated full-page gradients.
+10. Select explicit Dark appearance and confirm on-dark logo variants remain readable and do not lose the emerald/cyan identity.
+11. Open System Settings inside Home. Confirm controls initialize and respond rather than rendering as inert static controls.
+12. Simulate or observe a failed/slow app-window request and confirm the loading state ends after about 8 seconds with a readable Retry action rather than staying on “Opening…” forever.
+13. Hover/focus frequently used suite links and open them repeatedly. Confirm cached/prefetched navigation does not duplicate the same window/resource unnecessarily.
+14. In Wallpaper Settings, confirm Fill/Fit/Stretch/Center, X/Y positioning and zoom visibly affect the desktop wallpaper and persist as designed.
+15. Confirm the wallpaper never intercepts clicks/taps on menu-bar, widgets, windows or Dock controls.
+16. Confirm the top-bar Widgets control hides/shows Home widgets and the state remains observable.
+17. Double-click a managed window titlebar and confirm Zoom/Restore toggles. Verify Back/Forward contextual actions when a mounted app has history.
+18. Confirm mascot/assistant UI is confined to Home and does not overlap application content.
+19. Confirm the persistent Dock remains usable on direct signed-in application routes, keeps its bottom safe area, and does not cover long-page controls.
+20. With Dock Magnification on, confirm nearby icons scale and lift smoothly; turning Magnification off clears active transforms immediately. Verify Auto-Hide and Dock Size also produce visible changes.
+21. Confirm there is no operational marquee/status strip anywhere.
+22. Open Agreements, Banking, Rooms, Residents, Queries, Reviews, Billing, Electricity, Food, WhatsApp, Email, Drive, Letterhead and Settings. Check for text clipping, horizontal overflow, old beige/purple logo treatments or dark legacy slabs.
+23. Check common desktop widths (1920, 1600, 1440, 1366, 1280, 1152 where practical) plus a modern mobile viewport for logo fit, menu-bar overflow, controls and Dock clipping.
+24. Re-test protected Admin, Vault, Agreement create/update/PDF, Electricity, Billing, Banking, Letterhead, WhatsApp/Email/Drive and provider-backed production writes under the correct roles.
+25. Preserve the production database, uploaded business files, environment variables and historical migrations during deployment.
+26. If a live-only issue remains, capture the route, screenshot, browser Console error and Network failure before changing code.

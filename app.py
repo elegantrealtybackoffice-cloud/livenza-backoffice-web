@@ -38,6 +38,7 @@ from letterhead_templates import template_is_usable, signature_is_usable, next_t
 from party_master_core import (MASTER_FIELD_SET, SENSITIVE_FIELDS, DOCUMENT_CATEGORIES, LANDLORD_AGREEMENT_MAP, TENANT_AGREEMENT_MAP, normalize_master_payload, safe_master_summary, identifier_lookup_hash, identifier_lookup_hashes, mask_identifier, master_display_payload, validate_master_document, legacy_profile_to_master, apply_master_mapping, parse_annexure_ids)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_BRAND_LOGO_PATH = os.path.join(BASE_DIR, 'static', 'brand', 'livenza_wordmark_tagline.png')
 OS_NAME = 'Tesla OS 27'
 OS_VERSION = '27.0.1'
 OS_BUILD = '27A101'
@@ -2448,8 +2449,8 @@ def all_form_data(preset_name=None):
 
 
 LIVENZA_APP_REGISTRY = [
-    {'title':'Home','endpoint':'dashboard','permission':'','icon':'home','tone':'finder','family':'desktop','accent':'#48A9FF','accent2':'#5B62F4','availability':'internal'},
-    {'title':'Agreement Studio','endpoint':'agreements','permission':'agreements','icon':'agreement','tone':'blue','family':'productivity','accent':'#248CFF','accent2':'#6757E8','availability':'internal'},
+    {'title':'Home','endpoint':'dashboard','permission':'','icon':'home','tone':'finder','family':'desktop','accent':'#10C8CF','accent2':'#35D05B','availability':'internal'},
+    {'title':'Agreement Studio','endpoint':'agreements','permission':'agreements','icon':'agreement','tone':'blue','family':'productivity','accent':'#0E7594','accent2':'#10C8CF','availability':'internal'},
     {'title':'Rooms','endpoint':'rooms','permission':'rooms','icon':'room','tone':'cyan','family':'occupancy','accent':'#24C7F4','accent2':'#197BFF','availability':'internal'},
     {'title':'Residents','endpoint':'tenants','permission':'rooms','icon':'resident','tone':'teal','family':'occupancy','accent':'#2FD3B8','accent2':'#0A9C87','availability':'internal'},
     {'title':'Queries','endpoint':'queries','permission':'queries','icon':'queries','tone':'orange','family':'pipeline','accent':'#FF9B42','accent2':'#FF5D3A','availability':'internal'},
@@ -2463,7 +2464,7 @@ LIVENZA_APP_REGISTRY = [
     {'title':'Email','endpoint':'email_workspace','permission':'email','icon':'email','tone':'blue','family':'communication','accent':'#59B1FF','accent2':'#4D62E8','availability':'google'},
     {'title':'Drive','endpoint':'drive_workspace','permission':'drive','icon':'drive','tone':'cyan','family':'communication','accent':'#37D1E8','accent2':'#3478F6','availability':'google'},
     {'title':'Letterhead Studio','endpoint':'letterhead_studio','permission':'letterhead','icon':'letterhead','tone':'red','family':'documents','accent':'#FF5B6C','accent2':'#8B57FF','availability':'internal'},
-    {'title':'System Settings','endpoint':'settings_page','permission':'','icon':'settings','tone':'settings','family':'system','accent':'#7C86F8','accent2':'#67707E','availability':'internal'},
+    {'title':'System Settings','endpoint':'settings_page','permission':'','icon':'settings','tone':'settings','family':'system','accent':'#10C8CF','accent2':'#35D05B','availability':'internal'},
 ]
 
 
@@ -2510,7 +2511,7 @@ def ui_app_meta(endpoint):
         inherited=ui_app_meta(parent)
         inherited['endpoint']=endpoint
         return inherited
-    return {'endpoint':endpoint,'icon':'home','tone':'blue','family':'productivity','accent':'#248CFF','accent2':'#6757E8'}
+    return {'endpoint':endpoint,'icon':'home','tone':'blue','family':'productivity','accent':'#10C8CF','accent2':'#35D05B'}
 
 
 def ui_app_available(endpoint, user=None):
@@ -3406,9 +3407,9 @@ def build_agreement_pdf_bytes(ag):
     head=ParagraphStyle('AgreementHead',parent=styles['Heading3'],fontName='Times-Bold',fontSize=11,leading=14,spaceBefore=8,spaceAfter=5)
     title=ParagraphStyle('AgreementTitle',parent=styles['Title'],fontName='Times-Bold',fontSize=15,leading=18,alignment=TA_CENTER,spaceAfter=8)
     story=[]
-    logo=os.path.join(BASE_DIR,'static','livenza_logo.png')
+    logo=DEFAULT_BRAND_LOGO_PATH
     if os.path.exists(logo):
-        story += [Image(logo,width=38*mm,height=24*mm),Spacer(1,3*mm)]
+        story += [Image(logo,width=48*mm,height=14*mm),Spacer(1,3*mm)]
     text=build_agreement_text(d,[])
     for line in text.splitlines():
         line=line.strip()
@@ -5575,6 +5576,12 @@ def _letterhead_layout_asset(layout,location):
     except Exception: return None
     return {'bytes':raw,'mime_type':asset.mime_type}
 
+def _default_letterhead_logo():
+    try:
+        return {'bytes':Path(DEFAULT_BRAND_LOGO_PATH).read_bytes(),'mime_type':'image/png'}
+    except OSError:
+        return None
+
 def _letterhead_render_input(document,revision,reference_number):
     content=json.loads(revision.structured_content_json or '{}')
     version=db.session.get(LetterheadTemplateVersion,revision.template_version_id) or abort(409)
@@ -5585,7 +5592,7 @@ def _letterhead_render_input(document,revision,reference_number):
         signature=db.session.get(SignatureAsset,revision.signature_asset_id) or abort(409)
         raw=_letterhead_decrypt_bytes(signature.encrypted_asset)
         signature_payload={'bytes':raw,'mime_type':signature.mime_type,'name':signature.signatory_name,'designation':signature.designation}
-    return {'template':layout,'document':content,'reference_number':reference_number,'signature':signature_payload,'logo':_letterhead_layout_asset(layout,'logo'),'watermark':_letterhead_layout_asset(layout,'watermark'),'background':_letterhead_layout_asset(layout,'background')}
+    return {'template':layout,'document':content,'reference_number':reference_number,'signature':signature_payload,'logo':_letterhead_layout_asset(layout,'logo') or _default_letterhead_logo(),'watermark':_letterhead_layout_asset(layout,'watermark'),'background':_letterhead_layout_asset(layout,'background')}
 
 def _letterhead_annexures(revision,actor):
     result=[]

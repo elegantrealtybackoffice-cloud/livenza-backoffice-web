@@ -30,7 +30,7 @@
     <div class="{{'suite-launch-grid' if surface == 'launcher' else ('grouped-app-grid' if surface == 'drawer' else 'home-app-grid')}}">
       {% if key == 'core' %}
         {% if surface != 'launcher' %}{{ app_item(surface,'Home','Live operations overview','dashboard','','home') }}{% endif %}
-        {{ app_item(surface,'System Settings','Account, appearance, widgets, integrations and administration','settings_page','','settings','livenza_logo.png') }}
+        {{ app_item(surface,'System Settings','Account, appearance, widgets, integrations and administration','settings_page','','settings','brand/livenza_life_mark.png') }}
       {% elif key == 'operations' %}
         {{ app_item(surface,'Agreement Studio','Draft, preview and share agreements','agreements','agreements','agreement','agreement_tile.png') }}
         {{ app_item(surface,'Landlord Master','Reusable owner and entity profiles','landlord_masters','agreements','property','agreement_tile.png') }}
@@ -51,9 +51,9 @@
         {{ app_item(surface,'Drive','Cloud files','drive_workspace','drive','drive') }}
         {{ app_item(surface,'Letterhead Studio','Ask Livenza AI, official PDFs and Document Vault','letterhead_studio','letterhead','letterhead') }}
       {% elif key == 'connections' %}
-        {{ app_item(surface,'System Settings','Internet Accounts, services and protected connections','settings_page','','integrations','livenza_logo.png') }}
+        {{ app_item(surface,'System Settings','Internet Accounts, services and protected connections','settings_page','','integrations','brand/livenza_life_mark.png') }}
       {% elif key == 'administration' and is_admin %}
-        {{ app_item(surface,'System Settings','Users, security, Vault and organisation controls','settings_page','','settings','livenza_logo.png') }}
+        {{ app_item(surface,'System Settings','Users, security, Vault and organisation controls','settings_page','','settings','brand/livenza_life_mark.png') }}
       {% endif %}
     </div>
   </section>

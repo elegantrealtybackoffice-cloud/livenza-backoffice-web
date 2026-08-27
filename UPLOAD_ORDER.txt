@@ -1,7 +1,8 @@
-Tesla OS 27 · 27.0.1 · Build 27A101 · Hotfix 9.1
+Tesla OS 27 · 27.0.1 · Build 27A101 · Hotfix 10
+Livenza Brand System + Runtime Reliability
 
 100-file upload limit:
-1. Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX9_1_MARQUEE_FREE_VIBRANT_UI_PART_01_100_FILES.zip
-2. Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX9_1_MARQUEE_FREE_VIBRANT_UI_PART_02_61_FILES.zip
+1. Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX10_LIVENZA_BRAND_SYSTEM_PART_01_100_FILES.zip
+2. Tesla_OS_27_v27.0.1_Build_27A101_COMPLETE_HOTFIX10_LIVENZA_BRAND_SYSTEM_PART_02_75_FILES.zip
 
-Extract both into the SAME project root, in order, overwriting matching files. Preserve production data and environment variables.
+Extract both into the SAME project root, in order, overwriting matching application files. Preserve production data, uploads, historical migrations and environment variables.

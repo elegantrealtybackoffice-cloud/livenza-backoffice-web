@@ -195,3 +195,22 @@ Hotfix 9.1 removes the legacy operational marquee/status strip completely from t
 The normal Tesla OS application experience is now explicitly bright and colourful by default rather than following a dark Windows/browser colour scheme. Dark appearance remains available only when deliberately selected and uses layered graphite surfaces instead of near-black slabs. Suite content retains the shared Hotfix 9 window, typography, cards, forms, tables and toolbar system while strengthening application colour identity. Electricity receives a dedicated amber/orange/mint utility treatment and the other suite families gain richer tertiary accent materials without changing their professional content hierarchy.
 
 Verification for this pass is recorded in `HOTFIX91_AUDIT.md`.
+
+## Hotfix 9.2 — Bright Settings + Persistent Interactive Dock
+
+Hotfix 9.2 continues the approved macOS-style refinement specifically around System Settings and the global Dock. It introduces a new `livenza.settings.v2702` preference namespace so stale appearance values from older builds cannot unexpectedly reopen the new interface in a dark/purple state. Older non-appearance preferences continue to migrate, while the Hotfix 9.2 experience starts bright by default; Dark remains an explicit user choice after that migration.
+
+The Dock is restored as a persistent signed-in navigation surface on direct application routes, with route content reserving a proper bottom safe area so long pages cannot scroll beneath it. Dock size, magnification and auto-hide changes therefore have an immediately visible target while the user is in System Settings. Proximity magnification now combines scale with a restrained 13px vertical lift, and switching magnification off clears any active transform immediately.
+
+The focused Chromium Settings render confirms a bright application canvas, bright Settings detail/card surfaces and a visible 58px Dock. Source verification and deployment notes are recorded in `HOTFIX92_AUDIT.md` and `VERIFY_DEPLOY.txt`.
+
+
+## Hotfix 10 — Livenza Brand System + Runtime Reliability
+
+Hotfix 10 continues directly from Hotfix 9.2 and installs the approved three-part Livenza Life identity across the complete Tesla OS experience. The primary `livenza.life / LIVE ELEVATED.` lockup is used on authentication, kiosk, formal Agreement and Letterhead surfaces; the clean horizontal `livenza.life` wordmark is used for compact wide UI branding; and the `.life` roundel is used for favicons, PWA icons and compact system identity. Controlled on-dark variants preserve contrast without changing logo geometry.
+
+The shared visual palette now derives its primary interaction identity from Livenza navy `#061A3A`, emerald `#35D05B` and cyan `#10C8CF`. Bright content surfaces remain readable and professional while selection, focus, buttons, Dock/system accents, Agreements, Letterhead and the default Livenza Aurora wallpaper use the new identity more deliberately. Compatibility aliases remain for stale external URLs, but visible templates/CSS reference the new `static/brand/` assets.
+
+Hotfix 10 also includes the current browser-OS reliability pass: idempotent mounted Settings initialisation, an 8-second app-window timeout with Retry, memory caching/prefetch, wallpaper fit/position/zoom, persistent widget control, titlebar double-click Zoom/Restore, Back/Forward window commands, Home-only mascot markup and a non-interactive wallpaper layer so decorative rendering cannot block controls.
+
+Agreement PDF and Letterhead PDF paths now have approved-logo defaults while still allowing a configured custom Letterhead logo to take precedence. See `HOTFIX10_AUDIT.md` for the complete scope and verification evidence.

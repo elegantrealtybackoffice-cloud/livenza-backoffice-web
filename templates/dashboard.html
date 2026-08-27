@@ -5,7 +5,7 @@
 <section class="mac-desktop-home" aria-label="Tesla OS 27 Home desktop">
   <nav class="mac-desktop-menubar" aria-label="Desktop menu bar">
     <div class="desktop-menu-left">
-      <a class="desktop-menu-logo" href="{{url_for('dashboard')}}" aria-label="Livenza Life Home"><img src="{{url_for('static',filename='livenza_logo_transparent.png')}}" alt=""></a>
+      <a class="desktop-menu-logo" href="{{url_for('dashboard')}}" aria-label="Livenza Life Home"><img src="{{url_for('static',filename='brand/livenza_wordmark_on_dark.png')}}" alt=""></a>
       <strong id="desktopActiveApp" class="desktop-active-app">Livenza Life</strong>
       <button type="button" class="desktop-menu-command" data-drawer-target="appsDrawer" data-suites-dock aria-controls="appsDrawer" aria-expanded="false">Suites</button>
       <button type="button" class="desktop-menu-command" data-active-window-only data-active-window-menu="file" data-window-menu-trigger="file" aria-expanded="false" hidden>File</button>
@@ -14,6 +14,7 @@
       <button type="button" class="desktop-menu-command" data-home-companion-open>Help</button>
     </div>
     <div class="desktop-menu-right">
+      <button type="button" class="desktop-status-button desktop-widgets-toggle" data-home-widgets-toggle aria-label="Toggle desktop widgets" aria-pressed="true" title="Hide Widgets">{{icons.symbol('widgets')}}</button>
       <button type="button" class="desktop-status-button" data-mac-command-open aria-label="Search Livenza" title="Search">{{icons.symbol('search')}}</button>
       <a class="desktop-status-button" href="{{url_for('settings_page')}}" data-app-nav aria-label="Open System Settings" title="System Settings">{{icons.symbol('control-centre')}}</a>
       <time id="homeCurrentDate" class="desktop-menu-date">—</time>
@@ -25,6 +26,8 @@
     <button type="button" role="menuitem" data-window-menu-command="close-active">Close Window</button>
   </div>
   <div class="desktop-menu-popover" data-window-menu="view" role="menu" hidden>
+    <button type="button" role="menuitem" data-active-window-only data-window-menu-command="back-active" hidden>Back</button>
+    <button type="button" role="menuitem" data-active-window-only data-window-menu-command="forward-active" hidden>Forward</button>
     <button type="button" role="menuitem" data-active-window-only data-window-menu-command="reload-active" hidden>Reload App</button>
     <button type="button" role="menuitem" data-window-menu-command="toggle-widgets">Toggle Widgets</button>
     <button type="button" role="menuitem" data-window-menu-command="show-desktop">Show Desktop</button>
@@ -36,6 +39,7 @@
     <button type="button" role="menuitem" data-window-menu-command="close-active">Close</button>
   </div>
 
+  <div id="desktopWallpaperLayer" class="desktop-wallpaper-layer" aria-hidden="true"></div>
   <div id="wallpaperTransitionLayer" class="wallpaper-transition-layer" aria-hidden="true"></div>
   <div class="home-wallpaper-sheen" aria-hidden="true"></div>
   <div id="desktopWindowLayer" class="desktop-window-layer" data-desktop-window-host aria-label="Open Livenza applications"></div>
