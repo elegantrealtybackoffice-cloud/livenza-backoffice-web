@@ -1,0 +1,26 @@
+<section class="settings-panel" data-network-diagnostics data-revision="{{asset_revision}}">
+  <article class="settings-card settings-status-card">
+    <div class="settings-icon-orb">{{icons.symbol('wifi')}}</div>
+    <div><h2>Connection</h2><p>Live browser and Livenza service diagnostics available to this web application.</p></div>
+    <b class="settings-state" data-network-online>Checking…</b>
+  </article>
+  <article class="settings-card">
+    <h3>Browser Connection</h3>
+    <div class="settings-toggle-list">
+      <div class="settings-value-row"><span>Connection type</span><b data-network-effective-type>Checking…</b></div>
+      <div class="settings-value-row"><span>Estimated downlink</span><b data-network-downlink>Checking…</b></div>
+      <div class="settings-value-row"><span>Estimated RTT</span><b data-network-rtt>Checking…</b></div>
+      <div class="settings-value-row"><span>Secure context</span><b data-network-secure>Checking…</b></div>
+    </div>
+  </article>
+  <article class="settings-card">
+    <h3>Livenza Services</h3>
+    <div class="settings-toggle-list">
+      <div class="settings-value-row"><span>Backend/database</span><b data-network-backend>Checking…</b></div>
+      <div class="settings-value-row"><span>Build revision</span><b data-network-revision>{{asset_revision}}</b></div>
+      <div class="settings-value-row"><span>Internet Accounts</span><a href="{{url_for('system_settings_pane',pane='internet-accounts')}}">Review connections</a></div>
+    </div>
+    <div class="actions"><button type="button" class="secondary" data-network-refresh>Refresh diagnostics</button></div>
+    <p class="settings-note">Connection estimates depend on browser support. Unavailable values are shown honestly rather than simulated.</p>
+  </article>
+</section>

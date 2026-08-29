@@ -42,8 +42,8 @@ DEFAULT_BRAND_LOGO_PATH = os.path.join(BASE_DIR, 'static', 'brand', 'livenza_wor
 OS_NAME = 'Tesla OS 27'
 OS_VERSION = '27.0.1'
 OS_BUILD = '27A101'
-HOTFIX_LABEL = 'Hotfix 10 Revision J All Suites Dock + Optical Polish'
-ASSET_REVISION = '27A101-H10L-20260829J'
+HOTFIX_LABEL = 'Hotfix 10 Revision K Functional Web Settings'
+ASSET_REVISION = '27A101-H10L-20260829K'
 APP_VERSION = OS_VERSION
 KIOSK_POLICY_CACHE_TTL_SECONDS = float(os.getenv('KIOSK_POLICY_CACHE_TTL_SECONDS','15'))
 _KIOSK_POLICY_CACHE = {'value': None, 'at': 0.0}
@@ -1530,15 +1530,15 @@ MODULES = {
 
 SYSTEM_SETTINGS_PANES = [
     {'key':'account','label':'Account','group':'Personal','icon':'account','description':'Your Livenza identity, sign-in status and personal workspace preferences.'},
-    {'key':'network','label':'Network','group':'Connectivity','icon':'wifi','description':'Livenza connectivity, backend reachability and integration health.'},
+    {'key':'network','label':'Network','group':'Connectivity','icon':'wifi','description':'Browser connectivity, secure session, backend health and connection estimates.'},
     {'key':'focus','label':'Focus','group':'Personal','icon':'focus','description':'Reduce non-critical alerts, mascot interruptions and live-status distractions.'},
     {'key':'general','label':'General','group':'System','icon':'general','description':'Version, region, language and core Livenza defaults.'},
     {'key':'appearance','label':'Appearance','group':'System','icon':'appearance','description':'macOS 27 application material, light/dark appearance, contrast and transparency.'},
     {'key':'accessibility','label':'Accessibility','group':'System','icon':'accessibility','description':'Motion, transparency, text and interaction accessibility preferences.'},
-    {'key':'control-centre','label':'Control Centre','group':'System','icon':'control-centre','description':'Choose the quick controls available in the Livenza toolbar.'},
     {'key':'desktop-dock','label':'Desktop & Dock','group':'System','icon':'desktop-dock','description':'Dock size, magnification and automatic hiding.'},
     {'key':'wallpaper','label':'Wallpaper','group':'System','icon':'wallpaper','description':'Choose a vibrant Tesla OS desktop wallpaper or use your own image.'},
     {'key':'widgets','label':'Widgets','group':'System','icon':'widgets','description':'Manage operational widgets from System Settings without adding clutter to Home.'},
+    {'key':'notifications','label':'Notifications','group':'System','icon':'notifications','description':'Control in-app Livenza alerts, badges, companion notices and reminders.'},
     {'key':'privacy-security','label':'Privacy & Security','group':'Security','icon':'privacy','description':'Passkeys, kiosk controls, secure sessions and sensitive-data visibility.'},
     {'key':'users-groups','label':'Users & Groups','group':'Administration','icon':'users','description':'Users, roles, permissions, profile identity and access controls.','admin_only':True},
     {'key':'internet-accounts','label':'Internet Accounts','group':'Connectivity','icon':'integrations','description':'Connected services, providers, secrets and integration workflows.','permission':'integrations'},
@@ -2907,7 +2907,7 @@ def version():
             'unified-system-settings','livenza-symbol-system','ai-logo-identity','reduced-motion',
             'agreements','rooms','queries','billing','banking','electricity','food','video-wall',
             'whatsapp','email','drive','letterhead-studio','livenza-vault','role-permissions',
-            'webauthn-passkeys','pattern-login','live-companion','responsive-5k-layout','status-strip-removed','vibrant-suite-materials','request-path-db-stabilization','db-health-latency'
+            'webauthn-passkeys','pattern-login','live-companion','responsive-5k-layout','status-strip-removed','vibrant-suite-materials','request-path-db-stabilization','db-health-latency','functional-web-settings'
         ]
     )
 
