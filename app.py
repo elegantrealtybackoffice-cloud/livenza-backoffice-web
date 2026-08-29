@@ -2,14 +2,14 @@ import os, io, csv, json, hashlib, hmac, datetime, urllib.parse, html, base64, r
 from pathlib import Path
 from email.message import EmailMessage
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, abort
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, abort, g, has_request_context
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.exceptions import RequestEntityTooLarge
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-from sqlalchemy import func, or_, inspect
+from sqlalchemy import func, or_, inspect, text
 from dateutil.relativedelta import relativedelta
 import requests
 import qrcode
@@ -42,9 +42,11 @@ DEFAULT_BRAND_LOGO_PATH = os.path.join(BASE_DIR, 'static', 'brand', 'livenza_wor
 OS_NAME = 'Tesla OS 27'
 OS_VERSION = '27.0.1'
 OS_BUILD = '27A101'
-HOTFIX_LABEL = 'Hotfix 10 Light Shell'
-ASSET_REVISION = '27A101-H10L-20260827E'
+HOTFIX_LABEL = 'Hotfix 10 Request-Path Stabilization'
+ASSET_REVISION = '27A101-H10L-20260827F'
 APP_VERSION = OS_VERSION
+KIOSK_POLICY_CACHE_TTL_SECONDS = float(os.getenv('KIOSK_POLICY_CACHE_TTL_SECONDS','15'))
+_KIOSK_POLICY_CACHE = {'value': None, 'at': 0.0}
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -58,7 +60,8 @@ if raw_db.startswith('postgresql'):
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_pre_ping': True,
         'pool_recycle': 180,
-        'pool_timeout': 20,
+        'pool_timeout': int(os.getenv('DB_POOL_TIMEOUT_SECONDS','3')),
+        'connect_args': {'connect_timeout': int(os.getenv('DB_CONNECT_TIMEOUT_SECONDS','5'))},
         'pool_size': 3,
         'max_overflow': 3,
         'pool_use_lifo': True,
@@ -1215,10 +1218,53 @@ class Setting(db.Model):
     value = db.Column(db.Text, default='')
 
 
+def _settings_request_cache():
+    if not has_request_context():
+        return None
+    cache = getattr(g, '_livenza_settings_cache', None)
+    if cache is None:
+        cache = {}
+        g._livenza_settings_cache = cache
+    return cache
+
+
+def settings_snapshot(keys, defaults=None):
+    """Load a group of runtime settings in one query and cache them for this request."""
+    defaults = dict(defaults or {})
+    ordered = list(dict.fromkeys(str(key) for key in keys if key))
+    cache = _settings_request_cache()
+    local = cache if cache is not None else {}
+    missing = [key for key in ordered if key not in local]
+    if missing:
+        try:
+            rows = Setting.query.filter(Setting.key.in_(missing)).all()
+            found = {row.key: row.value for row in rows}
+            for key in missing:
+                local[key] = found.get(key, defaults.get(key, ''))
+        except Exception as exc:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            try:
+                app.logger.warning('Settings snapshot failed for %s keys: %s', len(missing), str(exc)[:180])
+            except Exception:
+                pass
+            for key in missing:
+                local[key] = defaults.get(key, '')
+    return {key: local.get(key, defaults.get(key, '')) for key in ordered}
+
+
 def setting(key, default=''):
+    cache = _settings_request_cache()
+    if cache is not None and key in cache:
+        return cache[key]
     try:
         row = db.session.get(Setting, key)
-        return row.value if row else default
+        value = row.value if row else default
+        if cache is not None:
+            cache[key] = value
+        return value
     except Exception as exc:
         # Settings are presentation/runtime preferences. A stale or temporarily
         # unavailable settings table must never take down login or the shell.
@@ -1230,13 +1276,19 @@ def setting(key, default=''):
             app.logger.warning('Setting lookup failed for %s: %s', key, str(exc)[:180])
         except Exception:
             pass
+        if cache is not None:
+            cache[key] = default
         return default
+
 
 def set_setting(key, value):
     row = db.session.get(Setting, key)
     if row: row.value = value
     else: db.session.add(Setting(key=key, value=value))
     db.session.commit()
+    cache = _settings_request_cache()
+    if cache is not None:
+        cache[key] = value
 
 
 GOOGLE_SCOPES = [
@@ -1527,28 +1579,34 @@ def _system_settings_server_keys():
             'host3d_default_intensity','host3d_max_intensity','host3d_default_city','host3d_operational_updates_default','host3d_weather_default','host3d_motivational_default')
 
 
-def _system_settings_server_values():
+def _system_settings_server_values(keys=None):
     defaults={'companion_enabled':'1','companion_weather_enabled':'1','companion_weather_effects':'1','companion_quotes_enabled':'1','companion_operations_enabled':'1','companion_default_city':'Gurugram','companion_effect_seconds':'11',
               'host3d_default_intensity':'full','host3d_max_intensity':'full','host3d_default_city':'Gurugram','host3d_operational_updates_default':'1','host3d_weather_default':'1','host3d_motivational_default':'1'}
-    return {k:setting(k,defaults.get(k,'')) for k in _system_settings_server_keys()}
+    requested = tuple(keys or _system_settings_server_keys())
+    return settings_snapshot(requested, defaults)
 
 
 def settings_pane_context(pane, user=None):
     user = user or current_user()
-    ctx = {'user':user, 'settings':_system_settings_server_values()}
-    if pane in ('account','intelligence'):
+    settings_values = _system_settings_server_values() if pane == 'automations' else {}
+    ctx = {'user':user, 'settings':settings_values}
+    if pane == 'account':
+        ctx.update(avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()))
+    if pane == 'intelligence':
         ctx.update(avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()), mascot_preferences=mascot_preferences_for(user))
     if pane == 'privacy-security':
-        ctx.update(credentials=WebAuthnCredential.query.filter_by(user_id=user.id).order_by(WebAuthnCredential.id).all() if user else [], kiosk_enabled=setting('kiosk_mode_enabled','0')=='1')
+        kiosk = settings_snapshot(('kiosk_mode_enabled',), {'kiosk_mode_enabled':'0'})
+        ctx.update(credentials=WebAuthnCredential.query.filter_by(user_id=user.id).order_by(WebAuthnCredential.id).all() if user else [], kiosk_enabled=kiosk['kiosk_mode_enabled']=='1')
     if pane == 'internet-accounts':
         ctx.update(_integration_center_context((request.args.get('category') or '').strip().lower(),(request.args.get('provider') or '').strip(),(request.args.get('workflow') or '').strip()))
     if pane == 'users-groups':
         users=User.query.order_by(User.username).all()
+        admin_settings=settings_snapshot(('google_drive_folder_id','google_drive_auto_backup','kiosk_mode_enabled'), {'google_drive_folder_id':'','google_drive_auto_backup':'0','kiosk_mode_enabled':'0'})
         ctx.update(users=users, credentials={u.id:WebAuthnCredential.query.filter_by(user_id=u.id).order_by(WebAuthnCredential.id).all() for u in users},
                    cities=City.query.order_by(City.name).all(), modules=MODULES, letterhead_capabilities=LETTERHEAD_CAPABILITIES,
                    query_templates=QueryTemplate.query.order_by(QueryTemplate.id.desc()).all(), aadhaar_provider_configured=bool(os.getenv('AADHAAR_AUTH_URL','').strip()),
-                   google_oauth_ready=google_oauth_configured(), google_is_connected=google_connected(), drive_folder_id=setting('google_drive_folder_id',''),
-                   drive_auto_backup=setting('google_drive_auto_backup','0')=='1', kiosk_enabled=setting('kiosk_mode_enabled','0')=='1', avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()))
+                   google_oauth_ready=google_oauth_configured(), google_is_connected=google_connected(), drive_folder_id=admin_settings['google_drive_folder_id'],
+                   drive_auto_backup=admin_settings['google_drive_auto_backup']=='1', kiosk_enabled=admin_settings['kiosk_mode_enabled']=='1', avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()))
     if pane == 'organisation':
         edit_secret_id=(request.args.get('edit_secret') or '').strip(); edit_provider_id=(request.args.get('edit_provider') or '').strip()
         ctx.update(entries=VaultSecret.query.order_by(VaultSecret.id.desc()).all(), audits=AuditEvent.query.filter(AuditEvent.module.in_(['vault','electricity'])).order_by(AuditEvent.id.desc()).limit(150).all(),
@@ -2339,7 +2397,37 @@ def login_required(fn):
 
 
 def current_user():
-    return db.session.get(User, session.get('uid')) if session.get('uid') else None
+    uid = session.get('uid')
+    if not uid:
+        return None
+    if getattr(g, '_livenza_current_user_loaded', False):
+        return getattr(g, '_livenza_current_user', None)
+    g._livenza_current_user = db.session.get(User, uid)
+    g._livenza_current_user_loaded = True
+    return g._livenza_current_user
+
+
+def _cached_kiosk_mode_enabled(force_refresh=False):
+    now = time.monotonic()
+    cached = _KIOSK_POLICY_CACHE
+    if not force_refresh and cached['value'] is not None and now - cached['at'] < KIOSK_POLICY_CACHE_TTL_SECONDS:
+        return bool(cached['value'])
+    enabled = setting('kiosk_mode_enabled','0') == '1'
+    cached['value'] = enabled
+    cached['at'] = now
+    return enabled
+
+
+def _refresh_session_kiosk_state(preserve_unlock=False):
+    enabled = _cached_kiosk_mode_enabled(force_refresh=True)
+    session['kiosk_mode_enabled'] = enabled
+    if not enabled:
+        session['kiosk_unlocked'] = True
+    elif not preserve_unlock:
+        session['kiosk_unlocked'] = False
+    else:
+        session.setdefault('kiosk_unlocked', False)
+    return enabled
 
 
 HOST3D_INTENSITIES = {'static': 0, 'gentle': 1, 'full': 2}
@@ -2352,10 +2440,18 @@ def _setting_bool(key, default='1'):
 
 
 def mascot_preferences_for(user):
-    global_default = setting('host3d_default_intensity', 'full').strip().lower()
+    pref_settings = settings_snapshot(
+        ('host3d_default_intensity','host3d_max_intensity','host3d_default_city','companion_default_city','companion_enabled',
+         'host3d_operational_updates_default','companion_operations_enabled','host3d_motivational_default','companion_quotes_enabled',
+         'host3d_weather_default','companion_weather_effects'),
+        {'host3d_default_intensity':'full','host3d_max_intensity':'full','host3d_default_city':'','companion_default_city':'Gurugram','companion_enabled':'1',
+         'host3d_operational_updates_default':'1','companion_operations_enabled':'1','host3d_motivational_default':'1','companion_quotes_enabled':'1',
+         'host3d_weather_default':'1','companion_weather_effects':'1'}
+    )
+    global_default = pref_settings['host3d_default_intensity'].strip().lower()
     if global_default not in HOST3D_INTENSITIES:
         global_default = 'full'
-    policy_max = setting('host3d_max_intensity', 'full').strip().lower()
+    policy_max = pref_settings['host3d_max_intensity'].strip().lower()
     if policy_max not in HOST3D_INTENSITIES:
         policy_max = 'full'
     try:
@@ -2374,17 +2470,17 @@ def mascot_preferences_for(user):
     effective = requested if HOST3D_INTENSITIES[requested] <= HOST3D_INTENSITIES[policy_max] else policy_max
     size = row.size if row and row.size in HOST3D_SIZES else 'medium'
     position = row.position if row and row.position in HOST3D_POSITIONS else 'bottom-right'
-    default_city = setting('host3d_default_city', setting('companion_default_city', 'Gurugram'))[:120]
+    default_city = (pref_settings['host3d_default_city'] or pref_settings['companion_default_city'] or 'Gurugram')[:120]
     return {
-        'enabled': bool(row.enabled) if row else _setting_bool('companion_enabled', '1'),
+        'enabled': bool(row.enabled) if row else str(pref_settings['companion_enabled']).strip().lower() in ('1','true','yes','on'),
         'intensity': effective,
         'requested_intensity': requested,
         'policy_max_intensity': policy_max,
         'size': size,
         'position': position,
-        'operational_updates': bool(row.operational_updates) if row else _setting_bool('host3d_operational_updates_default', setting('companion_operations_enabled', '1')),
-        'motivational_messages': bool(row.motivational_messages) if row else _setting_bool('host3d_motivational_default', setting('companion_quotes_enabled', '1')),
-        'weather_reactions': bool(row.weather_reactions) if row else _setting_bool('host3d_weather_default', setting('companion_weather_effects', '1')),
+        'operational_updates': bool(row.operational_updates) if row else str(pref_settings['host3d_operational_updates_default'] or pref_settings['companion_operations_enabled']).strip().lower() in ('1','true','yes','on'),
+        'motivational_messages': bool(row.motivational_messages) if row else str(pref_settings['host3d_motivational_default'] or pref_settings['companion_quotes_enabled']).strip().lower() in ('1','true','yes','on'),
+        'weather_reactions': bool(row.weather_reactions) if row else str(pref_settings['host3d_weather_default'] or pref_settings['companion_weather_effects']).strip().lower() in ('1','true','yes','on'),
         'weather_city': (row.weather_city or default_city)[:120] if row else default_city,
     }
 
@@ -2563,16 +2659,14 @@ def inject_common():
             mascot_preferences={}, dock_apps=[], ui_app_available=lambda endpoint: endpoint in {row['endpoint'] for row in LIVENZA_APP_REGISTRY}, ui_app_meta=ui_app_meta
         )
     user=current_user()
-    mascot_preferences=mascot_preferences_for(user) if user else {}
+    lightweight_settings = request.endpoint in {'settings_page','system_settings_pane','admin_panel','admin_vault','integrations_center'}
     return dict(
         current_user=user, app_version=APP_VERSION, asset_revision=ASSET_REVISION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
         can_access=can_access, module_labels=MODULES,
         is_admin=bool(user and (user.role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar,
-        kiosk_mode_enabled=setting('kiosk_mode_enabled','0')=='1',
-        companion_enabled=setting('companion_enabled','1')=='1' and bool(mascot_preferences.get('enabled',True)),
-        companion_default_city=mascot_preferences.get('weather_city') or setting('companion_default_city','Gurugram'),
-        companion_weather_effects=setting('companion_weather_effects','1')=='1' and bool(mascot_preferences.get('weather_reactions',True)),
-        mascot_preferences=mascot_preferences, dock_apps=visible_dock_apps(user), ui_app_available=ui_app_available, ui_app_meta=ui_app_meta
+        kiosk_mode_enabled=bool(session.get('kiosk_mode_enabled', False)),
+        companion_enabled=False, companion_default_city='Gurugram', companion_weather_effects=False,
+        mascot_preferences={}, dock_apps=[] if lightweight_settings else visible_dock_apps(user), ui_app_available=ui_app_available, ui_app_meta=ui_app_meta
     )
 
 @app.before_request
@@ -2580,9 +2674,18 @@ def enforce_kiosk_pin_gate():
     """Server-side gate for every authenticated page while application lock is enabled."""
     # Diagnostics must never depend on Settings/current-user lookups before their
     # own stage-by-stage error reporting has a chance to run.
-    if request.endpoint in {'health','version','diagnostics','diagnostics_authenticated','diagnostics_runtime','static'}:
+    if request.endpoint in {'health','health_db','version','diagnostics','diagnostics_authenticated','diagnostics_runtime','static'}:
         return None
-    if not session.get('uid') or setting('kiosk_mode_enabled','0')!='1' or session.get('kiosk_unlocked'):
+    if not session.get('uid'):
+        return None
+    previous_enabled = bool(session.get('kiosk_mode_enabled', False))
+    enabled = _cached_kiosk_mode_enabled()
+    session['kiosk_mode_enabled'] = enabled
+    if not enabled:
+        session['kiosk_unlocked'] = True
+    elif not previous_enabled:
+        session['kiosk_unlocked'] = False
+    if not session.get('kiosk_mode_enabled') or session.get('kiosk_unlocked'):
         return None
     allowed={'kiosk_lock','kiosk_unlock','logout'}
     if request.endpoint not in allowed:
@@ -2623,6 +2726,21 @@ def kiosk_relock():
 
 @app.route('/health')
 def health(): return jsonify(status='ok', service='livenza-back-office-web', version=APP_VERSION)
+
+@app.route('/health/db')
+def health_db():
+    started = time.perf_counter()
+    try:
+        db.session.execute(text('SELECT 1'))
+        latency_ms = round((time.perf_counter() - started) * 1000, 1)
+        return jsonify(ok=True, revision=ASSET_REVISION, latency_ms=latency_ms)
+    except Exception as exc:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        latency_ms = round((time.perf_counter() - started) * 1000, 1)
+        return jsonify(ok=False, revision=ASSET_REVISION, latency_ms=latency_ms, error=type(exc).__name__), 503
 
 @app.after_request
 def livenza_cache_policy(response):
@@ -2763,7 +2881,7 @@ def version():
             'unified-system-settings','livenza-symbol-system','ai-logo-identity','reduced-motion',
             'agreements','rooms','queries','billing','banking','electricity','food','video-wall',
             'whatsapp','email','drive','letterhead-studio','livenza-vault','role-permissions',
-            'webauthn-passkeys','pattern-login','live-companion','responsive-5k-layout','status-strip-removed','vibrant-suite-materials'
+            'webauthn-passkeys','pattern-login','live-companion','responsive-5k-layout','status-strip-removed','vibrant-suite-materials','request-path-db-stabilization','db-health-latency'
         ]
     )
 
@@ -2786,7 +2904,7 @@ def login():
                 error={'field':'pattern','message':'Connect at least four different points, then try the gesture again.'}
             elif u and u.pattern_hash and check_password_hash(u.pattern_hash,'pattern:'+pattern):
                 session.clear(); session['uid']=u.id
-                session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
+                _refresh_session_kiosk_state()
                 session['show_login_welcome']=True
                 return redirect(url_for('kiosk_lock') if not session['kiosk_unlocked'] else (request.args.get('next') or url_for('dashboard')))
             else:
@@ -2797,7 +2915,7 @@ def login():
                 error={'field':'password','message':'Enter your password to continue.'}
             elif u and check_password_hash(u.password_hash,password):
                 session.clear(); session['uid']=u.id
-                session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
+                _refresh_session_kiosk_state()
                 session['show_login_welcome']=True
                 return redirect(url_for('kiosk_lock') if not session['kiosk_unlocked'] else (request.args.get('next') or url_for('dashboard')))
             else:
@@ -4983,7 +5101,7 @@ def webauthn_auth_verify():
             credential_current_sign_count=row.sign_count,require_user_verification=True,
         )
         row.sign_count=verified.new_sign_count; row.last_used_at=datetime.datetime.utcnow(); db.session.commit()
-        session.clear(); session['uid']=u.id; session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'; session['show_login_welcome']=True
+        session.clear(); session['uid']=u.id; _refresh_session_kiosk_state(); session['show_login_welcome']=True
         return jsonify(ok=True,redirect=(url_for('kiosk_lock') if not session['kiosk_unlocked'] else url_for('dashboard')))
     except Exception as exc:
         db.session.rollback(); return jsonify(ok=False,error=f'Fingerprint/passkey verification failed: {exc}'),400
@@ -6259,7 +6377,7 @@ def kiosk_settings():
             flash('Kiosk PIN must contain at least 6 characters.','danger'); return redirect(url_for('admin_panel')+'#kiosk-security')
         set_setting('kiosk_pin_hash',generate_password_hash(new_pin))
     set_setting('kiosk_mode_enabled','1' if enabled else '0')
-    session['kiosk_unlocked']=not enabled
+    _refresh_session_kiosk_state()
     flash(('Kiosk lock enabled. Unlock with the kiosk PIN or user password.' if enabled else 'Kiosk lock disabled.'),'success')
     return redirect(url_for('kiosk_lock') if enabled else url_for('admin_panel')+'#kiosk-security')
 
