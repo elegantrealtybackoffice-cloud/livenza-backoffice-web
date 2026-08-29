@@ -7,7 +7,7 @@
 
   const drawer=$('#appsDrawer'), backdrop=$('#appsMenuBackdrop');
   const setDrawer=(open)=>{if(!drawer)return;setHidden(drawer,!open);setHidden(backdrop,!open);$$('[data-suites-dock]').forEach(b=>b.setAttribute('aria-expanded',open?'true':'false'));};
-  if(drawer){$$('[data-suites-dock]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();setDrawer(drawer.hidden!==false)}));}
+  $$('[data-suites-dock]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();setDrawer(drawer?.hidden!==false)}));
   $('[data-drawer-close]')?.addEventListener('click',()=>setDrawer(false));backdrop?.addEventListener('click',()=>setDrawer(false));
 
   $$('.app-category-tabs [data-tv-target]').forEach(tab=>tab.addEventListener('click',()=>{
@@ -17,23 +17,22 @@
   }));
 
   const closeMenus=()=>$$('.desktop-menu-popover').forEach(m=>m.hidden=true);
-  $$('[data-window-menu-trigger]').forEach(btn=>btn.addEventListener('click',e=>{const menu=$(`[data-window-menu="${btn.dataset.windowMenuTrigger}"]`);if(!menu)return;e.preventDefault();e.stopPropagation();const open=menu.hidden;closeMenus();menu.hidden=!open;}));
+  $$('[data-window-menu-trigger]').forEach(btn=>btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const menu=$(`[data-window-menu="${btn.dataset.windowMenuTrigger}"]`);const open=menu?.hidden;closeMenus();if(menu)menu.hidden=!open;}));
   document.addEventListener('click',e=>{if(!e.target.closest('.desktop-menu-popover')&&!e.target.closest('[data-window-menu-trigger]'))closeMenus()});
 
-  const widgetStack=$('.home-widget-stack');
   const setWidgets=(show)=>{body.classList.toggle('desktop-widgets-hidden',!show);$$('[data-home-widgets-toggle]').forEach(b=>b.setAttribute('aria-pressed',show?'true':'false'));localStorage.setItem('livenza.home.widgets',show?'1':'0')};
-  if(widgetStack){$$('[data-home-widgets-toggle]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();setWidgets(body.classList.contains('desktop-widgets-hidden'))}));}
+  $$('[data-home-widgets-toggle]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();setWidgets(body.classList.contains('desktop-widgets-hidden'))}));
   $$('[data-home-command="toggle-widgets"]').forEach(b=>b.addEventListener('click',()=>{setWidgets(body.classList.contains('desktop-widgets-hidden'));closeMenus()}));
   $$('[data-home-command="fullscreen"]').forEach(b=>b.addEventListener('click',async()=>{closeMenus();try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch(_){}}));
 
   const companion=$('.home-companion-panel');
   const setCompanion=(open)=>{if(companion)companion.hidden=!open;};
-  if(companion){$$('[data-home-companion-open]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();setCompanion(companion.hidden!==false)}));}
+  $$('[data-home-companion-open]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();setCompanion(companion?.hidden!==false)}));
   $('[data-home-companion-close]')?.addEventListener('click',()=>setCompanion(false));
 
   const palette=$('#macCommandPalette'), search=$('#macGlobalSearch');
   const setPalette=(open)=>{if(!palette)return;setHidden(palette,!open);if(open){search?.focus();search?.select()}else if(search){search.value='';$$('[data-command-item]',palette).forEach(a=>a.hidden=false)}};
-  if(palette){$$('[data-mac-command-open]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();setPalette(true)}));}$('#macCommandClose')?.addEventListener('click',()=>setPalette(false));palette?.addEventListener('click',e=>{if(e.target===palette)setPalette(false)});
+  $$('[data-mac-command-open]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();setPalette(true)}));$('#macCommandClose')?.addEventListener('click',()=>setPalette(false));palette?.addEventListener('click',e=>{if(e.target===palette)setPalette(false)});
   search?.addEventListener('input',()=>{const q=search.value.trim().toLowerCase();$$('[data-command-item]',palette).forEach(a=>a.hidden=!!q&&!`${a.dataset.commandLabel||''} ${a.dataset.commandKeywords||''}`.toLowerCase().includes(q))});
 
   const dateEl=$('#homeCurrentDate'),timeEl=$('#homeCurrentTime');

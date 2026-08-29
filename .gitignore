@@ -3,3 +3,5 @@ instance/
 __pycache__/
 *.pyc
 livenza_desktop_export.json
+
+.worktrees/

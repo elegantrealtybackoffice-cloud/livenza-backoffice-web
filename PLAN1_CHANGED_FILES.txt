@@ -1,0 +1,22 @@
+Modified:
+- app.py
+- README.md
+
+Created:
+- livenza_customer_core.py
+- livenza_inventory_core.py
+- livenza_api_v1.py
+- migrations/livenza_v1_foundation.sql
+- tests/conftest.py
+- tests/test_livenza_customer_core.py
+- tests/test_livenza_inventory_core.py
+- tests/test_livenza_foundation_models.py
+- tests/test_livenza_api_v1.py
+- tests/test_livenza_public_stays_api.py
+- tests/test_livenza_availability_api.py
+- tests/test_livenza_foundation_regression.py
+- tests/test_livenza_api_contracts.py
+- docs/superpowers/plans/2026-08-27-livenza-v1-platform-foundation-identity.md
+- docs/superpowers/specs/2026-08-27-livenza-life-platform-design.md
+- PLAN1_FOUNDATION_AUDIT.md
+- PLAN1_CHANGED_FILES.txt

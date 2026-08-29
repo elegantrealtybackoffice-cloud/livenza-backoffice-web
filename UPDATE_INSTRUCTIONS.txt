@@ -1,7 +1,0 @@
-TESLA OS 27 — VERSION 27.0.1 — BUILD 27A101
-
-Base package: Livenza_Back_Office_Web_v1.9.0_MACOS_NEUTRAL_LIGHT_AI_Full.zip
-1. Delete every path listed in DELETE_OLD_FILES.txt.
-2. Upload the remaining files in this update ZIP to the repository root, preserving folders.
-3. Redeploy and confirm /version reports Tesla OS 27 / 27.0.1 / 27A101.
-4. Confirm the persistent bottom Dock contains one Suites icon and Home remains uncluttered.

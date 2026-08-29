@@ -4,7 +4,7 @@
 **Version:** 27.0.1  
 **Build:** 27A101  
 **Release:** Hotfix 10 Light Shell  
-**Asset revision:** `27A101-H10L-20260827E`  
+**Asset revision:** `27A101-H10L-20260827D`  
 **Audit date:** 2026-08-27
 
 ## Why this Hotfix exists
@@ -74,7 +74,7 @@ The lightweight Settings layer also explicitly defines form grids, option grids,
 
 Hotfix 10 introduces the unique static revision:
 
-`27A101-H10L-20260827E`
+`27A101-H10L-20260827D`
 
 Changes:
 
@@ -134,7 +134,7 @@ Protected database writes, provider integrations and role-specific production da
 ## Deployment-survival audit — revision B
 A second package-level audit found a cache class that source/UI tests alone could miss: browser-visible logos, favicons, PWA icons and other static images could be referenced without a Hotfix revision while `/static/*` responses were marked immutable for one year. On a device that had previously loaded an earlier Hotfix 10, those files could remain stale even when the new ZIP was correctly deployed.
 
-Revision `27A101-H10L-20260827E` closes this gap:
+Revision `27A101-H10L-20260827D` closes this gap:
 - every literal template `url_for('static', ...)` is cache-busted with the current asset revision;
 - only `/static/*?rev=<current revision>` receives one-year immutable caching; unversioned static requests must revalidate;
 - PWA 192/512 icons use Hotfix-specific filenames;
@@ -154,13 +154,14 @@ The change also fixes the browser fallback that could render inline Livenza SVG 
 
 Revision D hardens Home navigation against partial uploads, stale JavaScript and CDN mismatches. Suites controls are real links to `/?suites=1` and the server renders the Suites drawer open when that query flag is present, while `home_light.js` progressively enhances the same links into the normal instant drawer. Dock application entries remain ordinary anchors, so Agreements, Rooms, Queries, Reviews, Banking and Settings do not depend on JavaScript for navigation. A Home runtime-ready marker/watchdog makes missing or stale Home JavaScript observable.
 
-## Revision E — interaction recovery for partial deployments
+## Navigation fail-safe — revision D
 
-**Deployment revision:** `27A101-H10L-20260827E`
+A live deployment report showed the new Home shell could render while all JavaScript-driven controls appeared dead. The Home navigation has therefore been changed to progressive enhancement:
 
-A production interaction failure was traced to progressive-enhancement handlers canceling real fallback links before confirming that their matching target UI existed. In a partial/mismatched deploy (for example new `home_light.js` with an older `base.html`), this could make Suites, View, Window, Help, Widgets and Search appear completely dead.
+- Suites menu and Dock launcher are real links to a server-rendered `/?suites=1` fallback; JavaScript prevents navigation and opens the drawer locally when healthy.
+- Agreement, Rooms, Queries, Reviews, Banking and Settings Dock items remain ordinary anchors.
+- View, Window, Help, Widgets, Search and the Companion launcher now have real navigation fallbacks instead of being JS-only buttons.
+- `home_light.js` marks the document `data-home-runtime=ready`; the shell also includes a watchdog marker for diagnosing a failed runtime.
+- A dedicated Chromium navigation audit runs both with Home JavaScript omitted and with it active. In no-JS mode every essential control remains an unobstructed link; in enhanced mode the local panels open without following those fallback URLs.
 
-Revision E binds/intercepts these controls only when the corresponding drawer, popover, widget stack, companion panel or command palette is present. Otherwise the browser follows the real server `href` normally. Dock application launchers remain ordinary links.
-
-Verification includes a dedicated partial-deployment source contract and a Chromium fixture that intentionally omits the target UI while loading the new Home runtime; fallback clicks must remain uncancelled.
-
+This means a stale/missing/blocked `home_light.js` can reduce enhancement, but must not make core navigation unusable.

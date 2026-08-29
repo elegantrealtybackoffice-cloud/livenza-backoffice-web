@@ -1,8 +1,0 @@
-Livenza Web 1.9.0 — Blue Mascot / Grouped UI Maintenance
-
-This package is based on the genuine Web 1.9.0 Letterhead Studio release.
-It is NOT the older v1.8.0 tree with a renamed version marker.
-
-No database migration is required.
-Upload files preserving their paths, then restart/redeploy the application and hard-refresh the browser.
-Verify the README header shows Web 1.9.0 and the Home/hamburger Applications view contains Letterhead Studio.
