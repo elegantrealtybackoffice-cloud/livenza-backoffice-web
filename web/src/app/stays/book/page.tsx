@@ -1,2 +1,7 @@
-import Link from 'next/link'
-export default async function BookingHandoff({ searchParams }: { searchParams: Promise<{property?:string;room_category?:string}> }){ const q=await searchParams; return <main className="ecosystem-page" data-brand="stays"><section className="ecosystem-hero"><div className="section-inner"><div className="ecosystem-eyebrow">LIVENZA.STAYS · BOOKING HANDOFF</div><h1>BOOKING IS THE NEXT CHECKPOINT.</h1><p>Property and room discovery are connected. Live inventory holds, resident details, payment and confirmation are implemented in Plan 3.</p>{q.property ? <p><strong>Selected property:</strong> {q.property}{q.room_category ? ` · ${q.room_category}` : ''}</p> : null}<div className="ecosystem-actions"><Link className="ecosystem-primary" href="/stays">BACK TO STAYS</Link></div></div></section></main> }
+import { BookingWizard } from '@/components/booking/booking-wizard'
+import '../stays.css'
+
+export default async function BookingPage({searchParams}:{searchParams:Promise<{property?:string;room_category?:string}>}){
+  const query=await searchParams
+  return <main className="booking-page" data-brand="stays"><div className="stays-inner"><div className="eyebrow">LIVENZA.STAYS · SECURE BOOKING</div><BookingWizard initialProperty={query.property||''} initialRoomCategory={query.room_category||''}/></div></main>
+}

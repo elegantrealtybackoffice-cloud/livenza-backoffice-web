@@ -15,8 +15,10 @@ def test_availability_counts_only_active_allocatable_category_units():
         "room_category_id=category.id",
         "allocatable=True",
         "active=True",
-        "available_count=count",
-        "availability_state=availability_state(count, 0)",
+        "available_count=available",
+        "availability_state=availability_state(count, len(blocked_ids))",
+        "StayInventoryHold",
+        "StayBookingItem",
     ]:
         assert fragment in API_SOURCE
 

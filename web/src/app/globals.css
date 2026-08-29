@@ -2,6 +2,7 @@
 @import '../styles/brand.css';
 @import '../styles/components.css';
 @import '../styles/ecosystem.css';
+@import './stays/book/booking.css';
 
 
 html { color-scheme: light; background: var(--surface); scroll-behavior: smooth; }

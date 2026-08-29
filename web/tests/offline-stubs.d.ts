@@ -10,6 +10,7 @@ declare module 'react' {
   export type ChangeEvent<T = any> = { target: T }
   export function useState<T>(initial: T): [T, (next: T | ((old: T) => T)) => void]
   export function useEffect(fn: () => void | (() => void), deps: any[]): void
+  export function useMemo<T>(fn: () => T, deps: any[]): T
 }
 declare module 'next' {
   export type Metadata = any

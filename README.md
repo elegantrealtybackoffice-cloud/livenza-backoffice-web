@@ -270,3 +270,44 @@ Required consumer deployment variables:
 The Plan 2 checkpoint includes the master brand homepage, `livenza.stays` search/city/property discovery, future-vertical early-access pages, safe Store/My Livenza/booking handoffs, SEO/analytics contracts, and Playwright/bundle guardrails. Plan 3 replaces the booking handoff with live inventory holds, customer identity, payments, and My Livenza transactions.
 
 Production verification still requires Node.js 20.9+ with the dependencies in `web/package.json`, then `npm test -- --run`, `npm run lint`, `npm run build`, `npm run check:bundle`, and `npm run test:e2e`.
+
+## Livenza.life V1 booking, payments and My Livenza — Plan 3
+
+Plan 3 replaces the consumer booking handoff with the live transaction layer. The Flask API now owns timed inventory holds, Book Now/Reserve bookings, server-priced add-ons, parent-share tokens, Razorpay order creation, signed webhook confirmation, printable receipts, and owner-scoped My Livenza data. The Next.js application contains the OTP sign-in and booking wizard, parent-share continuation, payment/confirmation views, and My Livenza dashboard modules.
+
+### Booking/payment deployment variables
+
+- `RAZORPAY_KEY_ID` — public checkout key returned to the consumer only when payment starts.
+- `RAZORPAY_KEY_SECRET` — server-only Razorpay API credential.
+- `RAZORPAY_WEBHOOK_SECRET` — server-only HMAC secret used against the raw webhook request body.
+- `RAZORPAY_TEST_STUB=1` — permitted only in local/development/test environments; creates local order IDs while preserving the webhook confirmation path.
+- `BOOKING_ADDONS_JSON` — server-authoritative add-on catalog. Client-supplied prices are ignored/rejected; only configured codes can be booked.
+- `PARENT_SHARE_EXPIRY_HOURS` — parent-share validity, default 24 hours.
+
+### Plan 3 migration and staging order
+
+1. Back up staging PostgreSQL.
+2. Ensure `migrations/livenza_v1_foundation.sql` is already applied.
+3. Apply `migrations/livenza_v1_booking_payments.sql` to staging. It is additive and contains no table/column drops.
+4. Seed at least one public property, room category, allocatable inventory unit, and `stay_rate_plan` before testing booking.
+5. Configure customer OTP delivery and Razorpay Test Mode credentials/webhook secret on staging.
+6. Configure the Razorpay webhook target as `https://<api-host>/api/v1/payments/webhooks/razorpay` and enable the payment/order events required by the gateway account.
+7. Verify Book Now and Reserve separately. Browser checkout success is not confirmation; the booking must remain pending until the signed webhook marks the payment paid.
+8. Verify duplicate webhook delivery leaves one processed event and one booking confirmation.
+9. Verify failed payment never confirms inventory, expired holds cannot start payment, and a second customer cannot see another customer's booking, receipt, payment, document, or support record.
+10. Verify parent-share expiry and login/payment continuation with no resident KYC/private documents exposed.
+11. Run the mobile and desktop booking Playwright journey against staging PostgreSQL before production migration.
+
+### Consumer checks
+
+From `web/` with Node.js 20.9+ and dependencies installed:
+
+```text
+npm test -- --run
+npm run lint
+npm run build
+npm run check:bundle
+npm run test:e2e -- booking.spec.ts
+```
+
+The E2E booking spec expects a staging fixture through `E2E_PROPERTY_SLUG`, `E2E_ROOM_CATEGORY_SLUG`, `E2E_CUSTOMER_MOBILE`, `CUSTOMER_AUTH_TEST_MODE=1`, `RAZORPAY_TEST_STUB=1`, and a test `RAZORPAY_WEBHOOK_SECRET`. The test stubs only the external Razorpay popup; confirmation still goes through the signed webhook endpoint.

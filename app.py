@@ -219,6 +219,130 @@ class StayInventoryUnit(db.Model):
     active = db.Column(db.Boolean, default=True, index=True)
     __table_args__ = (db.UniqueConstraint('property_id','parent_id','code', name='uq_inventory_unit_path_code'),)
 
+class StayRatePlan(db.Model):
+    __tablename__ = 'stay_rate_plan'
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, index=True)
+    room_category_id = db.Column(db.Integer, db.ForeignKey('stay_room_category.id'), nullable=False, index=True)
+    code = db.Column(db.String(80), nullable=False)
+    stay_type = db.Column(db.String(32), nullable=False, index=True)
+    billing_period = db.Column(db.String(32), nullable=False)
+    currency = db.Column(db.String(3), default='INR')
+    amount_minor = db.Column(db.Integer, nullable=False)
+    security_deposit_minor = db.Column(db.Integer, default=0)
+    reservation_amount_minor = db.Column(db.Integer, default=0)
+    hold_minutes = db.Column(db.Integer, default=10)
+    active = db.Column(db.Boolean, default=True, index=True)
+    __table_args__ = (db.UniqueConstraint('property_id','room_category_id','code', name='uq_rate_plan_property_room_code'),)
+
+class StayInventoryHold(db.Model):
+    __tablename__ = 'stay_inventory_hold'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    inventory_unit_id = db.Column(db.Integer, db.ForeignKey('stay_inventory_unit.id'), nullable=False, index=True)
+    rate_plan_id = db.Column(db.Integer, db.ForeignKey('stay_rate_plan.id'), nullable=False, index=True)
+    start_date = db.Column(db.Date, nullable=False, index=True)
+    end_date = db.Column(db.Date, nullable=False, index=True)
+    status = db.Column(db.String(24), default='active', index=True)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+class StayBooking(db.Model):
+    __tablename__ = 'stay_booking'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, index=True)
+    rate_plan_id = db.Column(db.Integer, db.ForeignKey('stay_rate_plan.id'), nullable=False, index=True)
+    booking_mode = db.Column(db.String(24), nullable=False, default='book_now')
+    stay_type = db.Column(db.String(32), nullable=False, index=True)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String(32), default='held', index=True)
+    subtotal_minor = db.Column(db.Integer, default=0)
+    security_deposit_minor = db.Column(db.Integer, default=0)
+    addon_total_minor = db.Column(db.Integer, default=0)
+    total_minor = db.Column(db.Integer, default=0)
+    amount_due_now_minor = db.Column(db.Integer, default=0)
+    guardian_json = db.Column(db.Text, default='{}')
+    details_json = db.Column(db.Text, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class StayBookingItem(db.Model):
+    __tablename__ = 'stay_booking_item'
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=False, index=True)
+    hold_id = db.Column(db.Integer, db.ForeignKey('stay_inventory_hold.id'), nullable=False, unique=True, index=True)
+    inventory_unit_id = db.Column(db.Integer, db.ForeignKey('stay_inventory_unit.id'), nullable=False, index=True)
+
+class BookingAddOn(db.Model):
+    __tablename__ = 'booking_add_on'
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=False, index=True)
+    code = db.Column(db.String(80), nullable=False)
+    label = db.Column(db.String(180), nullable=False)
+    amount_minor = db.Column(db.Integer, default=0)
+    metadata_json = db.Column(db.Text, default='{}')
+
+class PaymentRecord(db.Model):
+    __tablename__ = 'payment_record'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    source_type = db.Column(db.String(32), nullable=False, index=True)
+    source_id = db.Column(db.Integer, nullable=False, index=True)
+    gateway = db.Column(db.String(32), default='razorpay', index=True)
+    gateway_order_id = db.Column(db.String(120), default='', unique=True, index=True)
+    gateway_payment_id = db.Column(db.String(120), default='', index=True)
+    amount_minor = db.Column(db.Integer, nullable=False)
+    currency = db.Column(db.String(3), default='INR')
+    status = db.Column(db.String(32), default='created', index=True)
+    metadata_json = db.Column(db.Text, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class ProcessedWebhookEvent(db.Model):
+    __tablename__ = 'processed_webhook_event'
+    id = db.Column(db.Integer, primary_key=True)
+    gateway = db.Column(db.String(32), nullable=False, index=True)
+    external_event_id = db.Column(db.String(180), nullable=False, unique=True, index=True)
+    event_type = db.Column(db.String(120), nullable=False)
+    processed_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+class CustomerDocument(db.Model):
+    __tablename__ = 'customer_document'
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=True, index=True)
+    document_type = db.Column(db.String(60), nullable=False, index=True)
+    display_name = db.Column(db.String(180), nullable=False)
+    storage_key = db.Column(db.String(320), nullable=False, unique=True)
+    private = db.Column(db.Boolean, default=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+class SupportTicket(db.Model):
+    __tablename__ = 'support_ticket'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    category = db.Column(db.String(40), nullable=False, index=True)
+    subject = db.Column(db.String(180), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(32), default='open', index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class BookingShareToken(db.Model):
+    __tablename__ = 'booking_share_token'
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=False, index=True)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    revoked_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
 class Agreement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(250), nullable=False)
@@ -6579,6 +6703,16 @@ def register_livenza_consumer_api():
         'StayProperty': StayProperty,
         'StayRoomCategory': StayRoomCategory,
         'StayInventoryUnit': StayInventoryUnit,
+        'StayRatePlan': StayRatePlan,
+        'StayInventoryHold': StayInventoryHold,
+        'StayBooking': StayBooking,
+        'StayBookingItem': StayBookingItem,
+        'BookingAddOn': BookingAddOn,
+        'BookingShareToken': BookingShareToken,
+        'PaymentRecord': PaymentRecord,
+        'ProcessedWebhookEvent': ProcessedWebhookEvent,
+        'CustomerDocument': CustomerDocument,
+        'SupportTicket': SupportTicket,
     }, send_customer_otp)
 
 register_livenza_consumer_api()
