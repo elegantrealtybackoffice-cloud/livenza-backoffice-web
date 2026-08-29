@@ -1,0 +1,2 @@
+import Link from 'next/link'
+export default function AccountPage(){ return <main className="ecosystem-page"><section className="ecosystem-hero"><div className="section-inner"><div className="ecosystem-eyebrow">MY LIVENZA</div><h1>ONE PERSON. ONE LIVENZA ID.</h1><p>The secure customer identity foundation is already part of the platform. The full My Livenza dashboard and customer sign-in experience arrives with the booking flow in Plan 3.</p><div className="ecosystem-actions"><Link className="ecosystem-primary" href="/stays">EXPLORE STAYS</Link></div></div></section></main> }

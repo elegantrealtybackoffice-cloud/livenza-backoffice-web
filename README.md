@@ -257,3 +257,16 @@ CUSTOMER_OTP_MAX_REQUESTS_15M=5  # identifier rate window
 5. Only after staging passes should the same additive migration be applied to production before enabling consumer traffic.
 
 The migration is additive and does not drop, rename, or alter the legacy `user`, `room`, or `tenant` tables.
+
+## Livenza.life consumer web — Plan 2
+
+The customer-facing Livenza.life experience now lives in `web/` as a separate Next.js App Router application. It consumes the versioned Flask API added in Plan 1 instead of accessing back-office database tables directly.
+
+Required consumer deployment variables:
+
+- `LIVENZA_API_ORIGIN` — server/API origin used for Next.js `/api/*` rewrites and server-side property discovery.
+- `LIVENZA_SITE_URL` — canonical consumer origin used by sitemap and metadata helpers.
+
+The Plan 2 checkpoint includes the master brand homepage, `livenza.stays` search/city/property discovery, future-vertical early-access pages, safe Store/My Livenza/booking handoffs, SEO/analytics contracts, and Playwright/bundle guardrails. Plan 3 replaces the booking handoff with live inventory holds, customer identity, payments, and My Livenza transactions.
+
+Production verification still requires Node.js 20.9+ with the dependencies in `web/package.json`, then `npm test -- --run`, `npm run lint`, `npm run build`, `npm run check:bundle`, and `npm run test:e2e`.

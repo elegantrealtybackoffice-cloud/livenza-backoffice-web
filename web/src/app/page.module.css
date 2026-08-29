@@ -1,0 +1,46 @@
+.page { overflow: clip; }
+.hero { min-height: calc(100svh - 72px); display: grid; align-items: end; position: relative; isolation: isolate; background: #161619; color: #fff; }
+.heroMedia { position: absolute; inset: 0; z-index: -2; background-image: linear-gradient(90deg, rgba(15,15,18,.88), rgba(15,15,18,.34)), url('/media/livenza-lifestyle-placeholder.jpg'); background-size: cover; background-position: center; }
+.heroMedia::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(15,15,18,.72), transparent 55%); }
+.heroContent { width: min(calc(100% - 2rem), var(--content-max)); margin-inline: auto; padding: 10rem 0 5rem; }
+.eyebrow { font-size: .78rem; text-transform: uppercase; letter-spacing: .16em; font-weight: 850; opacity: .72; }
+.hero h1, .mega { margin: .35rem 0; font-size: clamp(4.6rem, 12vw, 11rem); line-height: .82; letter-spacing: -.07em; font-weight: 950; text-wrap: balance; }
+.hero p { max-width: 620px; font-size: clamp(1.1rem, 2vw, 1.45rem); color: rgba(255,255,255,.82); }
+.actions { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1.75rem; }
+.primary, .secondary { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; padding: .85rem 1.1rem; border-radius: 13px; text-decoration: none; font-weight: 850; }
+.primary { background: #fff; color: #171719; }
+.secondary { border: 1px solid rgba(255,255,255,.38); color: #fff; background: rgba(255,255,255,.08); }
+.section { padding: clamp(5rem, 10vw, 9rem) 0; }
+.inner { width: min(calc(100% - 2rem), var(--content-max)); margin-inline: auto; }
+.sectionTitle { margin: .4rem 0 1.25rem; font-size: clamp(2.7rem, 7vw, 6.5rem); line-height: .92; letter-spacing: -.055em; max-width: 1080px; text-wrap: balance; }
+.lede { max-width: 760px; color: var(--muted); font-size: clamp(1.05rem, 2vw, 1.35rem); line-height: 1.6; }
+.universe { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .75rem; margin-top: 2.5rem; }
+.brandCard { min-height: 280px; padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border); text-decoration: none; background: var(--surface-strong); display: flex; flex-direction: column; justify-content: space-between; transition: transform var(--motion-standard), box-shadow var(--motion-standard); }
+.brandCard:hover { transform: translateY(-3px); box-shadow: var(--shadow-soft); }
+.brandCard strong { font-size: clamp(1.8rem, 3vw, 3.2rem); letter-spacing: -.04em; }
+.brandCard span { color: var(--muted); }
+.brandCard[data-tone='stays'] strong { color: #155ed6; }.brandCard[data-tone='store'] strong { color: #dd641c; }.brandCard[data-tone='fit'] strong { color: #739714; }.brandCard[data-tone='groom'] strong { color: #6f1734; }.brandCard[data-tone='skin'] strong { color: #c95d55; }.brandCard[data-tone='media'] strong { color: #008da8; }
+.dark { background: #171719; color: #fff; }
+.dark .lede { color: rgba(255,255,255,.7); }
+.split { display: grid; grid-template-columns: 1.05fr .95fr; gap: 1rem; align-items: stretch; margin-top: 2rem; }
+.visual { min-height: 520px; border-radius: var(--radius-hero); background: linear-gradient(145deg, rgba(112,71,235,.2), rgba(21,94,214,.12)), url('/media/livenza-lifestyle-placeholder.jpg') center/cover; }
+.panel { border-radius: var(--radius-hero); background: var(--surface-strong); padding: clamp(1.5rem, 4vw, 3.5rem); display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--border); }
+.dark .panel { background: #232327; border-color: rgba(255,255,255,.12); }
+.featureRow { display: flex; flex-wrap: wrap; gap: .55rem; margin: 1rem 0 2rem; }
+.featureRow span { border: 1px solid currentColor; border-radius: 999px; padding: .5rem .72rem; font-size: .82rem; opacity: .8; }
+.cityGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2rem; }
+.cityCard { min-height: 420px; border-radius: var(--radius-hero); padding: 2rem; text-decoration: none; color: #fff; display: flex; flex-direction: column; justify-content: end; background: linear-gradient(0deg, rgba(10,10,12,.78), rgba(10,10,12,.08)), url('/media/livenza-lifestyle-placeholder.jpg') center/cover; }
+.cityCard:last-child { background-position: 70% center; }
+.cityCard strong { font-size: clamp(2.2rem, 5vw, 4.5rem); letter-spacing: -.05em; }.cityCard span { color: rgba(255,255,255,.75); }
+life {}
+.lifeWords { display: grid; grid-template-columns: repeat(4,1fr); gap: .75rem; margin-top: 2rem; }
+.lifeWords div { min-height: 180px; display: flex; align-items: end; padding: 1.25rem; border-radius: var(--radius-lg); background: var(--surface-strong); border: 1px solid var(--border); font-weight: 900; font-size: clamp(1.6rem,3vw,2.8rem); letter-spacing: -.04em; }
+.standardGrid { display: grid; grid-template-columns: repeat(3,1fr); gap: .75rem; margin-top: 2.5rem; }
+.standardItem { padding: 1.5rem; border-top: 2px solid var(--ink); }.standardItem strong { display: block; font-size: 1rem; letter-spacing: .06em; }.standardItem p { color: var(--muted); }
+.emerging { display: grid; grid-template-columns: repeat(4,1fr); gap: .75rem; margin-top: 2rem; }
+.emerging a { padding: 1.3rem; min-height: 180px; border: 1px solid rgba(255,255,255,.16); border-radius: var(--radius-lg); display: flex; flex-direction: column; justify-content: space-between; text-decoration: none; background: rgba(255,255,255,.04); }.emerging strong { font-size: 1.6rem; }
+.quoteGrid { display: grid; grid-template-columns: 1.4fr .6fr; gap: 1rem; margin-top: 2rem; }.quoteCard { min-height: 280px; border-radius: var(--radius-hero); background: var(--surface-strong); border: 1px solid var(--border); padding: 2rem; display: flex; align-items: end; font-size: clamp(1.6rem,4vw,3.6rem); font-weight: 850; letter-spacing: -.04em; }
+.closing { padding: 9rem 0; background: #7047eb; color: #fff; }.closing .sectionTitle { max-width: 1200px; }
+.inlineLink { display: inline-flex; align-items: center; gap: .4rem; font-weight: 850; text-decoration: none; border-bottom: 1px solid currentColor; padding-bottom: .2rem; width: fit-content; }
+@media (max-width: 900px) { .universe { grid-template-columns: repeat(2,1fr); }.split,.quoteGrid { grid-template-columns:1fr; }.lifeWords,.emerging { grid-template-columns: repeat(2,1fr); }.standardGrid { grid-template-columns: repeat(2,1fr); }.visual { min-height: 380px; } }
+@media (max-width: 640px) { .heroContent,.inner { width: min(calc(100% - 1.25rem), var(--content-max)); }.hero { min-height: 760px; }.heroContent { padding-bottom: 3rem; }.universe,.cityGrid,.lifeWords,.emerging,.standardGrid { grid-template-columns: 1fr; }.brandCard { min-height: 210px; }.cityCard { min-height: 330px; }.section { padding: 4.5rem 0; } }
