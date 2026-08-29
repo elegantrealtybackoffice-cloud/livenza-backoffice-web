@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Staging Seed · Livenza Life{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div><p class="eyebrow">STAGING ONLY</p><h1>Seed V1 test catalogue</h1></div>
+</section>
+<section class="form-card liquid-card">
+  <p>This tool is available only when <code>LIVENZA_ENV=staging</code>. It creates clearly-labelled, idempotent test data for Jaipur and Gurugram stays plus one Store product. It does not create customers or payments.</p>
+  <form method="post" class="form-grid">
+    <label class="span2">Confirmation phrase
+      <input name="confirm" placeholder="SEED STAGING" autocomplete="off" required>
+    </label>
+    <button class="primary">Create / refresh staging test data</button>
+  </form>
+</section>
+{% if result %}
+<section class="table-card liquid-card">
+  <h2>Seed result</h2>
+  <table><tbody>
+  {% for key,value in result.items() %}<tr><th>{{key|replace('_',' ')|title}}</th><td>{{value}}</td></tr>{% endfor %}
+  </tbody></table>
+  <p><a class="primary" href="/admin/livenza/properties">Review properties</a></p>
+</section>
+{% endif %}
+{% endblock %}

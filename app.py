@@ -6612,6 +6612,25 @@ def _livenza_loyalty_balance(customer_id):
 def livenza_admin_home():
     return render_template('admin.html')
 
+@app.route('/admin/livenza/staging/seed',methods=['GET','POST'])
+@admin_required
+def livenza_staging_seed_admin():
+    if (os.getenv('LIVENZA_ENV') or '').strip().lower() != 'staging':
+        abort(404)
+    result=None
+    if request.method=='POST':
+        if (request.form.get('confirm') or '').strip() != 'SEED STAGING':
+            flash('Type SEED STAGING exactly to continue.','danger')
+            return redirect(url_for('livenza_staging_seed_admin'))
+        from livenza_staging_seed import seed_staging_data
+        result=seed_staging_data(db,{
+            'City':City,'StayProperty':StayProperty,'StayRoomCategory':StayRoomCategory,
+            'StayInventoryUnit':StayInventoryUnit,'StayRatePlan':StayRatePlan,
+            'Product':Product,'ProductVariant':ProductVariant,
+        })
+        flash('Staging test catalogue and inventory are ready.','success')
+    return render_template('livenza_staging_seed.html',result=result)
+
 @app.route('/admin/livenza/postdeploy/verify/<kind>/<public_id>')
 def livenza_postdeploy_verify(kind,public_id):
     expected=(os.getenv('LIVENZA_POSTDEPLOY_TOKEN') or '').strip()
