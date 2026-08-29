@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import styles from './page.module.css'
 import { HomepageAnalytics } from '@/components/homepage-analytics'
+import { getContent } from '@/lib/api'
 
 const universe = [
   ['livenza.stays', '/stays', 'Find your place', 'stays'],
@@ -11,14 +12,17 @@ const universe = [
   ['livenza.media', '/media', 'Create what matters.', 'media'],
 ] as const
 
-export default function Home() {
+export default async function Home() {
+  const cms = await getContent('homepage','home').catch(() => null)
+  const cmsHero = typeof cms?.body?.hero_title === 'string' ? cms.body.hero_title : 'LIVE MORE.'
+  const cmsIntro = typeof cms?.body?.hero_intro === 'string' ? cms.body.hero_intro : 'Stay. Move. Wear. Care. Create. One lifestyle ecosystem designed around the way a new generation lives.'
   return <main className={styles.page}><HomepageAnalytics />
     <section className={styles.hero}>
       <div className={styles.heroMedia} aria-hidden="true" />
       <div className={styles.heroContent}>
         <div className={styles.eyebrow}>LIVENZA.LIFE</div>
-        <h1>LIVE MORE.</h1>
-        <p>Stay. Move. Wear. Care. Create. One lifestyle ecosystem designed around the way a new generation lives.</p>
+        <h1>{cmsHero}</h1>
+        <p>{cmsIntro}</p>
         <div className={styles.actions}><Link className={styles.primary} href="/stays">BOOK A STAY</Link><Link className={styles.secondary} href="#universe">EXPLORE LIVENZA</Link></div>
       </div>
     </section>

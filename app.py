@@ -418,6 +418,58 @@ class LoyaltyLedgerEntry(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     __table_args__ = (db.UniqueConstraint('source_type','source_id','effect_key', name='uq_loyalty_source_effect'),)
 
+
+class ContentEntry(db.Model):
+    __tablename__ = 'content_entry'
+    id = db.Column(db.Integer, primary_key=True)
+    content_type = db.Column(db.String(60), nullable=False, index=True)
+    key = db.Column(db.String(180), nullable=False, index=True)
+    locale = db.Column(db.String(12), default='en')
+    status = db.Column(db.String(24), default='draft', index=True)
+    title = db.Column(db.String(240), default='')
+    body_json = db.Column(db.Text, default='{}')
+    seo_json = db.Column(db.Text, default='{}')
+    updated_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('content_type','key','locale', name='uq_content_entry_key_locale'),)
+
+class PropertyMedia(db.Model):
+    __tablename__ = 'property_media'
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, index=True)
+    media_type = db.Column(db.String(24), nullable=False)
+    storage_key = db.Column(db.String(320), nullable=False)
+    alt_text = db.Column(db.String(240), default='')
+    sort_order = db.Column(db.Integer, default=0)
+    public = db.Column(db.Boolean, default=True, index=True)
+
+class LegacyEntityMap(db.Model):
+    __tablename__ = 'legacy_entity_map'
+    id = db.Column(db.Integer, primary_key=True)
+    source_system = db.Column(db.String(80), nullable=False)
+    source_entity_type = db.Column(db.String(80), nullable=False)
+    source_id = db.Column(db.String(180), nullable=False)
+    livenza_entity_type = db.Column(db.String(80), nullable=False)
+    livenza_entity_id = db.Column(db.Integer, nullable=False)
+    metadata_json = db.Column(db.Text, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('source_system','source_entity_type','source_id', name='uq_legacy_entity_source_key'),)
+
+class NotificationDelivery(db.Model):
+    __tablename__ = 'notification_delivery'
+    id = db.Column(db.Integer, primary_key=True)
+    event_key = db.Column(db.String(120), nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=True, index=True)
+    channel = db.Column(db.String(24), nullable=False, index=True)
+    destination_masked = db.Column(db.String(180), default='')
+    status = db.Column(db.String(24), default='pending', index=True)
+    provider_message_id = db.Column(db.String(180), default='')
+    error_code = db.Column(db.String(80), default='')
+    attempts = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
 class Agreement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(250), nullable=False)
@@ -1777,6 +1829,10 @@ MODULES = {
     'drive': 'Google Drive Files',
     'integrations': 'Integrations Center',
     'letterhead': 'Livenza Letterhead Studio',
+    'customers': 'Livenza Customers',
+    'stays_admin': 'Livenza Stays Admin',
+    'store_admin': 'Livenza Store Admin',
+    'content': 'Livenza Content Studio',
 }
 
 
@@ -6544,6 +6600,273 @@ def system_settings_pane(pane):
     context=settings_pane_context(pane,user)
     return render_template('system_settings.html',settings_panes=panes,selected_settings_pane=pane,selected_settings=selected,**context)
 
+def _livenza_loyalty_balance(customer_id):
+    account=LoyaltyAccount.query.filter_by(customer_id=customer_id).first()
+    if not account:
+        return 0
+    rows=LoyaltyLedgerEntry.query.filter_by(account_id=account.id).all()
+    return sum((row.points if row.direction=='credit' else -row.points) for row in rows)
+
+@app.route('/admin/livenza')
+@login_required
+def livenza_admin_home():
+    return render_template('admin.html')
+
+@app.route('/admin/livenza/postdeploy/verify/<kind>/<public_id>')
+def livenza_postdeploy_verify(kind,public_id):
+    expected=(os.getenv('LIVENZA_POSTDEPLOY_TOKEN') or '').strip()
+    supplied=(request.headers.get('Authorization') or '').strip()
+    token=supplied[7:].strip() if supplied.lower().startswith('bearer ') else ''
+    if len(expected)<32 or not token or not hmac.compare_digest(token,expected): abort(403)
+    if kind=='booking':
+        row=StayBooking.query.filter_by(public_id=public_id).first() or abort(404)
+        payment=PaymentRecord.query.filter_by(source_type='booking',source_id=row.id).order_by(PaymentRecord.id.desc()).first()
+        return jsonify(ok=True,entity='booking',public_id=row.public_id,status=row.status,payment_status=(payment.status if payment else 'none'),property_id=row.property_id)
+    if kind=='order':
+        row=StoreOrder.query.filter_by(public_id=public_id).first() or abort(404)
+        payment=PaymentRecord.query.filter_by(source_type='store_order',source_id=row.id).order_by(PaymentRecord.id.desc()).first()
+        return jsonify(ok=True,entity='order',public_id=row.public_id,status=row.status,payment_status=(payment.status if payment else 'none'),fulfilment_mode=row.fulfilment_mode)
+    abort(404)
+
+@app.route('/admin/livenza/customers')
+@permission_required('customers')
+def livenza_customers_admin():
+    q=(request.args.get('q') or '').strip()
+    query=Customer.query
+    if q:
+        like=f'%{q.lower()}%'
+        query=query.filter(or_(func.lower(Customer.full_name).like(like),func.lower(Customer.primary_mobile).like(like),func.lower(Customer.primary_email).like(like),func.lower(Customer.public_id).like(like)))
+    rows=query.order_by(Customer.updated_at.desc()).limit(250).all()
+    return render_template('livenza_customers.html',customers=rows,q=q)
+
+@app.route('/admin/livenza/customers/<int:customer_id>')
+@permission_required('customers')
+def livenza_customer_detail_admin(customer_id):
+    customer=db.session.get(Customer,customer_id) or abort(404)
+    bookings=StayBooking.query.filter_by(customer_id=customer.id).order_by(StayBooking.created_at.desc()).all()
+    payments=PaymentRecord.query.filter_by(customer_id=customer.id).order_by(PaymentRecord.created_at.desc()).all()
+    documents=CustomerDocument.query.filter_by(customer_id=customer.id).order_by(CustomerDocument.created_at.desc()).all()
+    orders=StoreOrder.query.filter_by(customer_id=customer.id).order_by(StoreOrder.created_at.desc()).all()
+    tickets=SupportTicket.query.filter_by(customer_id=customer.id).order_by(SupportTicket.updated_at.desc()).all()
+    return render_template('livenza_customer_detail.html',customer=customer,bookings=bookings,payments=payments,documents=documents,orders=orders,tickets=tickets,loyalty_balance=_livenza_loyalty_balance(customer.id))
+
+@app.route('/admin/livenza/properties')
+@permission_required('stays_admin')
+def livenza_properties_admin():
+    rows=StayProperty.query.order_by(StayProperty.city,StayProperty.name).all()
+    return render_template('livenza_properties.html',properties=rows)
+
+@app.route('/admin/livenza/properties/<int:property_id>',methods=['GET','POST'])
+@permission_required('stays_admin')
+def livenza_property_edit_admin(property_id):
+    prop=db.session.get(StayProperty,property_id) or abort(404)
+    if request.method=='POST':
+        prop.name=(request.form.get('name') or '').strip() or prop.name
+        prop.city=(request.form.get('city') or '').strip() or prop.city
+        prop.area=(request.form.get('area') or '').strip()
+        prop.summary=(request.form.get('summary') or '').strip()
+        prop.public=request.form.get('public')=='1'
+        prop.active=request.form.get('active')=='1'
+        types=[x.strip() for x in (request.form.get('stay_types') or '').split(',') if x.strip()]
+        if types: prop.stay_types_json=json.dumps(sorted(set(types)))
+        db.session.commit(); flash('Livenza property saved.','success')
+        return redirect(url_for('livenza_property_edit_admin',property_id=prop.id))
+    categories=StayRoomCategory.query.filter_by(property_id=prop.id).order_by(StayRoomCategory.name).all()
+    rate_plans=StayRatePlan.query.filter_by(property_id=prop.id).order_by(StayRatePlan.code).all()
+    media=PropertyMedia.query.filter_by(property_id=prop.id).order_by(PropertyMedia.sort_order,PropertyMedia.id).all()
+    return render_template('livenza_property_edit.html',property=prop,categories=categories,rate_plans=rate_plans,media=media)
+
+@app.route('/admin/livenza/bookings')
+@permission_required('stays_admin')
+def livenza_bookings_admin():
+    status=(request.args.get('status') or '').strip()
+    query=StayBooking.query
+    if status: query=query.filter_by(status=status)
+    rows=query.order_by(StayBooking.created_at.desc()).limit(300).all()
+    customer_ids={r.customer_id for r in rows}; property_ids={r.property_id for r in rows}
+    customers={c.id:c for c in Customer.query.filter(Customer.id.in_(customer_ids)).all()} if customer_ids else {}
+    properties={p.id:p for p in StayProperty.query.filter(StayProperty.id.in_(property_ids)).all()} if property_ids else {}
+    return render_template('livenza_bookings.html',bookings=rows,customers=customers,properties=properties,status=status)
+
+@app.route('/admin/livenza/bookings/<int:booking_id>')
+@permission_required('stays_admin')
+def livenza_booking_detail_admin(booking_id):
+    booking=db.session.get(StayBooking,booking_id) or abort(404)
+    customer=db.session.get(Customer,booking.customer_id)
+    prop=db.session.get(StayProperty,booking.property_id)
+    items=StayBookingItem.query.filter_by(booking_id=booking.id).all()
+    addons=BookingAddOn.query.filter_by(booking_id=booking.id).all()
+    payments=PaymentRecord.query.filter_by(source_type='booking',source_id=booking.id).order_by(PaymentRecord.created_at.desc()).all()
+    return render_template('livenza_booking_detail.html',booking=booking,customer=customer,property=prop,items=items,addons=addons,payments=payments)
+
+@app.route('/admin/livenza/store/orders')
+@permission_required('store_admin')
+def livenza_store_orders_admin():
+    status=(request.args.get('status') or '').strip()
+    query=StoreOrder.query
+    if status: query=query.filter_by(status=status)
+    rows=query.order_by(StoreOrder.created_at.desc()).limit(300).all()
+    customer_ids={r.customer_id for r in rows}
+    customers={c.id:c for c in Customer.query.filter(Customer.id.in_(customer_ids)).all()} if customer_ids else {}
+    return render_template('livenza_store_admin.html',orders=rows,customers=customers,status=status)
+
+@app.route('/admin/livenza/store/orders/<int:order_id>')
+@permission_required('store_admin')
+def livenza_order_detail_admin(order_id):
+    order=db.session.get(StoreOrder,order_id) or abort(404)
+    customer=db.session.get(Customer,order.customer_id)
+    items=StoreOrderItem.query.filter_by(order_id=order.id).order_by(StoreOrderItem.id).all()
+    payments=PaymentRecord.query.filter_by(source_type='store_order',source_id=order.id).order_by(PaymentRecord.created_at.desc()).all()
+    return render_template('livenza_order_detail.html',order=order,customer=customer,items=items,payments=payments)
+
+@app.route('/admin/livenza/support')
+@permission_required('customers')
+def livenza_support_admin():
+    status=(request.args.get('status') or '').strip()
+    query=SupportTicket.query
+    if status: query=query.filter_by(status=status)
+    rows=query.order_by(SupportTicket.updated_at.desc()).limit(300).all()
+    customer_ids={r.customer_id for r in rows}
+    customers={c.id:c for c in Customer.query.filter(Customer.id.in_(customer_ids)).all()} if customer_ids else {}
+    return render_template('livenza_support_admin.html',tickets=rows,customers=customers,status=status)
+
+@app.route('/admin/livenza/bookings/<int:booking_id>/cancel',methods=['POST'])
+@permission_required('stays_admin')
+def livenza_booking_cancel_admin(booking_id):
+    from livenza_booking_core import transition_booking
+    from livenza_admin_core import audit_meta
+    booking=db.session.get(StayBooking,booking_id) or abort(404)
+    old=booking.status
+    try:
+        booking.status=transition_booking(old,'cancel')
+    except ValueError:
+        abort(409)
+    reason=(request.form.get('reason') or '').strip()[:500]
+    record_audit('booking.cancel','stay_booking',booking.id,module='stays_admin',meta=audit_meta({'booking_id':booking.id,'from_status':old,'to_status':booking.status,'reason':reason}))
+    db.session.commit(); flash('Booking cancelled.','success')
+    return redirect(url_for('livenza_booking_detail_admin',booking_id=booking.id))
+
+@app.route('/admin/livenza/payments/<int:payment_id>/refund-state',methods=['POST'])
+@admin_required
+def livenza_payment_refund_state_admin(payment_id):
+    from livenza_admin_core import audit_meta
+    payment=db.session.get(PaymentRecord,payment_id) or abort(404)
+    status=(request.form.get('status') or '').strip().lower()
+    if status not in {'refunded','partially_refunded'}: abort(400)
+    try: refund_amount_minor=max(int(request.form.get('refund_amount_minor') or payment.amount_minor),0)
+    except Exception: abort(400)
+    if refund_amount_minor>payment.amount_minor: abort(400)
+    old=payment.status; payment.status=status
+    meta={}
+    try: meta=json.loads(payment.metadata_json or '{}')
+    except Exception: meta={}
+    if not isinstance(meta,dict): meta={}
+    provider_reference=(request.form.get('provider_reference') or '').strip()[:180]
+    if provider_reference: meta['refund_provider_reference']=provider_reference
+    meta['refund_amount_minor']=refund_amount_minor
+    payment.metadata_json=json.dumps(meta)
+    record_audit('payment.refund_state','payment_record',payment.id,module='finance',meta=audit_meta({'payment_id':payment.id,'from_status':old,'to_status':status,'refund_amount_minor':refund_amount_minor,'provider_reference':provider_reference,'source_type':payment.source_type,'source_id':payment.source_id}))
+    db.session.commit(); flash('Refund result recorded.','success')
+    return redirect(request.referrer or url_for('admin_panel'))
+
+@app.route('/admin/livenza/store/orders/<int:order_id>/status',methods=['POST'])
+@permission_required('store_admin')
+def livenza_order_status_admin(order_id):
+    from livenza_commerce_core import transition_order
+    from livenza_admin_core import audit_meta
+    order=db.session.get(StoreOrder,order_id) or abort(404)
+    event=(request.form.get('event') or '').strip().lower(); old=order.status
+    try: order.status=transition_order(old,event)
+    except ValueError: abort(409)
+    reason=(request.form.get('reason') or '').strip()[:500]
+    record_audit('order.status','store_order',order.id,module='store_admin',meta=audit_meta({'order_id':order.id,'from_status':old,'to_status':order.status,'event':event,'reason':reason}))
+    db.session.commit()
+    if order.status=='shipped':
+        customer=db.session.get(Customer,order.customer_id)
+        if customer:
+            try: send_livenza_transactional_notification('order.shipped',customer,{'order_id':order.public_id})
+            except Exception: pass
+    flash('Order status updated.','success')
+    return redirect(url_for('livenza_order_detail_admin',order_id=order.id))
+
+@app.route('/admin/livenza/store/variants/<int:variant_id>/stock',methods=['POST'])
+@permission_required('store_admin')
+def livenza_variant_stock_admin(variant_id):
+    from livenza_admin_core import audit_meta
+    variant=db.session.get(ProductVariant,variant_id) or abort(404)
+    try: delta=int(request.form.get('quantity_delta') or '0')
+    except Exception: abort(400)
+    new_on_hand=int(variant.stock_on_hand or 0)+delta
+    if new_on_hand<0 or new_on_hand<int(variant.stock_reserved or 0): abort(400)
+    variant.stock_on_hand=new_on_hand
+    reason=(request.form.get('reason') or '').strip()[:500]
+    record_audit('variant.stock_adjust','product_variant',variant.id,module='store_admin',meta=audit_meta({'variant_id':variant.id,'sku':variant.sku,'quantity_delta':delta,'reason':reason}))
+    db.session.commit(); flash('Variant stock adjusted.','success')
+    return redirect(request.referrer or url_for('livenza_store_orders_admin'))
+
+@app.route('/admin/livenza/content',methods=['GET','POST'])
+@permission_required('content')
+def livenza_content_admin():
+    CONTENT_TYPES={'homepage','city','property_editorial','journal','faq','offer','early_access'}
+    SEO_KEYS={'title','description','canonical_path','og_title','og_description','og_image_key'}
+    if request.method=='POST':
+        content_type=(request.form.get('content_type') or '').strip().lower()
+        key=(request.form.get('key') or '').strip()[:180]
+        locale=(request.form.get('locale') or 'en').strip()[:12]
+        title=(request.form.get('title') or '').strip()[:240]
+        body_raw=request.form.get('body_json') or '{}'; seo_raw=request.form.get('seo_json') or '{}'
+        if content_type not in CONTENT_TYPES or not key: abort(400)
+        if len(body_raw.encode('utf-8'))>250 * 1024 or len(seo_raw.encode('utf-8'))>250 * 1024: abort(413)
+        try:
+            body=json.loads(body_raw); seo=json.loads(seo_raw)
+        except Exception: abort(400)
+        if not isinstance(body,dict) or not isinstance(seo,dict): abort(400)
+        if any(k not in SEO_KEYS for k in seo): abort(400)
+        row_id=request.form.get('id')
+        row=db.session.get(ContentEntry,int(row_id)) if row_id and row_id.isdigit() else None
+        if not row:
+            row=ContentEntry.query.filter_by(content_type=content_type,key=key,locale=locale).first()
+        if not row:
+            row=ContentEntry(content_type=content_type,key=key,locale=locale,status='draft'); db.session.add(row)
+        row.content_type=content_type; row.key=key; row.locale=locale; row.title=title
+        row.body_json=json.dumps(body,ensure_ascii=False); row.seo_json=json.dumps(seo,ensure_ascii=False); row.updated_by_user_id=current_user().id
+        db.session.commit(); flash('Content draft saved.','success')
+        return redirect(url_for('livenza_content_admin'))
+    rows=ContentEntry.query.order_by(ContentEntry.content_type,ContentEntry.key,ContentEntry.locale).all()
+    return render_template('livenza_content_studio.html',entries=rows,content_types=sorted(CONTENT_TYPES))
+
+@app.route('/admin/livenza/content/<int:content_id>/publish',methods=['POST'])
+@permission_required('content')
+def livenza_content_publish_admin(content_id):
+    from livenza_admin_core import audit_meta
+    row=db.session.get(ContentEntry,content_id) or abort(404); old=row.status; row.status='published'; row.updated_by_user_id=current_user().id
+    record_audit('content.publish','content_entry',row.id,module='content',meta=audit_meta({'content_id':row.id,'from_status':old,'to_status':'published'}))
+    db.session.commit(); flash('Content published.','success')
+    return redirect(url_for('livenza_content_admin'))
+
+@app.route('/admin/livenza/content/<int:content_id>/unpublish',methods=['POST'])
+@permission_required('content')
+def livenza_content_unpublish_admin(content_id):
+    from livenza_admin_core import audit_meta
+    row=db.session.get(ContentEntry,content_id) or abort(404); old=row.status; row.status='draft'; row.updated_by_user_id=current_user().id
+    record_audit('content.unpublish','content_entry',row.id,module='content',meta=audit_meta({'content_id':row.id,'from_status':old,'to_status':'draft'}))
+    db.session.commit(); flash('Content returned to draft.','success')
+    return redirect(url_for('livenza_content_admin'))
+
+@app.route('/admin/livenza/support/<int:ticket_id>/status',methods=['POST'])
+@permission_required('customers')
+def livenza_support_status_admin(ticket_id):
+    ticket=db.session.get(SupportTicket,ticket_id) or abort(404)
+    new_status=(request.form.get('status') or '').strip().lower()
+    if new_status not in {'open','assigned','waiting','resolved'}: abort(400)
+    ticket.status=new_status; ticket.updated_at=datetime.datetime.utcnow(); db.session.commit()
+    customer=db.session.get(Customer,ticket.customer_id)
+    if customer:
+        try: send_livenza_transactional_notification('support.updated',customer,{'ticket_id':ticket.public_id})
+        except Exception: pass
+    flash('Support ticket updated.','success')
+    return redirect(url_for('livenza_support_admin'))
+
 @app.route('/admin')
 @admin_required
 def admin_panel():
@@ -6768,6 +7091,36 @@ def send_customer_otp(identifier, otp):
     return {'accepted':True,'provider':'whatsapp_cloud'}
 
 
+def send_livenza_transactional_notification(event_name, customer, context=None, channels=None):
+    """Deliver notifications after domain commits; delivery state is isolated from commercial state."""
+    from livenza_notification_core import dispatch_notification
+    from livenza_integrations import send_google_email_text, send_whatsapp_text
+    providers={}
+    try:
+        wa_cfg=_letterhead_whatsapp_config()
+        if wa_cfg.get('token') and wa_cfg.get('phone_number_id'):
+            providers['whatsapp']=lambda destination,subject,body: send_whatsapp_text(wa_cfg,destination,subject,body)
+    except Exception:
+        pass
+    try:
+        google_token=str((_google_token_data(refresh=False) or {}).get('access_token') or '')
+        if google_token:
+            providers['email']=lambda destination,subject,body: send_google_email_text(google_token,destination,subject,body)
+    except Exception:
+        pass
+    results=dispatch_notification(event_name,customer,context or {},channels or ['email','whatsapp'],providers)
+    try:
+        for result in results:
+            db.session.add(NotificationDelivery(
+                event_key=event_name,customer_id=getattr(customer,'id',None),channel=result.channel,
+                destination_masked=result.destination_masked,status=result.status,
+                provider_message_id=result.provider_reference,error_code=result.error_code,attempts=1,
+            ))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    return results
+
 def register_livenza_consumer_api():
     from livenza_api_v1 import register_api_v1
     return register_api_v1(app, db, {
@@ -6794,11 +7147,17 @@ def register_livenza_consumer_api():
         'StoreOrderItem': StoreOrderItem,
         'LoyaltyAccount': LoyaltyAccount,
         'LoyaltyLedgerEntry': LoyaltyLedgerEntry,
-    }, send_customer_otp)
+        'ContentEntry': ContentEntry,
+        'PropertyMedia': PropertyMedia,
+    }, send_customer_otp, notify=send_livenza_transactional_notification)
 
 register_livenza_consumer_api()
 
 def bootstrap():
+    from livenza_admin_core import production_config_errors
+    production_errors=production_config_errors(os.environ)
+    if production_errors:
+        raise RuntimeError('Unsafe Livenza production configuration: '+'; '.join(production_errors))
     os.makedirs(os.path.join(BASE_DIR,'instance'),exist_ok=True)
     db.create_all()
     ensure_v150_user_columns()

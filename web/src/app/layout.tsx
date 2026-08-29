@@ -3,7 +3,11 @@ import './globals.css'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 
+const siteUrl = process.env.LIVENZA_SITE_URL ?? 'https://livenza.life'
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  alternates: { canonical: './' },
   title: { default: 'Livenza.life — Live More', template: '%s | Livenza.life' },
   description: 'Livenza.life is a premium lifestyle ecosystem for stays, style, movement and everyday living.',
 }

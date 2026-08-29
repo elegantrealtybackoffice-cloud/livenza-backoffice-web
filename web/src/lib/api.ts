@@ -107,3 +107,9 @@ export function getDeliveryOptions(){ return readJson<ListResponse<DeliveryOptio
 
 export function getMyOrders(){ return readJson<ListResponse<StoreOrder>>('/api/v1/me/orders',{cache:'no-store'}) }
 export function getMyRewards(){ return readJson<{ok:true;rewards:RewardsSummary}>('/api/v1/me/rewards',{cache:'no-store'}).then(r=>r.rewards) }
+
+export type CmsContent = { type:string; key:string; locale:string; title:string; body:Record<string,unknown>; seo:Record<string,unknown>; updated_at?:string|null }
+export function getContent(contentType:string,key:string,locale='en'){
+  const params=new URLSearchParams({locale})
+  return readJson<{ok:true;content:CmsContent}>(`/api/v1/content/${encodeURIComponent(contentType)}/${encodeURIComponent(key)}?${params.toString()}`,{next:{revalidate:60}}).then(r=>r.content)
+}

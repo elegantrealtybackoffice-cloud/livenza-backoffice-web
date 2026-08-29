@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% block content %}
+<div class="page-head"><div><p class="eyebrow">LIVENZA PLATFORM</p><h1>Customers</h1><p>One customer identity across stays, store and Livenza+.</p></div></div>
+<form class="form-card liquid-card" method="get"><label>Search customer<input name="q" value="{{q}}" placeholder="Name, mobile, email or Livenza ID"></label><button class="primary">Search</button></form>
+<div class="table-card liquid-card"><table><thead><tr><th>Livenza ID</th><th>Name</th><th>Mobile</th><th>Email</th><th>Status</th><th></th></tr></thead><tbody>{% for c in customers %}<tr><td>{{c.public_id}}</td><td><b>{{c.full_name or 'Unnamed customer'}}</b></td><td>{{c.primary_mobile or '-'}}</td><td>{{c.primary_email or '-'}}</td><td>{{c.status}}</td><td><a href="{{url_for('livenza_customer_detail_admin',customer_id=c.id)}}">Open</a></td></tr>{% else %}<tr><td colspan="6">No customers found.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

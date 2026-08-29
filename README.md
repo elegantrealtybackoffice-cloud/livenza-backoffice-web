@@ -337,3 +337,15 @@ No fake catalogue is seeded. The public Store deliberately shows an editorial em
 
 ### Runtime verification boundary
 Portable Python/source tests, offline TypeScript, route audit, migration compatibility and legacy regressions can be verified in the build sandbox. The real `next build`, Vitest/Playwright, PostgreSQL `FOR UPDATE` concurrency and Razorpay Test Mode require the staging environment with npm dependencies, Flask/SQLAlchemy runtime, PostgreSQL and payment credentials.
+
+## Livenza.life V1 platform operations
+
+The `livenza-life-v1` program extends this Flask back-office rather than replacing it. Consumer code lives under `web/`; the shared API is `livenza_api_v1.py`; operational administration is under `/admin/livenza/*`.
+
+- Staging: `docs/runbooks/livenza-v1-staging.md`
+- Production: `docs/runbooks/livenza-v1-production.md`
+- Smoke: `python scripts/livenza_smoke.py --base-url <site> --api-url <api>`
+- Legacy migration: `python scripts/livenza_migrate_legacy.py --source legacy_backoffice --dry-run --strict`
+- Post-deploy reconciliation: `python scripts/livenza_postdeploy_verify.py --base-url <site> --api-url <api>`
+
+Never migrate customers by display name alone, never expose raw private `storage_key` values to consumers, and never place Razorpay/WhatsApp/storage secrets in the Next.js browser bundle.

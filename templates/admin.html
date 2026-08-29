@@ -1,3 +1,12 @@
 {% extends 'base.html' %}
 {% import '_livenza_symbols.html' as icons with context %}
-{% block content %}<section class="settings-card legacy-settings-redirect"><span class="settings-detail-icon">{{icons.symbol('settings')}}</span><div><p class="eyebrow">SYSTEM SETTINGS</p><h1>Admin moved to System Settings</h1><p>Users, roles, permissions and security controls are consolidated under Users & Groups.</p><a class="primary btn" href="{{url_for('system_settings_pane',pane='users-groups')}}">Open System Settings</a></div></section>{% endblock %}
+{% block content %}
+<div class="page-head"><div><p class="eyebrow">LIVENZA ADMIN</p><h1>Platform Operations</h1><p>Customer, stays, commerce and support operations share the same Livenza data layer.</p></div><a class="secondary btn" href="{{url_for('system_settings_pane',pane='users-groups')}}">Users & Groups</a></div>
+<div class="suite-grid">
+{% if can_access('customers') %}<a class="suite-card liquid-card" href="{{url_for('livenza_customers_admin')}}"><h3>Customers</h3><p>Unified customer 360, payments, documents and support.</p></a>{% endif %}
+{% if can_access('stays_admin') %}<a class="suite-card liquid-card" href="{{url_for('livenza_properties_admin')}}"><h3>Properties</h3><p>Public properties, room categories and rate plans.</p></a><a class="suite-card liquid-card" href="{{url_for('livenza_bookings_admin')}}"><h3>Bookings</h3><p>Stay bookings, payments and add-ons.</p></a>{% endif %}
+{% if can_access('store_admin') %}<a class="suite-card liquid-card" href="{{url_for('livenza_store_orders_admin')}}"><h3>Store Orders</h3><p>Commerce orders, fulfilment and payments.</p></a>{% endif %}
+{% if can_access('customers') %}<a class="suite-card liquid-card" href="{{url_for('livenza_support_admin')}}"><h3>Support</h3><p>Customer support queue across the ecosystem.</p></a>{% endif %}
+{% if can_access('content') %}<a class="suite-card liquid-card" href="{{url_for('livenza_content_admin')}}"><h3>Content Studio</h3><p>Published editorial content for livenza.life.</p></a>{% endif %}
+</div>
+{% endblock %}

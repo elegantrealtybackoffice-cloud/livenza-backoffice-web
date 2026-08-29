@@ -23,6 +23,7 @@ from livenza_integrations import RazorpayGateway
 from livenza_receipts import build_receipt_view, render_receipt_html
 from livenza_commerce_core import available_stock, validate_quantity, calculate_order_totals, transition_order
 from livenza_loyalty_core import balance, points_for_paid_amount
+from livenza_storage import storage_from_env
 
 COOKIE_NAME = "livenza_customer_session"
 
@@ -68,7 +69,7 @@ def serialize_property(row):
     }
 
 
-def register_api_v1(app, db, models, send_otp):
+def register_api_v1(app, db, models, send_otp, notify=None):
     from flask import Blueprint, jsonify, make_response, request
 
     Customer = models["Customer"]
@@ -94,6 +95,11 @@ def register_api_v1(app, db, models, send_otp):
     StoreOrderItem = models["StoreOrderItem"]
     LoyaltyAccount = models["LoyaltyAccount"]
     LoyaltyLedgerEntry = models["LoyaltyLedgerEntry"]
+    ContentEntry = models["ContentEntry"]
+    PropertyMedia = models["PropertyMedia"]
+    storage = storage_from_env()
+
+    notify = notify or (lambda *args, **kwargs: [])
 
     api = Blueprint("livenza_api_v1", __name__, url_prefix="/api/v1")
 
@@ -424,6 +430,35 @@ def register_api_v1(app, db, models, send_otp):
             return error(str(exc), 400, "invalid_cart")
         return jsonify(ok=True, quote={"items": lines, **totals, "currency": "INR"})
 
+    @api.get("/health")
+    def api_health():
+        try:
+            from sqlalchemy import text
+            db.session.execute(text("SELECT 1"))
+        except Exception:
+            return jsonify(ok=False,status="degraded",service="livenza-api-v1"),503
+        return jsonify(ok=True,status="ok",service="livenza-api-v1")
+
+    @api.get("/content/<content_type>/<key>")
+    def public_content(content_type, key):
+        locale=(request.args.get("locale") or "en").strip()[:12]
+        allowed={"homepage","city","property_editorial","journal","faq","offer","early_access"}
+        if content_type not in allowed:
+            return error("Content not found.",404,"not_found")
+        row=ContentEntry.query.filter_by(content_type=content_type,key=key,locale=locale,status='published').first()
+        if not row:
+            return error("Content not found.",404,"not_found")
+        try: body=json.loads(row.body_json or "{}")
+        except Exception: body={}
+        try: seo=json.loads(row.seo_json or "{}")
+        except Exception: seo={}
+        if not isinstance(body,dict): body={}
+        if not isinstance(seo,dict): seo={}
+        return jsonify(ok=True,content={
+            "type":row.content_type,"key":row.key,"locale":row.locale,"title":row.title or "",
+            "body":body,"seo":seo,"updated_at":row.updated_at.isoformat() if row.updated_at else None,
+        })
+
     @api.get("/cities")
     def public_cities():
         rows = StayProperty.query.filter_by(active=True, public=True).with_entities(
@@ -484,6 +519,14 @@ def register_api_v1(app, db, models, send_otp):
                     for plan in plans
                 ],
             })
+        media_rows=PropertyMedia.query.filter_by(property_id=row.id,public=True).order_by(PropertyMedia.sort_order.asc(),PropertyMedia.id.asc()).all()
+        media=[]
+        for item in media_rows:
+            try: public_url=storage.public_url(item.storage_key)
+            except Exception: public_url=''
+            if public_url:
+                media.append({"type":item.media_type,"alt_text":item.alt_text or "","url":public_url})
+        body["media"]=media
         return jsonify(body)
 
     @api.get("/availability")
@@ -1201,6 +1244,21 @@ def register_api_v1(app, db, models, send_otp):
             if ProcessedWebhookEvent.query.filter_by(gateway="razorpay", external_event_id=event_id).first():
                 return jsonify(ok=True, duplicate=True)
             raise
+        if next_state == "paid":
+            customer=Customer.query.get(payment.customer_id)
+            if customer:
+                try:
+                    notify("payment.received",customer,{"reference":payment.public_id},["email","whatsapp"])
+                    if payment.source_type == "booking":
+                        booking=StayBooking.query.get(payment.source_id)
+                        if booking and booking.status == "confirmed":
+                            notify("booking.confirmed",customer,{"booking_id":booking.public_id},["email","whatsapp"])
+                    elif payment.source_type == "store_order":
+                        order=StoreOrder.query.get(payment.source_id)
+                        if order and order.status == "confirmed":
+                            notify("order.confirmed",customer,{"order_id":order.public_id},["email","whatsapp"])
+                except Exception:
+                    pass
         return jsonify(ok=True, status=payment.status)
 
     @api.post("/booking-shares/<token>/payments")
@@ -1361,6 +1419,20 @@ def register_api_v1(app, db, models, send_otp):
             "created_at": row.created_at.isoformat() if row.created_at else None,
         } for row in rows])
 
+    @api.get("/me/documents/<int:document_id>/download")
+    def my_document_download(document_id):
+        session_row, customer = session_for_request()
+        if not session_row or not customer:
+            return error("Authentication required.",401,"authentication_required")
+        document=CustomerDocument.query.get(document_id)
+        if not document or document.customer_id != customer.id:
+            return error("Document not found.",404,"not_found")
+        try:
+            signed_url=storage.signed_get_url(document.storage_key,expires_seconds=300)
+        except Exception:
+            return error("Document storage is temporarily unavailable.",503,"storage_unavailable")
+        return jsonify(ok=True,url=signed_url,expires_in_seconds=300)
+
     @api.get("/me/support")
     def my_support():
         _session_row, customer = session_for_request()
@@ -1395,6 +1467,8 @@ def register_api_v1(app, db, models, send_otp):
         )
         db.session.add(row)
         db.session.commit()
+        try: notify("support.updated",customer,{"ticket_id":row.public_id},["email","whatsapp"])
+        except Exception: pass
         return jsonify(ok=True, ticket={"id":row.public_id,"category":row.category,"subject":row.subject,"description":row.description,"status":row.status}), 201
 
     @api.patch("/me/profile")
