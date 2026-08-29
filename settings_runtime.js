@@ -93,6 +93,9 @@
     applyWallpaper();
     const body=document.body;
     if(body){
+      body.dataset.appearance=state['appearance.mode'];
+      body.classList.toggle('appearance-dark',state['appearance.mode']==='dark');
+      body.classList.toggle('appearance-light',state['appearance.mode']!=='dark');
       body.classList.toggle('settings-focus-mode',state['focus.enabled']);
       body.classList.toggle('focus-hide-companion',state['focus.enabled']&&state['focus.companion']);
       body.classList.toggle('desktop-widgets-hidden',!state['widgets.visible']);

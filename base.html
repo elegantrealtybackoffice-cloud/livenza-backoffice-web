@@ -27,6 +27,22 @@
   <link rel="stylesheet" href="{{url_for('static',filename='home_light.css')}}?rev={{asset_revision}}">
   {% elif lightweight_settings_route %}
   <link rel="stylesheet" href="{{url_for('static',filename='settings_light.css')}}?rev={{asset_revision}}">
+  <style data-settings-critical-states>
+    html[data-appearance="dark"],body.appearance-dark{color-scheme:dark;background:#0e1725!important;color:#edf4fb!important}
+    html[data-appearance="dark"] .mac-toolbar,body.appearance-dark .mac-toolbar{background:#101b2b!important;border-bottom-color:#314057!important;color:#eef5fb!important}
+    html[data-appearance="dark"] .system-settings,html[data-appearance="dark"] .system-settings-detail,html[data-appearance="dark"] .settings-card,html[data-appearance="dark"] .liquid-card,html[data-appearance="dark"] .settings-section,html[data-appearance="dark"] .settings-group,html[data-appearance="dark"] .settings-pane,html[data-appearance="dark"] .settings-panel,body.appearance-dark .system-settings,body.appearance-dark .system-settings-detail,body.appearance-dark .settings-card{background:#162132!important;color:#edf4fb!important;border-color:#34445b!important}
+    html[data-appearance="dark"] .system-settings-sidebar,body.appearance-dark .system-settings-sidebar{background:#111c2b!important;border-right-color:#34445b!important}
+    html[data-appearance="dark"] .settings-search,html[data-appearance="dark"] .settings-nav-icon,html[data-appearance="dark"] input,html[data-appearance="dark"] select,html[data-appearance="dark"] textarea,html[data-appearance="dark"] .appearance-sample,body.appearance-dark .settings-search,body.appearance-dark .settings-nav-icon,body.appearance-dark input,body.appearance-dark select,body.appearance-dark textarea,body.appearance-dark .appearance-sample{background:#1b293b!important;color:#eef4fb!important;border-color:#3b4b61!important}
+    html[data-appearance="dark"] :is(h1,h2,h3,b,strong),body.appearance-dark :is(h1,h2,h3,b,strong){color:#f2f7fb!important}
+    html.settings-increase-contrast .system-settings,html.settings-increase-contrast .settings-card{border-color:#97a4b5!important}
+    html.settings-reduce-transparency .mac-toolbar,html.settings-reduce-transparency .mac-dock{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+    html.settings-reduce-transparency .mac-dock{background:#18304a!important}
+    html.settings-reduce-motion *,html.settings-reduce-motion *::before,html.settings-reduce-motion *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+    html.settings-large-text body{font-size:18px!important}
+    html.dock-autohide .mac-dock{transform:translate(-50%,calc(100% - 8px));opacity:.18}
+    html[data-dock-size="small"] .mac-dock{--dock-icon-size:28px;--dock-item-size:31px;--dock-symbol-size:17px}
+    html[data-dock-size="large"] .mac-dock{--dock-icon-size:42px;--dock-item-size:46px;--dock-symbol-size:24px}
+  </style>
   {% else %}
   <script src="{{url_for('static',filename='tv_capability.js')}}?rev={{asset_revision}}"></script>
   {% if not lightweight_settings_route %}<link rel="stylesheet" href="{{url_for('static',filename='legacy_modules.css')}}?rev={{asset_revision}}">{% endif %}
