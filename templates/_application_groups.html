@@ -81,7 +81,7 @@
 
 
 {% macro dock_app(title,endpoint,symbol_name='home',tone='blue',family='productivity',accent='#0088ff',accent2='#6155f5') -%}
-  <a class="mac-dock-item mac-dock-app {% if request.endpoint==endpoint %}is-active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav data-dock-app data-app-endpoint="{{endpoint}}" data-app-url="{{url_for(endpoint)}}" data-app-title="{{title}}" data-app-tone="{{tone}}" data-app-family="{{family}}" data-app-accent="{{accent}}" data-app-accent2="{{accent2}}" data-dock-tone="{{tone}}" aria-label="{{title}}" title="{{title}}" style="--app-accent:{{accent}};--app-accent-2:{{accent2}}">
+  <a class="mac-dock-item mac-dock-app {% if request.endpoint==endpoint or (endpoint=='settings_page' and lightweight_settings_route) or (endpoint=='vault_page' and request.endpoint=='system_settings_pane' and request.view_args and request.view_args.get('pane')=='organisation') %}is-active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav data-dock-app data-app-endpoint="{{endpoint}}" data-app-url="{{url_for(endpoint)}}" data-app-title="{{title}}" data-app-tone="{{tone}}" data-app-family="{{family}}" data-app-accent="{{accent}}" data-app-accent2="{{accent2}}" data-dock-tone="{{tone}}" aria-label="{{title}}" title="{{title}}" style="--app-accent:{{accent}};--app-accent-2:{{accent2}}">
     {{app_icon(symbol_name,endpoint,tone,'mac-dock-icon')}}
     <span class="mac-dock-tooltip" role="tooltip">{{title}}</span><i class="mac-dock-running" aria-hidden="true"></i>
   </a>
