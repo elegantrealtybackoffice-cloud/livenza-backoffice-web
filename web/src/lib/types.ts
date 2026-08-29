@@ -92,3 +92,47 @@ export type ListResponse<T> = { items: T[] }
 export type MyStay = Booking & { property:{name:string;city:string;area:string} }
 export type CustomerDocumentSummary = { id:number; booking_id:number|null; document_type:string; display_name:string; private:boolean; created_at:string|null }
 export type SupportTicketSummary = { id:string; category:'stay'|'payment'|'store'|'account'|'other'; subject:string; description:string; status:string; created_at?:string|null }
+
+export type StoreVariant = {
+  id:number
+  sku:string
+  title:string
+  price_minor:number
+  currency:string
+  available_stock:number
+  attributes:Record<string,unknown>
+}
+
+export type StoreProduct = {
+  id:number
+  slug:string
+  name:string
+  brand:string
+  category:string
+  collection:string
+  summary:string
+  description:string
+  variants:StoreVariant[]
+}
+
+export type CartItem = { variant_id:number; quantity:number }
+export type CartQuoteLine = {
+  variant_id:number
+  product_id:number
+  product_slug:string
+  product_name:string
+  variant_title:string
+  sku:string
+  unit_price_minor:number
+  quantity:number
+  line_total_minor:number
+  currency:string
+}
+export type CartQuote = { items:CartQuoteLine[]; subtotal_minor:number; discount_minor:number; delivery_minor:number; total_minor:number; currency:string }
+export type StoreOrderItem = { variant_id:number; sku:string; product_name:string; variant_title:string; quantity:number; unit_price_minor:number; line_total_minor:number }
+export type StoreOrder = { id:string; status:'placed'|'confirmed'|'packed'|'shipped'|'delivered'|'cancelled'|'returned'; fulfilment_mode:string; subtotal_minor:number; discount_minor:number; delivery_minor:number; total_minor:number; currency:string; items:StoreOrderItem[] }
+
+export type DeliveryOption={ id:string; type:'property_room'; label:string; property:{id:number;slug:string;name:string;city:string}; room:{id:number;code:string;display_name:string}; booking_id:string }
+
+export type LoyaltyLedgerItem={id:number;direction:'credit'|'debit';points:number;source_type:string;source_id:number;effect_key:string;description:string;created_at:string|null}
+export type RewardsSummary={status:string;balance:number;entries:LoyaltyLedgerItem[]}

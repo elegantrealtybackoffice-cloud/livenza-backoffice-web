@@ -343,6 +343,81 @@ class BookingShareToken(db.Model):
     revoked_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
+class Product(db.Model):
+    __tablename__ = 'product'
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(180), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(220), nullable=False, index=True)
+    brand = db.Column(db.String(40), default='store', index=True)
+    category = db.Column(db.String(60), nullable=False, index=True)
+    collection = db.Column(db.String(80), default='', index=True)
+    summary = db.Column(db.Text, default='')
+    description = db.Column(db.Text, default='')
+    active = db.Column(db.Boolean, default=True, index=True)
+    public = db.Column(db.Boolean, default=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class ProductVariant(db.Model):
+    __tablename__ = 'product_variant'
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False, index=True)
+    sku = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    title = db.Column(db.String(180), nullable=False)
+    price_minor = db.Column(db.Integer, nullable=False)
+    currency = db.Column(db.String(3), default='INR')
+    stock_on_hand = db.Column(db.Integer, default=0)
+    stock_reserved = db.Column(db.Integer, default=0)
+    attributes_json = db.Column(db.Text, default='{}')
+    active = db.Column(db.Boolean, default=True, index=True)
+
+class StoreOrder(db.Model):
+    __tablename__ = 'store_order'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    status = db.Column(db.String(32), default='placed', index=True)
+    fulfilment_mode = db.Column(db.String(32), default='address', index=True)
+    delivery_json = db.Column(db.Text, default='{}')
+    subtotal_minor = db.Column(db.Integer, default=0)
+    discount_minor = db.Column(db.Integer, default=0)
+    delivery_minor = db.Column(db.Integer, default=0)
+    total_minor = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class StoreOrderItem(db.Model):
+    __tablename__ = 'store_order_item'
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('store_order.id'), nullable=False, index=True)
+    variant_id = db.Column(db.Integer, db.ForeignKey('product_variant.id'), nullable=False, index=True)
+    sku = db.Column(db.String(100), nullable=False)
+    product_name = db.Column(db.String(220), nullable=False)
+    variant_title = db.Column(db.String(180), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    unit_price_minor = db.Column(db.Integer, nullable=False)
+    line_total_minor = db.Column(db.Integer, nullable=False)
+
+class LoyaltyAccount(db.Model):
+    __tablename__ = 'loyalty_account'
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), unique=True, nullable=False, index=True)
+    status = db.Column(db.String(24), default='active', index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+class LoyaltyLedgerEntry(db.Model):
+    __tablename__ = 'loyalty_ledger_entry'
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('loyalty_account.id'), nullable=False, index=True)
+    direction = db.Column(db.String(12), nullable=False)
+    points = db.Column(db.Integer, nullable=False)
+    source_type = db.Column(db.String(40), nullable=False)
+    source_id = db.Column(db.Integer, nullable=False)
+    effect_key = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.String(220), default='')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('source_type','source_id','effect_key', name='uq_loyalty_source_effect'),)
+
 class Agreement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(250), nullable=False)
@@ -6713,6 +6788,12 @@ def register_livenza_consumer_api():
         'ProcessedWebhookEvent': ProcessedWebhookEvent,
         'CustomerDocument': CustomerDocument,
         'SupportTicket': SupportTicket,
+        'Product': Product,
+        'ProductVariant': ProductVariant,
+        'StoreOrder': StoreOrder,
+        'StoreOrderItem': StoreOrderItem,
+        'LoyaltyAccount': LoyaltyAccount,
+        'LoyaltyLedgerEntry': LoyaltyLedgerEntry,
     }, send_customer_otp)
 
 register_livenza_consumer_api()

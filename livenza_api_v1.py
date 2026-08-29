@@ -21,6 +21,8 @@ from livenza_booking_core import validate_booking_dates, hold_expiry, amount_due
 from livenza_payment_core import verify_razorpay_webhook, payment_event_state, public_gateway_config
 from livenza_integrations import RazorpayGateway
 from livenza_receipts import build_receipt_view, render_receipt_html
+from livenza_commerce_core import available_stock, validate_quantity, calculate_order_totals, transition_order
+from livenza_loyalty_core import balance, points_for_paid_amount
 
 COOKIE_NAME = "livenza_customer_session"
 
@@ -86,6 +88,12 @@ def register_api_v1(app, db, models, send_otp):
     ProcessedWebhookEvent = models["ProcessedWebhookEvent"]
     CustomerDocument = models["CustomerDocument"]
     SupportTicket = models["SupportTicket"]
+    Product = models["Product"]
+    ProductVariant = models["ProductVariant"]
+    StoreOrder = models["StoreOrder"]
+    StoreOrderItem = models["StoreOrderItem"]
+    LoyaltyAccount = models["LoyaltyAccount"]
+    LoyaltyLedgerEntry = models["LoyaltyLedgerEntry"]
 
     api = Blueprint("livenza_api_v1", __name__, url_prefix="/api/v1")
 
@@ -114,6 +122,29 @@ def register_api_v1(app, db, models, send_otp):
                 "label": str(item.get("label") or code.replace("_", " ").title())[:180],
                 "amount_minor": max(int(item.get("amount_minor") or 0), 0),
             }
+        # Store-backed booking add-ons (for example Move-In Kit) use the
+        # published variant price as the server-authoritative booking snapshot.
+        try:
+            variants = ProductVariant.query.filter(ProductVariant.active.is_(True)).order_by(ProductVariant.id.asc()).all()
+            products = Product.query.filter(Product.id.in_(sorted({v.product_id for v in variants}))).all() if variants else []
+            products_by_id = {row.id: row for row in products if row.active and row.public}
+            for variant in variants:
+                product = products_by_id.get(variant.product_id)
+                attrs = _variant_attributes(variant)
+                code = str(attrs.get("booking_addon_code") or "").strip()[:80]
+                if not product or not code:
+                    continue
+                catalog[code] = {
+                    "code": code,
+                    "label": str(attrs.get("booking_addon_label") or product.name)[:180],
+                    "amount_minor": max(int(variant.price_minor or 0), 0),
+                    "source_product_id": product.id,
+                    "source_variant_id": variant.id,
+                    "source_sku": variant.sku,
+                }
+        except Exception:
+            # Store tables may not be migrated yet during a staged rollout.
+            pass
         return catalog
 
     def session_for_request():
@@ -270,6 +301,128 @@ def register_api_v1(app, db, models, send_otp):
         if not customer:
             return error("Authentication required.", 401, "authentication_required")
         return jsonify(ok=True, customer=_serialize_customer(customer))
+
+    def _variant_attributes(row):
+        try:
+            value = json.loads(row.attributes_json or '{}')
+            return value if isinstance(value, dict) else {}
+        except Exception:
+            return {}
+
+    def _serialize_variant(row):
+        return {
+            "id": row.id,
+            "sku": row.sku,
+            "title": row.title,
+            "price_minor": int(row.price_minor or 0),
+            "currency": row.currency or "INR",
+            "available_stock": available_stock(row.stock_on_hand, row.stock_reserved),
+            "attributes": _variant_attributes(row),
+        }
+
+    def _serialize_product(row, include_variants=True):
+        data = {
+            "id": row.id,
+            "slug": row.slug,
+            "name": row.name,
+            "brand": row.brand or "store",
+            "category": row.category,
+            "collection": row.collection or "",
+            "summary": row.summary or "",
+            "description": row.description or "",
+        }
+        if include_variants:
+            variants = ProductVariant.query.filter_by(product_id=row.id).filter(
+                ProductVariant.active.is_(True)
+            ).order_by(ProductVariant.id.asc()).all()
+            data["variants"] = [_serialize_variant(item) for item in variants]
+        return data
+
+    @api.get("/products")
+    def list_products():
+        rows = Product.query.filter(
+            Product.public.is_(True), Product.active.is_(True)
+        ).order_by(Product.id.desc()).all()
+        category = (request.args.get("category") or "").strip().lower()
+        collection = (request.args.get("collection") or "").strip().lower()
+        query = (request.args.get("q") or "").strip().lower()
+        if category:
+            rows = [row for row in rows if (row.category or "").lower() == category]
+        if collection:
+            rows = [row for row in rows if (row.collection or "").lower() == collection]
+        if query:
+            rows = [row for row in rows if query in " ".join([row.name or "", row.summary or "", row.category or "", row.collection or ""]).lower()]
+        return jsonify(ok=True, products=[_serialize_product(row) for row in rows])
+
+    @api.get("/products/<slug>")
+    def product_detail(slug):
+        row = Product.query.filter_by(slug=slug, public=True, active=True).first()
+        if not row:
+            return error("Product not found.", 404, "product_not_found")
+        return jsonify(ok=True, product=_serialize_product(row))
+
+    def _quote_items(payload_items):
+        if not isinstance(payload_items, list) or not payload_items:
+            raise ValueError("Your bag is empty.")
+        normalized = []
+        ids = []
+        for item in payload_items:
+            if not isinstance(item, dict):
+                raise ValueError("Invalid cart item.")
+            variant_id = int(item.get("variant_id") or 0)
+            quantity = int(item.get("quantity") or 0)
+            if variant_id <= 0:
+                raise ValueError("Invalid product variant.")
+            ids.append(variant_id)
+            normalized.append((variant_id, quantity))
+        variants = ProductVariant.query.filter(ProductVariant.id.in_(sorted(set(ids)))).all()
+        by_id = {row.id: row for row in variants}
+        product_ids = sorted({row.product_id for row in variants})
+        products = Product.query.filter(Product.id.in_(product_ids)).all() if product_ids else []
+        product_by_id = {row.id: row for row in products if row.public and row.active}
+        lines = []
+        totals_input = []
+        for variant_id, quantity in normalized:
+            row = by_id.get(variant_id)
+            product = product_by_id.get(row.product_id) if row else None
+            if not row or not row.active or not product:
+                raise LookupError("PRODUCT_UNAVAILABLE")
+            available = available_stock(row.stock_on_hand, row.stock_reserved)
+            try:
+                quantity = validate_quantity(quantity, available)
+            except ValueError as exc:
+                raise RuntimeError("OUT_OF_STOCK") from exc
+            line_total = int(row.price_minor or 0) * quantity
+            lines.append({
+                "variant_id": row.id,
+                "product_id": product.id,
+                "product_slug": product.slug,
+                "product_name": product.name,
+                "variant_title": row.title,
+                "sku": row.sku,
+                "unit_price_minor": int(row.price_minor or 0),
+                "quantity": quantity,
+                "line_total_minor": line_total,
+                "currency": row.currency or "INR",
+            })
+            totals_input.append((int(row.price_minor or 0), quantity))
+        totals = calculate_order_totals(totals_input, discount_minor=0, delivery_minor=0)
+        return lines, totals
+
+    @api.post("/cart/quote")
+    def cart_quote():
+        payload = request.get_json(silent=True) or {}
+        try:
+            lines, totals = _quote_items(payload.get("items") or [])
+        except RuntimeError as exc:
+            if str(exc) == "OUT_OF_STOCK":
+                return error("One or more items are out of stock.", 409, "OUT_OF_STOCK")
+            raise
+        except LookupError:
+            return error("One or more products are unavailable.", 409, "PRODUCT_UNAVAILABLE")
+        except (TypeError, ValueError) as exc:
+            return error(str(exc), 400, "invalid_cart")
+        return jsonify(ok=True, quote={"items": lines, **totals, "currency": "INR"})
 
     @api.get("/cities")
     def public_cities():
@@ -547,7 +700,11 @@ def register_api_v1(app, db, models, send_otp):
                 return error("One or more add-ons are unavailable.", 400, "invalid_addon")
             amount = int(published["amount_minor"])
             addon_total += amount
-            metadata = item.get("metadata") if isinstance(item, dict) and isinstance(item.get("metadata"), dict) else {}
+            metadata = {
+                key: published[key]
+                for key in ("source_product_id", "source_variant_id", "source_sku")
+                if published.get(key) is not None
+            }
             addon_rows.append((code, published["label"], amount, metadata))
         subtotal = max(int(rate_plan.amount_minor or 0), 0)
         security = max(int(rate_plan.security_deposit_minor or 0), 0)
@@ -643,6 +800,208 @@ def register_api_v1(app, db, models, send_otp):
             },
         )
 
+    def _serialize_store_order(row):
+        items = StoreOrderItem.query.filter_by(order_id=row.id).order_by(StoreOrderItem.id.asc()).all()
+        return {
+            "id": row.public_id,
+            "status": row.status,
+            "fulfilment_mode": row.fulfilment_mode,
+            "subtotal_minor": int(row.subtotal_minor or 0),
+            "discount_minor": int(row.discount_minor or 0),
+            "delivery_minor": int(row.delivery_minor or 0),
+            "total_minor": int(row.total_minor or 0),
+            "currency": "INR",
+            "items": [{
+                "variant_id": item.variant_id,
+                "sku": item.sku,
+                "product_name": item.product_name,
+                "variant_title": item.variant_title,
+                "quantity": int(item.quantity or 0),
+                "unit_price_minor": int(item.unit_price_minor or 0),
+                "line_total_minor": int(item.line_total_minor or 0),
+            } for item in items],
+        }
+
+    def _locked_variants(variant_ids):
+        query = ProductVariant.query.filter(ProductVariant.id.in_(variant_ids)).order_by(ProductVariant.id.asc())
+        dialect = getattr(getattr(db.session, "bind", None), "dialect", None)
+        if getattr(dialect, "name", "") == "postgresql":
+            return query.with_for_update().all()
+        # Production uses PostgreSQL. SQLite/test environments cannot apply FOR UPDATE.
+        return query.all()
+
+    def _internal_delivery_property_slugs():
+        return {item.strip().lower() for item in os.getenv("LIVENZA_INTERNAL_DELIVERY_PROPERTIES", "").split(",") if item.strip()}
+
+    def _eligible_property_room_delivery(customer_id):
+        configured = _internal_delivery_property_slugs()
+        if not configured:
+            return []
+        today = datetime.date.today()
+        bookings = StayBooking.query.filter(
+            StayBooking.customer_id == customer_id,
+            StayBooking.status == "confirmed",
+            StayBooking.start_date <= today,
+            StayBooking.end_date >= today,
+        ).all()
+        options = []
+        for booking in bookings:
+            prop = StayProperty.query.get(booking.property_id)
+            if not prop or prop.slug.lower() not in configured:
+                continue
+            item = StayBookingItem.query.filter_by(booking_id=booking.id).first()
+            unit = StayInventoryUnit.query.get(item.inventory_unit_id) if item else None
+            if not unit:
+                continue
+            options.append({
+                "id": f"booking:{booking.public_id}",
+                "type": "property_room",
+                "label": f"{prop.name} · {unit.display_name or unit.code}",
+                "property": {"id": prop.id, "slug": prop.slug, "name": prop.name, "city": prop.city},
+                "room": {"id": unit.id, "code": unit.code, "display_name": unit.display_name or unit.code},
+                "booking_id": booking.public_id,
+            })
+        return options
+
+    @api.post("/orders")
+    def create_store_order():
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        payload = request.get_json(silent=True) or {}
+        raw_items = payload.get("items") or []
+        if not isinstance(raw_items, list) or not raw_items:
+            return error("Your bag is empty.", 400, "invalid_cart")
+        quantities = {}
+        try:
+            for item in raw_items:
+                variant_id = int((item or {}).get("variant_id") or 0)
+                quantity = int((item or {}).get("quantity") or 0)
+                if variant_id <= 0 or quantity <= 0:
+                    raise ValueError
+                quantities[variant_id] = quantities.get(variant_id, 0) + quantity
+        except Exception:
+            return error("Invalid cart item.", 400, "invalid_cart")
+        variant_ids = sorted(quantities)
+        variants = _locked_variants(variant_ids)
+        if len(variants) != len(variant_ids):
+            db.session.rollback()
+            return error("One or more products are unavailable.", 409, "PRODUCT_UNAVAILABLE")
+        products = Product.query.filter(Product.id.in_(sorted({v.product_id for v in variants}))).all()
+        product_by_id = {row.id: row for row in products if row.public and row.active}
+        totals_input = []
+        prepared = []
+        try:
+            for variant in variants:
+                product = product_by_id.get(variant.product_id)
+                if not variant.active or not product:
+                    raise LookupError("PRODUCT_UNAVAILABLE")
+                quantity = validate_quantity(quantities[variant.id], available_stock(variant.stock_on_hand, variant.stock_reserved))
+                unit_price_minor = int(variant.price_minor or 0)
+                prepared.append((variant, product, quantity, unit_price_minor))
+                totals_input.append((unit_price_minor, quantity))
+        except ValueError:
+            db.session.rollback()
+            return error("One or more items are out of stock.", 409, "OUT_OF_STOCK")
+        except LookupError:
+            db.session.rollback()
+            return error("One or more products are unavailable.", 409, "PRODUCT_UNAVAILABLE")
+        totals = calculate_order_totals(totals_input, discount_minor=0, delivery_minor=0)
+        fulfilment_mode = str(payload.get("delivery_mode") or "address").strip()[:32] or "address"
+        delivery = payload.get("delivery") if isinstance(payload.get("delivery"), dict) else {}
+        if fulfilment_mode == "property_room":
+            requested_option = str(delivery.get("delivery_option_id") or "").strip()
+            eligible = {item["id"]: item for item in _eligible_property_room_delivery(customer.id)}
+            if not requested_option or requested_option not in eligible:
+                db.session.rollback()
+                return error("That Livenza property delivery option is not available for this account.", 403, "invalid_delivery_option")
+            delivery = eligible[requested_option]
+        elif fulfilment_mode != "address":
+            db.session.rollback()
+            return error("Unsupported delivery mode.", 400, "invalid_delivery_option")
+        order = StoreOrder(
+            public_id=str(uuid.uuid4()), customer_id=customer.id, status="placed",
+            fulfilment_mode=fulfilment_mode, delivery_json=json.dumps(delivery, separators=(",", ":")),
+            subtotal_minor=totals["subtotal_minor"], discount_minor=0, delivery_minor=0,
+            total_minor=totals["total_minor"],
+        )
+        db.session.add(order)
+        db.session.flush()
+        for variant, product, quantity, unit_price_minor in prepared:
+            variant.stock_reserved = int(variant.stock_reserved or 0) + quantity
+            db.session.add(StoreOrderItem(
+                order_id=order.id, variant_id=variant.id, sku=variant.sku,
+                product_name=product.name, variant_title=variant.title, quantity=quantity,
+                unit_price_minor=unit_price_minor, line_total_minor=unit_price_minor * quantity,
+            ))
+        gateway = RazorpayGateway.from_env()
+        try:
+            gateway_order = gateway.create_order(
+                order.total_minor, "INR", f"LVZ-S-{order.public_id[:16]}",
+                {"store_order_id": order.public_id, "customer_id": customer.public_id},
+            )
+        except Exception:
+            db.session.rollback()
+            return error("Payment provider is unavailable.", 503, "payment_provider_unavailable")
+        payment = PaymentRecord(
+            public_id=str(uuid.uuid4()), customer_id=customer.id, source_type="store_order", source_id=order.id,
+            gateway="razorpay", gateway_order_id=str(gateway_order.get("id") or ""), amount_minor=order.total_minor,
+            currency=str(gateway_order.get("currency") or "INR"), status="created", metadata_json="{}",
+        )
+        db.session.add(payment)
+        db.session.commit()
+        public_cfg = public_gateway_config({"key_id": gateway.key_id})
+        return jsonify(ok=True, order=_serialize_store_order(order), payment=_serialize_payment(payment), checkout={
+            "key_id": public_cfg["key_id"], "order_id": payment.gateway_order_id,
+            "amount_minor": payment.amount_minor, "currency": payment.currency,
+        }), 201
+
+    @api.get("/orders/<public_id>")
+    def get_store_order(public_id):
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        order = StoreOrder.query.filter_by(public_id=public_id, customer_id=customer.id).first()
+        if not order:
+            return error("Order not found.", 404, "order_not_found")
+        return jsonify(ok=True, order=_serialize_store_order(order))
+
+    def _confirm_store_order_payment(payment):
+        if payment.source_type != 'store_order':
+            return False
+        order = StoreOrder.query.get(payment.source_id)
+        if not order or order.status == 'confirmed':
+            return False
+        if order.status != 'placed':
+            return False
+        items = StoreOrderItem.query.filter_by(order_id=order.id).all()
+        variants = {row.id: row for row in ProductVariant.query.filter(ProductVariant.id.in_([item.variant_id for item in items])).all()}
+        for item in items:
+            variant = variants.get(item.variant_id)
+            if not variant or int(variant.stock_reserved or 0) < int(item.quantity or 0) or int(variant.stock_on_hand or 0) < int(item.quantity or 0):
+                raise RuntimeError("Reserved stock is inconsistent.")
+        for item in items:
+            variant = variants[item.variant_id]
+            variant.stock_on_hand = int(variant.stock_on_hand or 0) - int(item.quantity or 0)
+            variant.stock_reserved = int(variant.stock_reserved or 0) - int(item.quantity or 0)
+        order.status = transition_order(order.status, 'payment_paid')
+        return True
+
+    def _release_store_order_payment(payment):
+        if payment.source_type != 'store_order':
+            return False
+        order = StoreOrder.query.get(payment.source_id)
+        if not order or order.status != 'placed':
+            return False
+        items = StoreOrderItem.query.filter_by(order_id=order.id).all()
+        variants = {row.id: row for row in ProductVariant.query.filter(ProductVariant.id.in_([item.variant_id for item in items])).all()}
+        for item in items:
+            variant = variants.get(item.variant_id)
+            if variant:
+                variant.stock_reserved = max(int(variant.stock_reserved or 0) - int(item.quantity or 0), 0)
+        order.status = 'cancelled'
+        return True
+
     def _serialize_payment(row):
         return {
             "id": row.public_id,
@@ -675,6 +1034,57 @@ def register_api_v1(app, db, models, send_otp):
         if hold and hold.status == "active":
             hold.status = "converted"
         return True
+
+    def _loyalty_account(customer_id):
+        account = LoyaltyAccount.query.filter_by(customer_id=customer_id).first()
+        if account:
+            return account
+        account = LoyaltyAccount(customer_id=customer_id, status="active")
+        db.session.add(account)
+        db.session.flush()
+        return account
+
+    def _award_loyalty_points(customer_id, source_type, source_id, effect_key, amount_minor, description):
+        existing = LoyaltyLedgerEntry.query.filter_by(
+            source_type=source_type, source_id=source_id, effect_key=effect_key
+        ).first()
+        if existing:
+            return False
+        rate = max(_int_env("LIVENZA_POINTS_PER_100_INR", 1, minimum=0), 0)
+        points = points_for_paid_amount(amount_minor, points_per_100_inr=rate)
+        if points <= 0:
+            return False
+        account = _loyalty_account(customer_id)
+        db.session.add(LoyaltyLedgerEntry(
+            account_id=account.id, direction="credit", points=points,
+            source_type=source_type, source_id=source_id, effect_key=effect_key,
+            description=str(description or "")[:220],
+        ))
+        return True
+
+    def _confirm_payment_source(payment):
+        if payment.source_type == "booking":
+            changed = _confirm_booking_payment(payment)
+            if changed:
+                _award_loyalty_points(payment.customer_id, "booking", payment.source_id, "stay_booking_paid", payment.amount_minor, "Livenza stay payment")
+            return changed
+        if payment.source_type == "store_order":
+            changed = _confirm_store_order_payment(payment)
+            if changed:
+                _award_loyalty_points(payment.customer_id, "store_order", payment.source_id, "store_order_paid", payment.amount_minor, "Livenza.store purchase")
+            return changed
+        return False
+
+    def _release_payment_source(payment):
+        if payment.source_type == "booking":
+            booking = StayBooking.query.get(payment.source_id)
+            if booking and booking.status == "pending_payment":
+                booking.status = "held"
+                return True
+            return False
+        if payment.source_type == "store_order":
+            return _release_store_order_payment(payment)
+        return False
 
     @api.post("/payments")
     def create_payment():
@@ -778,12 +1188,10 @@ def register_api_v1(app, db, models, send_otp):
             payment.gateway_payment_id = gateway_payment_id
         if next_state == "failed":
             payment.status = "failed"
-            booking = StayBooking.query.get(payment.source_id) if payment.source_type == "booking" else None
-            if booking and booking.status == "pending_payment":
-                booking.status = "held"
+            _release_payment_source(payment)
         if next_state == "paid":
             payment.status = "paid"
-            _confirm_booking_payment(payment)
+            _confirm_payment_source(payment)
         if next_state == "pending" and payment.status not in {"paid", "failed"}:
             payment.status = "pending"
         try:
@@ -877,6 +1285,47 @@ def register_api_v1(app, db, models, send_otp):
         response.headers["Content-Type"] = "text/html; charset=utf-8"
         response.headers["Cache-Control"] = "private, no-store"
         return response
+
+    @api.get("/me/orders")
+    def my_orders():
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        rows = StoreOrder.query.filter_by(customer_id=customer.id).order_by(StoreOrder.id.desc()).all()
+        return jsonify(items=[_serialize_store_order(row) for row in rows])
+
+    @api.get("/me/rewards")
+    def my_rewards():
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        account = LoyaltyAccount.query.filter_by(customer_id=customer.id).first()
+        if not account:
+            account = _loyalty_account(customer.id)
+            db.session.commit()
+        entries = LoyaltyLedgerEntry.query.filter_by(account_id=account.id).order_by(LoyaltyLedgerEntry.id.desc()).all()
+        current_balance = balance([(row.direction, row.points) for row in entries])
+        return jsonify(ok=True, rewards={
+            "status": account.status or "active",
+            "balance": current_balance,
+            "entries": [{
+                "id": row.id, "direction": row.direction, "points": int(row.points or 0),
+                "source_type": row.source_type, "source_id": row.source_id,
+                "effect_key": row.effect_key, "description": row.description or "",
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            } for row in entries],
+        })
+
+    @api.get("/me/delivery-options")
+    def my_delivery_options():
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        # Eligibility is derived only from confirmed current stays and the
+        # LIVENZA_INTERNAL_DELIVERY_PROPERTIES configuration; the request body
+        # cannot self-assert a property or room.
+        items = _eligible_property_room_delivery(customer.id)
+        return jsonify(items=items)
 
     @api.get("/me/stays")
     def my_stays():

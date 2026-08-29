@@ -1,4 +1,4 @@
-import type { Availability, Booking, BookingAddon, City, Customer, InventoryHold, ListResponse, Payment, StayProperty, StayPropertyDetail, StayType } from './types'
+import type { Availability, Booking, BookingAddon, CartItem, CartQuote, City, Customer, InventoryHold, ListResponse, Payment, StayProperty, StayPropertyDetail, StayType, StoreOrder, StoreProduct, DeliveryOption, RewardsSummary } from './types'
 
 const serverOrigin = process.env.LIVENZA_API_ORIGIN ?? 'http://127.0.0.1:5000'
 
@@ -87,3 +87,23 @@ export function getMySupport(){ return readJson<ListResponse<import('./types').S
 export function createSupportTicket(input:{category:'stay'|'payment'|'store'|'account'|'other';subject:string;description:string}){ return postJson<{ok:true;ticket:import('./types').SupportTicketSummary}>('/api/v1/me/support',input) }
 export function patchMyProfile(input:{full_name?:string;primary_email?:string}){ return readJson<{ok:true;customer:Customer}>('/api/v1/me/profile',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)}) }
 export function createParentPayment(token:string){ return postJson<{ok:true;payment:Payment;checkout:{key_id:string;order_id:string;amount_minor:number;currency:string}}>(`/api/v1/booking-shares/${encodeURIComponent(token)}/payments`,{}) }
+
+
+export async function getProducts(filters:{category?:string;collection?:string;q?:string}={}):Promise<StoreProduct[]>{
+  const params=new URLSearchParams()
+  if(filters.category) params.set('category',filters.category)
+  if(filters.collection) params.set('collection',filters.collection)
+  if(filters.q) params.set('q',filters.q)
+  const query=params.toString()
+  const data=await readJson<{ok:true;products:StoreProduct[]}>(`/api/v1/products${query?`?${query}`:''}`,{cache:'no-store'})
+  return data.products
+}
+export function getProduct(slug:string){ return readJson<{ok:true;product:StoreProduct}>(`/api/v1/products/${encodeURIComponent(slug)}`,{cache:'no-store'}).then(r=>r.product) }
+export function quoteCart(items:CartItem[],delivery_mode='address'){ return postJson<{ok:true;quote:CartQuote}>('/api/v1/cart/quote',{items,delivery_mode}).then(r=>r.quote) }
+export function createStoreOrder(input:{items:CartItem[];delivery_mode:string;delivery?:Record<string,string>}){ return postJson<{ok:true;order:StoreOrder;payment:Payment;checkout:{key_id:string;order_id:string;amount_minor:number;currency:string}}>('/api/v1/orders',input) }
+export function getStoreOrder(id:string){ return readJson<{ok:true;order:StoreOrder}>(`/api/v1/orders/${encodeURIComponent(id)}`,{cache:'no-store'}) }
+
+export function getDeliveryOptions(){ return readJson<ListResponse<DeliveryOption>>('/api/v1/me/delivery-options',{cache:'no-store'}).then(r=>r.items) }
+
+export function getMyOrders(){ return readJson<ListResponse<StoreOrder>>('/api/v1/me/orders',{cache:'no-store'}) }
+export function getMyRewards(){ return readJson<{ok:true;rewards:RewardsSummary}>('/api/v1/me/rewards',{cache:'no-store'}).then(r=>r.rewards) }

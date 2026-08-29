@@ -1,2 +1,5 @@
-import Link from 'next/link'
-export default function StorePage(){ return <main className="ecosystem-page" data-brand="store"><section className="ecosystem-hero"><div className="section-inner"><div className="ecosystem-eyebrow">LIVENZA.STORE · V1 TEASER</div><div className="ecosystem-brand">livenza.store</div><h1>WEAR THE LIFE.</h1><p>The commerce engine and first curated collection are part of Plan 4. This page is intentionally a preview until live products and inventory are connected.</p><div className="ecosystem-actions"><Link className="ecosystem-primary" href="/contact">COLLABORATE WITH LIVENZA</Link><Link className="ecosystem-secondary" href="/">EXPLORE LIVENZA.LIFE</Link></div></div></section></main> }
+import type{StoreProduct}from'@/lib/types'
+import Storefront from '@/components/store/storefront'
+import{getProducts}from'@/lib/api'
+export const dynamic='force-dynamic'
+export default async function StorePage(){let products:StoreProduct[]=[];try{products=await getProducts()}catch{}return <main data-brand="store"><Storefront products={products}/></main>}

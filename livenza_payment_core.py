@@ -4,6 +4,8 @@ from __future__ import annotations
 import hashlib
 import hmac
 
+SUPPORTED_PAYMENT_SOURCES = {'booking', 'store_order'}
+
 
 def verify_razorpay_webhook(raw_body: bytes, signature: str, secret: str) -> bool:
     if not isinstance(raw_body, (bytes, bytearray)):

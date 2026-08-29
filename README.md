@@ -311,3 +311,29 @@ npm run test:e2e -- booking.spec.ts
 ```
 
 The E2E booking spec expects a staging fixture through `E2E_PROPERTY_SLUG`, `E2E_ROOM_CATEGORY_SLUG`, `E2E_CUSTOMER_MOBILE`, `CUSTOMER_AUTH_TEST_MODE=1`, `RAZORPAY_TEST_STUB=1`, and a test `RAZORPAY_WEBHOOK_SECRET`. The test stubs only the external Razorpay popup; confirmation still goes through the signed webhook endpoint.
+
+## Livenza.life V1 Plan 4 — Store + Livenza+
+
+Plan 4 adds the curated Livenza.store commerce layer and unified Livenza+ loyalty on top of the same customer identity and Razorpay webhook authority introduced in Plans 1–3.
+
+### Added contracts
+- Public catalogue: `GET /api/v1/products`, `GET /api/v1/products/<slug>`
+- Server-authoritative cart quote: `POST /api/v1/cart/quote`
+- Authenticated Store order creation/read: `POST /api/v1/orders`, `GET /api/v1/orders/<id>`
+- My Livenza Store orders: `GET /api/v1/me/orders`
+- Resident delivery eligibility: `GET /api/v1/me/delivery-options`
+- Livenza+ rewards: `GET /api/v1/me/rewards`
+- Store order payments reuse the Plan 3 Razorpay webhook and `PaymentRecord` domain with `source_type=store_order`.
+
+### Required migration
+Apply `migrations/livenza_v1_store_loyalty.sql` to the same PostgreSQL database used by the consumer API before publishing Store inventory.
+
+### Configuration
+- `LIVENZA_INTERNAL_DELIVERY_PROPERTIES`: comma-separated `StayProperty.slug` values eligible for room delivery.
+- `LIVENZA_POINTS_PER_100_INR`: integer earning rule for eligible paid value. V1 default/example is `1`; commercial economics remain configurable.
+
+### Catalogue launch
+No fake catalogue is seeded. The public Store deliberately shows an editorial empty state until 15–25 real products/variants, stock and pricing are published. Plan 5 adds the admin/migration/release controls used to manage these records operationally.
+
+### Runtime verification boundary
+Portable Python/source tests, offline TypeScript, route audit, migration compatibility and legacy regressions can be verified in the build sandbox. The real `next build`, Vitest/Playwright, PostgreSQL `FOR UPDATE` concurrency and Razorpay Test Mode require the staging environment with npm dependencies, Flask/SQLAlchemy runtime, PostgreSQL and payment credentials.

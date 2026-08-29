@@ -5,30 +5,12 @@ import { useRouter } from 'next/navigation'
 import { ApiError, createBooking, createHold, createPayment, getAvailability, getBookingAddons, getMe, getProperty, requestOtp, verifyOtp } from '@/lib/api'
 import type { Booking, BookingAddon, Customer, RatePlan, StayPropertyDetail, StayType } from '@/lib/types'
 import { track } from '@/lib/analytics'
+import { openRazorpayCheckout as loadRazorpay } from '@/lib/razorpay'
+// loadRazorpay lazy-loads https://checkout.razorpay.com/v1/checkout.js only from the payment action.
 
 const STEPS=['Stay','Sign in','Resident','Guardian','Add-ons','Summary','Payment'] as const
 
-type RazorpayInstance={open:()=>void}
-type RazorpayCtor=new (options:Record<string,unknown>)=>RazorpayInstance
-
-declare global { interface Window { Razorpay?: RazorpayCtor } }
-
 function money(minor:number,currency='INR'){return new Intl.NumberFormat('en-IN',{style:'currency',currency}).format(minor/100)}
-
-async function loadRazorpay(){
-  if(window.Razorpay) return
-  await new Promise<void>((resolve,reject)=>{
-    const existing=document.querySelector<HTMLScriptElement>('script[data-livenza-razorpay]')
-    if(existing){ existing.addEventListener('load',()=>resolve(),{once:true}); existing.addEventListener('error',()=>reject(new Error('Payment library failed to load')),{once:true}); return }
-    const script=document.createElement('script')
-    script.src='https://checkout.razorpay.com/v1/checkout.js'
-    script.async=true
-    script.dataset.livenzaRazorpay='1'
-    script.onload=()=>resolve()
-    script.onerror=()=>reject(new Error('Payment library failed to load'))
-    document.head.appendChild(script)
-  })
-}
 
 export function BookingWizard({initialProperty='',initialRoomCategory=''}:{initialProperty?:string;initialRoomCategory?:string}){
   const router=useRouter()
@@ -94,9 +76,7 @@ export function BookingWizard({initialProperty='',initialRoomCategory=''}:{initi
     setPaymentPending(true);setError('');track('booking_payment_start',{booking_id:booking.id})
     try{
       const result=await createPayment(booking.id)
-      await loadRazorpay()
-      if(!window.Razorpay) throw new Error('Payment checkout is unavailable.')
-      const checkout=new window.Razorpay({
+      await loadRazorpay({
         key:result.checkout.key_id,amount:result.checkout.amount_minor,currency:result.checkout.currency,
         order_id:result.checkout.order_id,name:'Livenza.life',description:`Booking ${booking.id}`,
         handler:()=>router.push(`/stays/booking/${booking.id}`),
@@ -104,7 +84,6 @@ export function BookingWizard({initialProperty='',initialRoomCategory=''}:{initi
         prefill:{name:residentName,contact:customer?.primary_mobile||mobile},
         theme:{color:'#6d45e5'},
       })
-      checkout.open()
     }catch(e){setPaymentPending(false);setError(e instanceof ApiError?e.message:(e instanceof Error?e.message:'Payment could not start.'))}
   }
 
