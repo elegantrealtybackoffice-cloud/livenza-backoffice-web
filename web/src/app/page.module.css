@@ -32,7 +32,6 @@
 .cityCard { min-height: 420px; border-radius: var(--radius-hero); padding: 2rem; text-decoration: none; color: #fff; display: flex; flex-direction: column; justify-content: end; background: linear-gradient(0deg, rgba(10,10,12,.78), rgba(10,10,12,.08)), url('/media/livenza-lifestyle-placeholder.jpg') center/cover; }
 .cityCard:last-child { background-position: 70% center; }
 .cityCard strong { font-size: clamp(2.2rem, 5vw, 4.5rem); letter-spacing: -.05em; }.cityCard span { color: rgba(255,255,255,.75); }
-life {}
 .lifeWords { display: grid; grid-template-columns: repeat(4,1fr); gap: .75rem; margin-top: 2rem; }
 .lifeWords div { min-height: 180px; display: flex; align-items: end; padding: 1.25rem; border-radius: var(--radius-lg); background: var(--surface-strong); border: 1px solid var(--border); font-weight: 900; font-size: clamp(1.6rem,3vw,2.8rem); letter-spacing: -.04em; }
 .standardGrid { display: grid; grid-template-columns: repeat(3,1fr); gap: .75rem; margin-top: 2.5rem; }
