@@ -41,7 +41,7 @@
 
   const dock=$('#macDock'),items=$$('.mac-dock-item',dock);let frame=0,pointerX=null;
   const resetDock=()=>items.forEach(i=>{i.style.setProperty('--dock-scale','1');i.style.setProperty('--dock-lift','0px')});
-  const paintDock=()=>{frame=0;if(pointerX===null||reduced){resetDock();return}items.forEach(item=>{const r=item.getBoundingClientRect(),c=r.left+r.width/2,d=Math.abs(pointerX-c),influence=Math.max(0,1-d/112),scale=1+influence*.36,lift=-Math.round(influence*12);item.style.setProperty('--dock-scale',scale.toFixed(3));item.style.setProperty('--dock-lift',`${lift}px`)})};
+  const paintDock=()=>{frame=0;if(pointerX===null||reduced){resetDock();return}items.forEach(item=>{const r=item.getBoundingClientRect(),c=r.left+r.width/2,d=Math.abs(pointerX-c),influence=Math.max(0,1-d/100),scale=1+influence*.26,lift=-Math.round(influence*9);item.style.setProperty('--dock-scale',scale.toFixed(3));item.style.setProperty('--dock-lift',`${lift}px`)})};
   if(dock&&!reduced){dock.addEventListener('pointermove',e=>{pointerX=e.clientX;if(!frame)frame=requestAnimationFrame(paintDock)},{passive:true});dock.addEventListener('pointerleave',()=>{pointerX=null;if(!frame)frame=requestAnimationFrame(paintDock)})}
 
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){setDrawer(false);setPalette(false);setCompanion(false);closeMenus()}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setPalette(true)}});
