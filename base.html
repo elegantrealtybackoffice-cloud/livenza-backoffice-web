@@ -49,6 +49,7 @@
   {% if current_user and can_access('letterhead') and request.endpoint and request.endpoint.startswith('letterhead') %}<link rel="stylesheet" href="{{url_for('static',filename='letterhead.css')}}?rev={{asset_revision}}">{% endif %}
   <link rel="stylesheet" href="{{url_for('static',filename='macos27_system.css')}}?rev={{asset_revision}}">
   {% endif %}
+  <link rel="stylesheet" href="{{url_for('static',filename='ui_polish.css')}}?rev={{asset_revision}}">
   {% block page_styles %}{% endblock %}
 </head>
 {% set current_app_ui = ui_app_meta(request.endpoint or '') if current_user else {} %}

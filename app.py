@@ -42,8 +42,8 @@ DEFAULT_BRAND_LOGO_PATH = os.path.join(BASE_DIR, 'static', 'brand', 'livenza_wor
 OS_NAME = 'Tesla OS 27'
 OS_VERSION = '27.0.1'
 OS_BUILD = '27A101'
-HOTFIX_LABEL = 'Hotfix 10 Revision L Appearance State Fail-Safe'
-ASSET_REVISION = '27A101-H10L-20260829L'
+HOTFIX_LABEL = 'Hotfix 10 Revision M Mascot + UI Polish'
+ASSET_REVISION = '27A101-H10L-20260830M'
 APP_VERSION = OS_VERSION
 KIOSK_POLICY_CACHE_TTL_SECONDS = float(os.getenv('KIOSK_POLICY_CACHE_TTL_SECONDS','15'))
 _KIOSK_POLICY_CACHE = {'value': None, 'at': 0.0}
@@ -2907,7 +2907,7 @@ def version():
             'unified-system-settings','livenza-symbol-system','ai-logo-identity','reduced-motion',
             'agreements','rooms','queries','billing','banking','electricity','food','video-wall',
             'whatsapp','email','drive','letterhead-studio','livenza-vault','role-permissions',
-            'webauthn-passkeys','pattern-login','live-companion','responsive-5k-layout','status-strip-removed','vibrant-suite-materials','request-path-db-stabilization','db-health-latency','functional-web-settings','settings-inline-fail-safe'
+            'webauthn-passkeys','pattern-login','live-companion','responsive-5k-layout','status-strip-removed','vibrant-suite-materials','request-path-db-stabilization','db-health-latency','functional-web-settings','settings-inline-fail-safe','mascot-ui-polish'
         ]
     )
 

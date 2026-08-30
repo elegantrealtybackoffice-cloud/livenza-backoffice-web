@@ -1,0 +1,29 @@
+/* Tesla OS 27 · Revision M shared typography/alignment polish.
+   Intentionally lightweight: no blur, layout animation or imported assets. */
+:root{
+  --ui-polish-revision:"27A101-H10L-20260830M";
+  --ui-font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",system-ui,sans-serif;
+  --ui-copy:13px;
+  --ui-copy-line:1.38;
+  --ui-radius-control:9px;
+}
+html{font-family:var(--ui-font);text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body.macos27-clean{font-family:var(--ui-font);font-size:var(--ui-copy);line-height:var(--ui-copy-line);font-kerning:normal;font-variant-ligatures:common-ligatures}
+body.macos27-clean :is(button,input,select,textarea){font-family:var(--ui-font);letter-spacing:0}
+body.macos27-clean :is(h1,h2,h3){text-wrap:balance;overflow-wrap:anywhere}
+body.macos27-clean :is(p,small,label,td,th,dd,dt,.muted){overflow-wrap:anywhere}
+body.macos27-clean :is(.page-head,.section-head,.settings-section-title,.permission-head,.user-head,.banking-panel-head){align-items:flex-start}
+body.macos27-clean :is(.page-head,.section-head,.settings-section-title,.permission-head,.user-head,.banking-panel-head)>*{min-width:0}
+body.macos27-clean :is(.page-head h1,.page-head h2,.section-head h2,.section-head h3){margin-block:0}
+body.macos27-clean :is(.actions,.app-standard-actions,.avatar-admin-actions){align-items:center}
+body.macos27-clean :is(.primary,.secondary,.btn,button){text-align:center}
+body.macos27-clean :is(input,select,textarea,.primary,.secondary,.btn){border-radius:var(--ui-radius-control)}
+body.macos27-clean :is(table,th,td){font-variant-numeric:tabular-nums}
+body.macos27-clean :is(.settings-nav-row,.apps-drawer-item,.home-companion-actions a,.safe-tab,.app-table-action){-webkit-tap-highlight-color:transparent}
+body.macos27-clean :is(.settings-nav-row,.apps-drawer-item,.home-companion-actions a,.safe-tab,.app-table-action,.primary,.secondary,.btn){transition:transform 90ms cubic-bezier(.2,.8,.2,1),background-color 120ms ease,border-color 120ms ease,color 120ms ease,opacity 120ms ease}
+body.macos27-clean :is(.primary,.secondary,.btn,.settings-nav-row,.apps-drawer-item,.home-companion-actions a):active{transform:scale(.985)}
+body.macos27-clean :is(.muted,small,.settings-nav-row small,.settings-toggle-row small){letter-spacing:0}
+body.macos27-clean :is(.settings-detail-header,.page-head,.app-standard-heading){max-width:100%}
+body.macos27-clean :is(.settings-card,.liquid-card,.form-card,.responsive-card,.connection-card){min-width:0}
+@media(max-width:760px){body.macos27-clean{--ui-copy:12.5px}.page-head,.section-head{gap:10px}}
+@media(prefers-reduced-motion:reduce){body.macos27-clean *{scroll-behavior:auto!important}body.macos27-clean :is(.settings-nav-row,.apps-drawer-item,.home-companion-actions a,.safe-tab,.app-table-action,.primary,.secondary,.btn){transition:none!important;transform:none!important}}
