@@ -1170,3 +1170,590 @@ body.macos27-clean input[type=checkbox],body.macos27-clean input[type=radio]{acc
 .wallpaper-upload-button{background:var(--brand-gradient)!important}
 @media(max-width:660px){.desktop-menu-logo{width:80px;padding-inline:2px}.desktop-menu-logo img{width:72px}.desktop-active-app{max-width:72px}.agreement-brand-banner{grid-template-columns:1fr!important}.agreement-brand-mark{height:64px!important;justify-items:start!important}.agreement-brand-mark img{width:170px!important}.paper-logo{max-width:68%!important}}
 @media print{.paper-logo{width:185px!important;max-width:48%!important}.letterhead-brand-logo{width:190px!important}}
+
+/* HOTFIX 5 — V1 ADMIN UI/UX SYSTEM
+   Shared, scoped polish for Livenza.life V1 administration routes. */
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+){
+  --v1-admin-ink:#182235;
+  --v1-admin-muted:#667188;
+  --v1-admin-line:rgba(70,82,105,.14);
+  --v1-admin-surface:rgba(255,255,255,.90);
+  --v1-admin-surface-strong:rgba(255,255,255,.97);
+  --v1-admin-row:rgba(248,250,253,.72);
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain{
+  width:min(100%,1500px);
+  max-width:1500px;
+  margin-inline:auto;
+  padding:24px clamp(18px,2.4vw,34px) calc(var(--mac-dock-height) + 48px);
+  color:var(--v1-admin-ink);
+  background:
+    radial-gradient(circle at 8% 0,color-mix(in srgb,var(--suite-accent) 8%,transparent),transparent 28%),
+    linear-gradient(160deg,#f4f7fb,#f8fafc 50%,#eef4f8);
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain > .module-visual-ribbon{
+  display:none!important;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain > .page-head{
+  position:relative;
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:20px;
+  min-height:108px;
+  margin:0 0 18px;
+  padding:22px 24px 20px;
+  border:1px solid color-mix(in srgb,var(--suite-accent) 15%,var(--v1-admin-line));
+  border-radius:18px;
+  background:
+    linear-gradient(135deg,color-mix(in srgb,var(--suite-accent) 5%,var(--v1-admin-surface-strong)),var(--v1-admin-surface));
+  box-shadow:0 1px 2px rgba(24,34,53,.035),0 16px 42px rgba(32,48,78,.06);
+  overflow:hidden;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain > .page-head::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:4px;
+  background:linear-gradient(180deg,var(--suite-accent),var(--suite-accent-2));
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain > .page-head > *{
+  position:relative;
+  z-index:1;
+  min-width:0;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain > .page-head .eyebrow{
+  margin:0 0 6px;
+  color:color-mix(in srgb,var(--suite-accent) 70%,#32435f);
+  font-size:10px;
+  line-height:13px;
+  font-weight:750;
+  letter-spacing:.12em;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain > .page-head h1{
+  max-width:none;
+  margin:0;
+  color:var(--v1-admin-ink);
+  font-size:clamp(27px,2vw,34px);
+  line-height:1.08;
+  font-weight:680;
+  letter-spacing:-.035em;
+  overflow-wrap:normal;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain > .page-head p:not(.eyebrow){
+  margin:7px 0 0;
+  max-width:780px;
+  color:var(--v1-admin-muted);
+  font-size:13px;
+  line-height:18px;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain :is(.table-card,.form-card,.liquid-card){
+  border:1px solid color-mix(in srgb,var(--suite-accent) 12%,var(--v1-admin-line));
+  border-radius:16px;
+  background:linear-gradient(180deg,var(--v1-admin-surface-strong),var(--v1-admin-surface));
+  box-shadow:0 1px 2px rgba(28,38,58,.03),0 12px 34px rgba(38,55,86,.045);
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain .table-card{
+  margin:0 0 18px;
+  padding:0;
+  overflow:auto;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(93,106,130,.30) transparent;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain .table-card > h2{
+  margin:0;
+  padding:16px 18px 12px;
+  border-bottom:1px solid var(--v1-admin-line);
+  color:var(--v1-admin-ink);
+  font-size:17px;
+  line-height:22px;
+  font-weight:650;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain table{
+  width:100%;
+  min-width:760px;
+  border-collapse:separate;
+  border-spacing:0;
+  table-layout:auto;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain th{
+  height:42px;
+  padding:0 16px;
+  border-bottom:1px solid var(--v1-admin-line);
+  background:color-mix(in srgb,var(--suite-accent) 5%,#f4f7fb);
+  color:#43516b;
+  font-size:11px;
+  line-height:14px;
+  font-weight:700;
+  text-transform:none;
+  letter-spacing:.015em;
+  vertical-align:middle;
+  white-space:nowrap;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain td{
+  min-height:52px;
+  padding:11px 16px;
+  border-bottom:1px solid rgba(74,86,108,.09);
+  color:#28354b;
+  font-size:12px;
+  line-height:17px;
+  vertical-align:middle;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain tbody tr:last-child td{border-bottom:0}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain tbody tr{
+  transition:background var(--motion-fast);
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain tbody tr:hover{
+  background:color-mix(in srgb,var(--suite-accent) 4%,var(--v1-admin-row));
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain td small{
+  display:block;
+  margin-top:2px;
+  color:#7b8699;
+  font-size:10.5px;
+  line-height:14px;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain td > a:not(.btn){
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:28px;
+  padding:5px 10px;
+  border:1px solid color-mix(in srgb,var(--suite-accent) 15%,rgba(75,87,108,.13));
+  border-radius:8px;
+  background:color-mix(in srgb,var(--suite-accent) 7%,rgba(255,255,255,.88));
+  color:color-mix(in srgb,var(--suite-accent) 64%,#24334b);
+  font-size:11px;
+  line-height:14px;
+  font-weight:650;
+  white-space:nowrap;
+  transition:transform var(--motion-fast),background var(--motion-fast),box-shadow var(--motion-fast);
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain td > a:not(.btn):hover{
+  transform:translateY(-1px);
+  background:color-mix(in srgb,var(--suite-accent) 12%,#fff);
+  box-shadow:0 5px 12px color-mix(in srgb,var(--suite-accent) 10%,transparent);
+}
+body:is(
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_store_orders_admin"]
+) #appMain > form.form-card{
+  display:grid;
+  grid-template-columns:minmax(240px,1fr) auto;
+  align-items:end;
+  gap:12px;
+  margin:0 0 18px;
+  padding:16px 18px;
+}
+body[data-page="livenza_property_edit_admin"] #appMain > form.form-card{
+  margin:0 0 18px;
+  padding:18px;
+}
+body[data-page="livenza_property_edit_admin"] #appMain > form.form-card.form-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain label{
+  min-width:0;
+  gap:6px;
+  color:#3a4860;
+  font-size:11px;
+  line-height:14px;
+  font-weight:650;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain :is(input,select,textarea){
+  min-height:34px;
+  padding:7px 10px;
+  border:1px solid rgba(81,94,117,.18);
+  border-radius:9px;
+  background:rgba(255,255,255,.92);
+  color:#202b3e;
+  font-size:12px;
+  line-height:16px;
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain :is(input,select,textarea):focus{
+  border-color:color-mix(in srgb,var(--suite-accent) 72%,#fff);
+  outline:0;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--suite-accent) 15%,transparent);
+}
+body:is(
+  [data-page="livenza_properties_admin"],
+  [data-page="livenza_property_edit_admin"],
+  [data-page="livenza_bookings_admin"],
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customers_admin"],
+  [data-page="livenza_customer_detail_admin"],
+  [data-page="livenza_store_orders_admin"],
+  [data-page="livenza_order_detail_admin"],
+  [data-page="livenza_support_admin"]
+) #appMain :is(.primary,.secondary,.btn,button){
+  min-height:30px;
+  padding:6px 11px;
+  border-radius:8px;
+  font-size:11px;
+  line-height:15px;
+  font-weight:650;
+  letter-spacing:0;
+}
+body:is(
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customer_detail_admin"]
+) #appMain .stats-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:12px;
+  margin:0 0 18px;
+}
+body:is(
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customer_detail_admin"]
+) #appMain .stats-grid .stat{
+  min-width:0;
+  min-height:86px;
+  padding:15px 16px;
+  border:1px solid color-mix(in srgb,var(--suite-accent) 13%,var(--v1-admin-line));
+  border-radius:14px;
+  background:linear-gradient(145deg,color-mix(in srgb,var(--suite-accent) 5%,#fff),rgba(255,255,255,.90));
+  box-shadow:0 7px 22px rgba(31,45,72,.04);
+}
+body:is(
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customer_detail_admin"]
+) #appMain .stats-grid .stat b{
+  display:block;
+  margin:0 0 5px;
+  color:#1c2940;
+  font-size:19px;
+  line-height:23px;
+}
+body:is(
+  [data-page="livenza_booking_detail_admin"],
+  [data-page="livenza_customer_detail_admin"]
+) #appMain .stats-grid .stat span{
+  color:#748095;
+  font-size:10px;
+  line-height:13px;
+  font-weight:650;
+}
+body[data-page="livenza_support_admin"] #appMain td form{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-width:210px;
+}
+body[data-page="livenza_support_admin"] #appMain td form select{
+  min-width:120px;
+  flex:1 1 auto;
+}
+body[data-page="livenza_support_admin"] #appMain td form button{
+  flex:0 0 auto;
+}
+@media(max-width:980px){
+  body[data-page="livenza_property_edit_admin"] #appMain > form.form-card.form-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media(max-width:720px){
+  body:is(
+    [data-page="livenza_properties_admin"],
+    [data-page="livenza_property_edit_admin"],
+    [data-page="livenza_bookings_admin"],
+    [data-page="livenza_booking_detail_admin"],
+    [data-page="livenza_customers_admin"],
+    [data-page="livenza_customer_detail_admin"],
+    [data-page="livenza_store_orders_admin"],
+    [data-page="livenza_order_detail_admin"],
+    [data-page="livenza_support_admin"]
+  ) #appMain{
+    padding:16px 12px calc(var(--mac-dock-height) + 38px);
+  }
+  body:is(
+    [data-page="livenza_properties_admin"],
+    [data-page="livenza_property_edit_admin"],
+    [data-page="livenza_bookings_admin"],
+    [data-page="livenza_booking_detail_admin"],
+    [data-page="livenza_customers_admin"],
+    [data-page="livenza_customer_detail_admin"],
+    [data-page="livenza_store_orders_admin"],
+    [data-page="livenza_order_detail_admin"],
+    [data-page="livenza_support_admin"]
+  ) #appMain > .page-head{
+    min-height:0;
+    align-items:flex-start;
+    flex-direction:column;
+    gap:12px;
+    padding:18px 18px 17px;
+  }
+  body:is(
+    [data-page="livenza_bookings_admin"],
+    [data-page="livenza_customers_admin"],
+    [data-page="livenza_store_orders_admin"]
+  ) #appMain > form.form-card{
+    grid-template-columns:1fr;
+    align-items:stretch;
+  }
+  body[data-page="livenza_property_edit_admin"] #appMain > form.form-card.form-grid{
+    grid-template-columns:1fr;
+  }
+  body[data-page="livenza_property_edit_admin"] #appMain > form.form-card.form-grid .span2{
+    grid-column:auto;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  body:is(
+    [data-page="livenza_properties_admin"],
+    [data-page="livenza_property_edit_admin"],
+    [data-page="livenza_bookings_admin"],
+    [data-page="livenza_booking_detail_admin"],
+    [data-page="livenza_customers_admin"],
+    [data-page="livenza_customer_detail_admin"],
+    [data-page="livenza_store_orders_admin"],
+    [data-page="livenza_order_detail_admin"],
+    [data-page="livenza_support_admin"]
+  ) #appMain *{
+    transition-duration:0ms!important;
+  }
+}

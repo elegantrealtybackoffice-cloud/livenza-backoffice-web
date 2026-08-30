@@ -443,7 +443,7 @@ initPageFeatures(document);
     office:{match:/quer|review|whatsapp|email|drive|admin|setting|account/,eyebrow:'CONNECTED WORKSPACE',title:'One calm command centre for every operation.',alt:'Modern connected office workspace',image:'https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/modern-office-space-with-city-view-and-desks-56U797Gamac'}
   };
 
-  function visualForPath(){const path=location.pathname.toLowerCase();if(path.startsWith('/agreements'))return null;return Object.values(photos).find(item=>item.match.test(path))}
+  function visualForPath(){const path=location.pathname.toLowerCase();if(path.startsWith('/agreements')||path.startsWith('/admin/livenza/'))return null;return Object.values(photos).find(item=>item.match.test(path))}
   function mountContextVisual(root=document){
     if(root.querySelector?.('.module-visual-ribbon,.experience-gallery,.agreement-brand-banner'))return;
     const pageHead=root.querySelector?.('.page-head');if(!pageHead)return;
