@@ -43,7 +43,12 @@ OS_NAME = 'Tesla OS 27'
 OS_VERSION = '27.0.1'
 OS_BUILD = '27A101'
 HOTFIX_LABEL = 'Hotfix 10 Light Shell'
-ASSET_REVISION = '27A101-H10L-20260827D'
+def _resolve_asset_revision():
+    render_commit=(os.getenv('RENDER_GIT_COMMIT') or '').strip()
+    if render_commit:
+        return render_commit
+    return f'{OS_BUILD}-local'
+ASSET_REVISION = _resolve_asset_revision()
 APP_VERSION = OS_VERSION
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
