@@ -1023,6 +1023,10 @@ body.macos27-clean:not([data-page="dashboard"]) #appMain{padding-bottom:calc(var
 @media(max-width:700px){.mac-toolbar.mac-route-toolbar{grid-template-columns:72px minmax(0,1fr) 60px}.mac-toolbar.mac-route-toolbar .mac-route-window-actions a{display:none}}
 
 
+/* Hotfix 3 · V1 admin heading readability */
+body[data-page^="livenza_"] #appMain > .page-head{z-index:2;margin:0 0 16px;padding:14px 16px;border:1px solid var(--suite-border);border-radius:16px;background:var(--mac-surface-strong);box-shadow:0 8px 24px rgba(30,42,70,.06)}
+body[data-page^="livenza_"] #appMain > .page-head::before{left:16px;bottom:-1px}
+
 /* Hotfix 9.1 · vibrant suite refinement */
 body.macos27-clean:not([data-page="dashboard"]) #appMain{
   --suite-card-vibrance:10%;

@@ -36,14 +36,19 @@
         {{ app_item(surface,'Landlord Master','Reusable owner and entity profiles','landlord_masters','agreements','property','agreement_tile.png') }}
         {{ app_item(surface,'Tenant Master','Reusable tenant and corporate profiles','tenant_masters','agreements','resident','room_tile.png') }}
         {{ app_item(surface,'Rooms','Inventory and vacancy','rooms','rooms','room','room_tile.png') }}
+        {{ app_item(surface,'Stays Properties','Properties, room categories, rates and inventory','livenza_properties_admin','stays_admin','room') }}
+        {{ app_item(surface,'Stays Bookings','Booking status, dates and payments','livenza_bookings_admin','stays_admin','agreement') }}
         {{ app_item(surface,'Residents','Occupancy records','tenants','rooms','resident','room_tile.png') }}
         {{ app_item(surface,'Queries','Live leads and follow-up','queries','queries','queries') }}
+        {{ app_item(surface,'Customers','Livenza ID and customer history','livenza_customers_admin','customers','account') }}
+        {{ app_item(surface,'Support','Customer tickets and follow-up','livenza_support_admin','customers','queries') }}
         {{ app_item(surface,'Reviews','Google review studio','reviews','reviews','review','review_tile.png') }}
         {{ app_item(surface,'Video Wall','Screens and commercials','video_wall','video_wall','video') }}
         {{ app_item(surface,'Food','Delivery partner hub','food','food','food','food_tile.png') }}
       {% elif key == 'finance' %}
         {{ app_item(surface,'Billing','Collections and accounts','billing','rentok','billing','rentok_tile.png') }}
         {{ app_item(surface,'Banking','Statements and reconciliation','banking_suite','banking','banking') }}
+        {{ app_item(surface,'Store Orders','Orders, fulfilment and stock actions','livenza_store_orders_admin','store_admin','banking') }}
         {{ app_item(surface,'Electricity','Bills, due dates and payments','electricity_studio','electricity','electricity') }}
       {% elif key == 'communication' %}
         {{ app_item(surface,'WhatsApp','Cloud conversations','whatsapp_workspace','whatsapp','whatsapp') }}

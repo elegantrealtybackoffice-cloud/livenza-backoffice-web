@@ -6692,8 +6692,10 @@ def livenza_property_edit_admin(property_id):
         return redirect(url_for('livenza_property_edit_admin',property_id=prop.id))
     categories=StayRoomCategory.query.filter_by(property_id=prop.id).order_by(StayRoomCategory.name).all()
     rate_plans=StayRatePlan.query.filter_by(property_id=prop.id).order_by(StayRatePlan.code).all()
+    inventory_units=StayInventoryUnit.query.filter_by(property_id=prop.id).order_by(StayInventoryUnit.unit_type,StayInventoryUnit.code).all()
+    category_names={c.id:c.name for c in categories}
     media=PropertyMedia.query.filter_by(property_id=prop.id).order_by(PropertyMedia.sort_order,PropertyMedia.id).all()
-    return render_template('livenza_property_edit.html',property=prop,categories=categories,rate_plans=rate_plans,media=media)
+    return render_template('livenza_property_edit.html',property=prop,categories=categories,rate_plans=rate_plans,inventory_units=inventory_units,category_names=category_names,media=media)
 
 @app.route('/admin/livenza/bookings')
 @permission_required('stays_admin')

@@ -13,3 +13,6 @@
 .empty-state { background:#fff; border:1px solid var(--border); border-radius:22px; padding:2rem; color:var(--muted); }
 @media(max-width:1000px){.stay-search{grid-template-columns:1fr 1fr}.stay-search-wide{grid-column:span 1}.results-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:640px){.stays-inner{width:min(calc(100% - 1.25rem),var(--content-max))}.stay-search{grid-template-columns:1fr;border-radius:18px}.results-grid{grid-template-columns:1fr}.stays-hero{padding-top:4.2rem}.results-head{align-items:start;flex-direction:column}}
+
+/* Hotfix 3 mobile polish */
+@media(max-width:480px){.stays-hero{padding-top:3.8rem;padding-bottom:2.8rem}.stays-hero h1{font-size:clamp(3.2rem,15vw,3.8rem);line-height:.88}.stays-hero p{font-size:1rem;line-height:1.5}.stay-search{margin-top:1.6rem;padding:.85rem}.search-submit{min-height:48px}}

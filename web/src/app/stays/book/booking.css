@@ -5,3 +5,8 @@
 
 .my-support-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:2rem;align-items:start}.booking-panel textarea{width:100%;border:1px solid var(--border);border-radius:12px;background:white;padding:.75rem;color:var(--ink);font:inherit}.ecosystem-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:.75rem 1rem;border:1px solid var(--border);border-radius:12px;text-decoration:none;font-weight:800}
 @media(max-width:760px){.my-support-grid{grid-template-columns:1fr}}
+
+/* Hotfix 3 · completed booking steps can navigate backward */
+.booking-steps li{padding:0;overflow:hidden}
+.booking-steps button{display:block;border:0;background:transparent;color:inherit;padding:.55rem .75rem;font:inherit;font-weight:inherit;white-space:nowrap;cursor:pointer}
+.booking-steps button:disabled{opacity:1;cursor:default}

@@ -43,3 +43,12 @@
 .inlineLink { display: inline-flex; align-items: center; gap: .4rem; font-weight: 850; text-decoration: none; border-bottom: 1px solid currentColor; padding-bottom: .2rem; width: fit-content; }
 @media (max-width: 900px) { .universe { grid-template-columns: repeat(2,1fr); }.split,.quoteGrid { grid-template-columns:1fr; }.lifeWords,.emerging { grid-template-columns: repeat(2,1fr); }.standardGrid { grid-template-columns: repeat(2,1fr); }.visual { min-height: 380px; } }
 @media (max-width: 640px) { .heroContent,.inner { width: min(calc(100% - 1.25rem), var(--content-max)); }.hero { min-height: 760px; }.heroContent { padding-bottom: 3rem; }.universe,.cityGrid,.lifeWords,.emerging,.standardGrid { grid-template-columns: 1fr; }.brandCard { min-height: 210px; }.cityCard { min-height: 330px; }.section { padding: 4.5rem 0; } }
+
+/* Hotfix 3 mobile polish */
+@media (max-width: 480px) {
+  .hero { min-height: 700px; }
+  .hero h1, .mega { font-size: clamp(3.5rem, 16vw, 4.25rem); line-height: .86; }
+  .hero p { font-size: 1rem; line-height: 1.5; }
+  .actions { gap: .55rem; margin-top: 1.25rem; }
+  .primary, .secondary { min-height: 44px; padding: .72rem .9rem; font-size: .82rem; }
+}
