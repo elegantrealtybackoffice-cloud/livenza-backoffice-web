@@ -28,3 +28,53 @@ html[data-wallpaper-fit="fit"] .desktop-wallpaper-layer{background-size:contain}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}.apps-drawer{animation:none!important}.mac-dock-icon,.home-widget-stack,.home-companion-launcher,.light-suite-card{transition:none!important;transform:none!important}.light-suite-card::after{transition:none!important}}
 @media(prefers-contrast:more){.mac-desktop-menubar,.mac-dock,.apps-drawer,.home-widget,.home-companion-panel{background:#061a3a;border-color:rgba(255,255,255,.42)}}
 .home-runtime-failed [data-suites-dock]{outline:1px solid rgba(255,183,77,.65)}
+
+/* HOTFIX 4.1 — SUITES CARD TYPOGRAPHY
+   Keep the icon, title and description on a disciplined vertical grid. */
+.light-suite-card{
+  gap:14px;
+  justify-content:flex-start;
+  align-items:stretch;
+}
+.light-suite-card > i{
+  flex:0 0 auto;
+}
+.light-suite-card > span{
+  display:flex;
+  flex:1 1 auto;
+  min-width:0;
+  width:100%;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:flex-start;
+  gap:5px;
+}
+.light-suite-card > span > b{
+  display:block;
+  width:100%;
+  margin:0;
+  font-size:14px;
+  line-height:1.25;
+  font-weight:750;
+  letter-spacing:-0.015em;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.light-suite-card > span > small{
+  display:block;
+  width:100%;
+  margin:0;
+  font-size:11px;
+  line-height:1.42;
+  font-weight:450;
+  color:var(--home-muted);
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.light-suite-card:hover{
+  transform:translateY(-2px);
+}
+@media (max-width:1100px){
+  .light-suite-card > span > b{font-size:13.5px}
+  .light-suite-card > span > small{font-size:10.75px}
+}
