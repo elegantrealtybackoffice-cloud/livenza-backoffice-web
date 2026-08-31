@@ -48,7 +48,7 @@ OS_NAME = 'Tesla OS 27'
 OS_VERSION = '27.0.1'
 OS_BUILD = '27A101'
 HOTFIX_LABEL = 'Hotfix 10 Light Shell'
-ASSET_REVISION = '27A101-H10L-20260827D'
+ASSET_REVISION = '27A101-H10L-20260831UIP1'
 APP_VERSION = OS_VERSION
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -2060,10 +2060,25 @@ class Setting(db.Model):
     value = db.Column(db.Text, default='')
 
 
+SETTING_CACHE_TTL_SECONDS = max(3.0, min(120.0, float(os.getenv('SETTING_CACHE_TTL_SECONDS','20') or 20)))
+_SETTING_CACHE = {}
+_SETTING_CACHE_LOCK = threading.Lock()
+_SETTING_MISSING = object()
+
 def setting(key, default=''):
+    now = time.monotonic()
+    with _SETTING_CACHE_LOCK:
+        cached = _SETTING_CACHE.get(key)
+        if cached and cached[1] > now:
+            return default if cached[0] is _SETTING_MISSING else cached[0]
+        if cached:
+            _SETTING_CACHE.pop(key, None)
     try:
         row = db.session.get(Setting, key)
-        return row.value if row else default
+        value = _SETTING_MISSING if row is None else row.value
+        with _SETTING_CACHE_LOCK:
+            _SETTING_CACHE[key] = (value, now + SETTING_CACHE_TTL_SECONDS)
+        return default if value is _SETTING_MISSING else value
     except Exception as exc:
         # Settings are presentation/runtime preferences. A stale or temporarily
         # unavailable settings table must never take down login or the shell.
@@ -2082,6 +2097,8 @@ def set_setting(key, value):
     if row: row.value = value
     else: db.session.add(Setting(key=key, value=value))
     db.session.commit()
+    with _SETTING_CACHE_LOCK:
+        _SETTING_CACHE.pop(key, None)
 
 
 GOOGLE_SCOPES = [
@@ -3383,6 +3400,10 @@ def ui_app_available(endpoint, user=None):
     if not item:
         return True
     user=user or current_user()
+    if not user:
+        return False
+    if item.get('admin_only') and (user.role or '').lower()!='admin':
+        return False
     permission=item.get('permission') or ''
     if permission and not can_access(permission,user):
         return False
@@ -3395,8 +3416,32 @@ def ui_app_available(endpoint, user=None):
 
 
 def visible_dock_apps(user=None):
+    """Build the Dock once per request without repeated route/permission/provider lookups."""
     user=user or current_user()
-    return [dict(item) for item in LIVENZA_APP_REGISTRY if ui_app_available(item['endpoint'],user)]
+    if not user:
+        return []
+    route_names={rule.endpoint for rule in app.url_map.iter_rules()}
+    permissions=user_permissions(user)
+    admin=(user.role or '').lower()=='admin'
+    whatsapp_ready=whatsapp_cloud_configured()
+    google_ready=google_oauth_configured() and google_connected()
+    items=[]
+    for item in LIVENZA_APP_REGISTRY:
+        endpoint=item['endpoint']
+        if endpoint not in route_names:
+            continue
+        if item.get('admin_only') and not admin:
+            continue
+        permission=item.get('permission') or ''
+        if permission and permission not in permissions:
+            continue
+        availability=item.get('availability') or 'internal'
+        if availability=='whatsapp' and not whatsapp_ready:
+            continue
+        if availability=='google' and not google_ready:
+            continue
+        items.append(dict(item))
+    return items
 
 
 def lightweight_dock_apps(user=None):
@@ -3431,6 +3476,15 @@ def inject_common():
             can_access=can_access, module_labels=MODULES, is_admin=False, masked_aadhaar=masked_aadhaar,
             kiosk_mode_enabled=False, companion_enabled=False,
             companion_default_city='Gurugram', companion_weather_effects=False, mascot_preferences={}, dock_apps=[], ui_app_available=lambda endpoint: False, ui_app_meta=ui_app_meta
+        )
+    if request.headers.get('X-Livenza-Partial') == '1':
+        user=current_user()
+        return dict(
+            current_user=user, app_version=APP_VERSION, asset_revision=ASSET_REVISION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
+            can_access=can_access, module_labels=MODULES,
+            is_admin=bool(user and (user.role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar,
+            kiosk_mode_enabled=False, companion_enabled=False, companion_default_city='Gurugram', companion_weather_effects=False,
+            mascot_preferences={}, dock_apps=lightweight_dock_apps(user), ui_app_available=lambda endpoint: endpoint in {row['endpoint'] for row in LIVENZA_APP_REGISTRY}, ui_app_meta=ui_app_meta
         )
     if request.endpoint == 'dashboard':
         user=current_user()

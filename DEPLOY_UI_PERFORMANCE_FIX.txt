@@ -1,0 +1,21 @@
+LIVENZA BACKOFFICE UI + PERFORMANCE HARDENING
+=============================================
+
+1. Extract the update ZIP.
+2. Open the root of the current livenza-backoffice-web repository.
+3. Copy everything from the extracted package into the repository root.
+4. Preserve the included folders exactly: templates/, static/, tests/.
+5. Choose Replace when Windows asks for app.py, base.html, templates/base.html, or static/macos27_shell.js.
+6. Do NOT delete any other repository files.
+7. In GitHub Desktop, commit with:
+   Harden UI readability and navigation performance
+8. Push origin.
+9. Render should auto-deploy.
+10. No SQL migration or environment-variable change is required for this update.
+
+After deployment, verify:
+- Staff Salary > Register Staff: labels and inputs readable in both light/dark modes.
+- Switch repeatedly between Agreement, Rooms, Queries, Banking, Staff Salary, Electricity and Settings.
+- Dock remains complete and responsive.
+- No duplicate Dock or command palette appears inside opened windows.
+- Browser back/forward continues to work.

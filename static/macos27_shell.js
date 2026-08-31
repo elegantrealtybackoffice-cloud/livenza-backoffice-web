@@ -718,7 +718,9 @@
   }
 
   const WINDOW_LOAD_TIMEOUT_MS = 8000;
-  const WINDOW_CACHE_TTL_MS = 45_000;
+  const WINDOW_CACHE_TTL_MS = 180_000;
+  const PREFETCH_DELAY_MS = 140;
+  let prefetchTimer = 0;
   const windowDocumentCache = new Map();
   const windowDocumentPending = new Map();
 
@@ -1046,12 +1048,17 @@
     }, true);
   }
 
-  function prefetchFromAnchor(anchor) {
+  function prefetchFromAnchor(anchor, immediate = false) {
     if (!desktopHostEnabled || !anchor || !anchor.matches('[data-app-nav], [data-dock-app]')) return;
-    prefetchWindowDocument(anchor.href);
+    window.clearTimeout(prefetchTimer);
+    if (immediate) { prefetchWindowDocument(anchor.href); return; }
+    prefetchTimer = window.setTimeout(() => prefetchWindowDocument(anchor.href), PREFETCH_DELAY_MS);
   }
   document.addEventListener('pointerover', (event) => prefetchFromAnchor(event.target.closest?.('[data-app-nav], [data-dock-app]')), {passive:true});
-  document.addEventListener('focusin', (event) => prefetchFromAnchor(event.target.closest?.('[data-app-nav], [data-dock-app]')));
+  document.addEventListener('pointerout', (event) => {
+    if (event.target.closest?.('[data-app-nav], [data-dock-app]')) window.clearTimeout(prefetchTimer);
+  }, {passive:true});
+  document.addEventListener('focusin', (event) => prefetchFromAnchor(event.target.closest?.('[data-app-nav], [data-dock-app]'), true));
 
 
   /* ---------- Contextual desktop menus ---------- */

@@ -1,0 +1,246 @@
+/* Tesla OS 27 shared readability + layout guardrail.
+   Loaded after suite styles so every route keeps accessible contrast and stable geometry. */
+body.macos27-clean:not([data-page="dashboard"]) #appMain,
+body.macos27-clean:not([data-page="dashboard"]) .mac-suite-surface{
+  color:var(--mac-label);
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain *,
+body.macos27-clean:not([data-page="dashboard"]) #appMain *::before,
+body.macos27-clean:not([data-page="dashboard"]) #appMain *::after{
+  box-sizing:border-box;
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(section,article,form,fieldset,div,label,span,a,button,table,thead,tbody,tr,td,th){
+  min-width:0;
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(h1,h2,h3,h4,h5,h6,p,small,label,legend,td,th,a,button){
+  overflow-wrap:anywhere;
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(label,legend){
+  color:var(--mac-label);
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(input,select,textarea){
+  max-width:100%;
+  min-width:0;
+  color:var(--mac-label);
+  background:var(--mac-surface-strong);
+  border-color:var(--mac-separator);
+  caret-color:var(--suite-accent,#248cff);
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(input,textarea)::placeholder{
+  color:var(--mac-tertiary-label);
+  opacity:1;
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(input,select,textarea):focus{
+  outline:0;
+  border-color:color-mix(in srgb,var(--suite-accent,#248cff) 72%,transparent);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--suite-accent,#248cff) 16%,transparent);
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(.form-grid,.grid,.actions,.toolbar-actions,.card-head,.section-title)>*{
+  min-width:0;
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(h1,h2,h3,[id]){
+  scroll-margin-top:76px;
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(.table-wrap,.table-scroll,.scroll-x){
+  overscroll-behavior-inline:contain;
+  -webkit-overflow-scrolling:touch;
+}
+
+/* Staff Salary Studio: theme-native, compact and legible in both appearances. */
+body.macos27-clean .staff-salary-suite{
+  width:min(100%,1380px);
+  max-width:1380px;
+  margin-inline:auto;
+  padding:24px clamp(16px,2.3vw,30px) calc(var(--mac-dock-height,74px) + 42px);
+  color:var(--mac-label);
+}
+body.macos27-clean .staff-salary-suite .staff-hero{
+  align-items:center;
+  margin:0 0 18px;
+  padding:2px 2px 0;
+}
+body.macos27-clean .staff-salary-suite .staff-hero h1{
+  color:var(--mac-label);
+  font-size:clamp(28px,3vw,40px);
+  line-height:1.05;
+}
+body.macos27-clean .staff-salary-suite .staff-hero p,
+body.macos27-clean .staff-card p,
+body.macos27-clean .staff-card small,
+body.macos27-clean .staff-kpis :is(span,small){
+  color:var(--mac-secondary-label);
+}
+body.macos27-clean .staff-card,
+body.macos27-clean .staff-kpis article,
+body.macos27-clean .staff-tabs,
+body.macos27-clean .report-grid a{
+  background:var(--mac-surface-strong);
+  color:var(--mac-label);
+  border:1px solid var(--mac-separator);
+  box-shadow:0 12px 30px color-mix(in srgb,#0b1220 9%,transparent);
+  backdrop-filter:blur(18px) saturate(135%);
+  -webkit-backdrop-filter:blur(18px) saturate(135%);
+}
+body.macos27-clean .staff-card{
+  padding:clamp(18px,2vw,24px);
+  border-radius:18px;
+  margin-bottom:16px;
+}
+body.macos27-clean .staff-tabs{
+  gap:6px;
+  padding:6px;
+  border-radius:15px;
+  scrollbar-width:thin;
+}
+body.macos27-clean .staff-tab{
+  color:var(--mac-secondary-label);
+}
+body.macos27-clean .staff-tab.active{
+  color:var(--mac-label);
+  background:color-mix(in srgb,var(--suite-accent,#248cff) 13%,var(--mac-surface-strong));
+  box-shadow:none;
+}
+body.macos27-clean .staff-card :is(h2,h3,strong),
+body.macos27-clean .section-title :is(h2,h3){
+  color:var(--mac-label);
+}
+body.macos27-clean .staff-card .section-title{
+  padding-bottom:12px;
+  margin-bottom:16px;
+  border-bottom:1px solid var(--mac-separator);
+}
+body.macos27-clean .staff-form .form-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  column-gap:18px;
+  row-gap:13px;
+}
+body.macos27-clean .staff-form label{
+  gap:7px;
+  margin:0;
+  color:var(--mac-label);
+  font-size:12px;
+  line-height:1.25;
+  font-weight:700;
+  letter-spacing:.005em;
+}
+body.macos27-clean .staff-form :is(input,select,textarea){
+  min-height:42px;
+  padding:10px 12px;
+  border-radius:10px;
+  background:var(--mac-surface-strong);
+  color:var(--mac-label);
+  border:1px solid var(--mac-separator);
+  font-size:14px;
+  line-height:1.35;
+}
+body.macos27-clean .staff-form textarea{
+  min-height:86px;
+}
+body.macos27-clean .profile-photo-field{
+  align-items:center;
+  padding:4px 0 18px;
+  gap:18px;
+}
+body.macos27-clean .profile-photo-field>img,
+body.macos27-clean .profile-photo-field>span{
+  width:86px;
+  height:86px;
+  border-radius:20px;
+  background:var(--mac-surface-muted,var(--mac-surface-strong));
+  color:var(--mac-secondary-label);
+  border:1px solid var(--mac-separator);
+}
+body.macos27-clean .staff-form input[type="file"]{
+  padding:7px 9px;
+  min-height:44px;
+}
+body.macos27-clean .staff-card table td{
+  border-color:var(--mac-separator);
+  color:var(--mac-label);
+}
+body.macos27-clean .staff-card table th,
+body.macos27-clean .staff-card table td small{
+  color:var(--mac-secondary-label);
+}
+body.macos27-clean .staff-card .btn:not(.primary){
+  background:var(--mac-surface-strong);
+  color:var(--mac-label);
+  border-color:var(--mac-separator);
+}
+
+html[data-appearance="dark"] body.macos27-clean .staff-card,
+html[data-appearance="dark"] body.macos27-clean .staff-kpis article,
+html[data-appearance="dark"] body.macos27-clean .staff-tabs,
+html[data-appearance="dark"] body.macos27-clean .report-grid a{
+  background:color-mix(in srgb,#252c38 92%,transparent);
+  color:#f7f8fc;
+  border-color:rgba(255,255,255,.12);
+  box-shadow:0 14px 36px rgba(0,0,0,.22);
+}
+html[data-appearance="dark"] body.macos27-clean .staff-salary-suite :is(h1,h2,h3,h4,label,legend,strong){
+  color:#f7f8fc;
+}
+html[data-appearance="dark"] body.macos27-clean .staff-salary-suite :is(p,small,.staff-tab,.staff-kpis span){
+  color:#c4ccdc;
+}
+html[data-appearance="dark"] body.macos27-clean .staff-form :is(input,select,textarea){
+  background:rgba(10,18,32,.72);
+  color:#f7f8fc;
+  border-color:rgba(255,255,255,.15);
+}
+html[data-appearance="dark"] body.macos27-clean .staff-form :is(input,textarea)::placeholder{
+  color:#98a4b8;
+}
+
+@media(max-width:1080px){
+  body.macos27-clean .staff-form .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media(max-width:700px){
+  body.macos27-clean .staff-salary-suite{padding:16px 12px calc(var(--mac-dock-height,74px) + 30px);}
+  body.macos27-clean .staff-form .form-grid{grid-template-columns:1fr;}
+  body.macos27-clean .staff-salary-suite .staff-hero{align-items:flex-start;flex-direction:column;}
+}
+
+/* Final whole-site conflict shield: old glass layers use !important, so normalize content
+   surfaces here while preserving glass only for navigation, Dock, menus and the title bar. */
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(
+  .liquid-card,.glass-panel,.form-card,.table-card,.review-card,.query-card,.module-card,.city-card,
+  .banking-panel,.master-card,.screen-card,.portal-card,.connection-card,.letterhead-card,.settings-card,
+  .agreement-section,.query-sheet,.query-sheet-wrap,.security-card,.account-card,.integration-workspace,
+  .staff-card,.staff-kpis article,.report-grid a
+){
+  background:linear-gradient(180deg,color-mix(in srgb,var(--suite-accent,#248cff) 3.5%,var(--mac-surface-strong)),var(--mac-surface))!important;
+  color:var(--mac-label)!important;
+  border-color:var(--mac-separator)!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:0 1px 2px rgba(0,0,0,.035),0 8px 24px color-mix(in srgb,var(--suite-accent,#248cff) 4%,transparent)!important;
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(
+  .liquid-card,.glass-panel,.form-card,.table-card,.review-card,.query-card,.module-card,.city-card,
+  .banking-panel,.master-card,.screen-card,.portal-card,.connection-card,.letterhead-card,.settings-card,
+  .agreement-section,.query-sheet,.security-card,.account-card,.integration-workspace,.staff-card
+) :is(h1,h2,h3,h4,h5,h6,label,legend,b,strong){
+  color:var(--mac-label)!important;
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(
+  .liquid-card,.glass-panel,.form-card,.table-card,.review-card,.query-card,.module-card,.city-card,
+  .banking-panel,.master-card,.screen-card,.portal-card,.connection-card,.letterhead-card,.settings-card,
+  .agreement-section,.query-sheet,.security-card,.account-card,.integration-workspace,.staff-card
+) :is(p,small,.muted,.subtle){
+  color:var(--mac-secondary-label)!important;
+}
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]){
+  background:var(--mac-surface-strong)!important;
+  color:var(--mac-label)!important;
+  border-color:var(--mac-separator)!important;
+  text-shadow:none!important;
+}
+html[data-appearance="dark"] body.macos27-clean .app-standard-page{color-scheme:dark!important;}
+html[data-appearance="light"] body.macos27-clean .app-standard-page{color-scheme:light!important;}
+
+/* Nested translucency is one of the largest GPU costs on long data/forms pages. */
+body.macos27-clean:not([data-page="dashboard"]) #appMain :is(.app-standard-tabs,.staff-tabs,.safe-tabs){
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+}
