@@ -3303,6 +3303,8 @@ def all_form_data(preset_name=None):
 LIVENZA_APP_REGISTRY = [
     {'title':'Home','endpoint':'dashboard','permission':'','icon':'home','tone':'finder','family':'desktop','accent':'#10C8CF','accent2':'#35D05B','availability':'internal'},
     {'title':'Agreement Studio','endpoint':'agreements','permission':'agreements','icon':'agreement','tone':'blue','family':'productivity','accent':'#0E7594','accent2':'#10C8CF','availability':'internal'},
+    {'title':'Landlord Master','endpoint':'landlord_masters','permission':'agreements','icon':'property','tone':'blue','family':'productivity','accent':'#4C84FF','accent2':'#6A5CFF','availability':'internal'},
+    {'title':'Tenant Master','endpoint':'tenant_masters','permission':'agreements','icon':'resident','tone':'teal','family':'productivity','accent':'#24C7C0','accent2':'#247DFF','availability':'internal'},
     {'title':'Rooms','endpoint':'rooms','permission':'rooms','icon':'room','tone':'cyan','family':'occupancy','accent':'#24C7F4','accent2':'#197BFF','availability':'internal'},
     {'title':'Residents','endpoint':'tenants','permission':'rooms','icon':'resident','tone':'teal','family':'occupancy','accent':'#2FD3B8','accent2':'#0A9C87','availability':'internal'},
     {'title':'Queries','endpoint':'queries','permission':'queries','icon':'queries','tone':'orange','family':'pipeline','accent':'#FF9B42','accent2':'#FF5D3A','availability':'internal'},
@@ -3317,6 +3319,7 @@ LIVENZA_APP_REGISTRY = [
     {'title':'Email','endpoint':'email_workspace','permission':'email','icon':'email','tone':'blue','family':'communication','accent':'#59B1FF','accent2':'#4D62E8','availability':'google'},
     {'title':'Drive','endpoint':'drive_workspace','permission':'drive','icon':'drive','tone':'cyan','family':'communication','accent':'#37D1E8','accent2':'#3478F6','availability':'google'},
     {'title':'Letterhead Studio','endpoint':'letterhead_studio','permission':'letterhead','icon':'letterhead','tone':'red','family':'documents','accent':'#FF5B6C','accent2':'#8B57FF','availability':'internal'},
+    {'title':'Livenza Vault','endpoint':'vault_page','permission':'','icon':'lock','tone':'settings','family':'system','accent':'#243A65','accent2':'#10C8CF','availability':'internal','admin_only':True},
     {'title':'System Settings','endpoint':'settings_page','permission':'','icon':'settings','tone':'settings','family':'system','accent':'#10C8CF','accent2':'#35D05B','availability':'internal'},
 ]
 
@@ -3396,6 +3399,27 @@ def visible_dock_apps(user=None):
     return [dict(item) for item in LIVENZA_APP_REGISTRY if ui_app_available(item['endpoint'],user)]
 
 
+def lightweight_dock_apps(user=None):
+    """Fast Dock registry for Home/Settings: permission-aware, route-safe, provider-agnostic."""
+    user=user or current_user()
+    if not user:
+        return []
+    admin=(user.role or '').lower()=='admin'
+    route_names={rule.endpoint for rule in app.url_map.iter_rules()}
+    items=[]
+    for item in LIVENZA_APP_REGISTRY:
+        endpoint=item['endpoint']
+        if endpoint=='dashboard' or endpoint not in route_names:
+            continue
+        if item.get('admin_only') and not admin:
+            continue
+        permission=item.get('permission') or ''
+        if permission and not can_access(permission,user):
+            continue
+        items.append(dict(item))
+    return items
+
+
 @app.context_processor
 def inject_common():
     # Public authentication screens must render without any database-backed
@@ -3415,7 +3439,7 @@ def inject_common():
             can_access=can_access, module_labels=MODULES,
             is_admin=bool(user and (user.role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar,
             kiosk_mode_enabled=False, companion_enabled=False, companion_default_city='Gurugram', companion_weather_effects=False,
-            mascot_preferences={}, dock_apps=[], ui_app_available=lambda endpoint: endpoint in {row['endpoint'] for row in LIVENZA_APP_REGISTRY}, ui_app_meta=ui_app_meta
+            mascot_preferences={}, dock_apps=lightweight_dock_apps(user), ui_app_available=lambda endpoint: endpoint in {row['endpoint'] for row in LIVENZA_APP_REGISTRY}, ui_app_meta=ui_app_meta
         )
     user=current_user()
     mascot_preferences=mascot_preferences_for(user) if user else {}
