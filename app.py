@@ -23,8 +23,8 @@ except Exception:
     pillow_heif=None
 
 from agreement_core import PRESETS, DEFAULTS, FIELDS, FORMAT_PROFILES, build_agreement_text, build_agreement_text_hindi
-from electricity_core import normalize_bill_payload, bill_dedupe_key, reminder_status, transition_payment_status, build_electricity_csv, build_electricity_xlsx, fetch_bill_from_provider
-from electricity_providers import load_seed_providers, seed_electricity_providers, safe_official_url
+from electricity_core import normalize_bill_payload, bill_dedupe_key, reminder_status, transition_payment_status, build_electricity_csv, build_electricity_xlsx, fetch_bill_from_provider, fetch_bill_from_billdesk
+from electricity_providers import load_seed_providers, seed_electricity_providers, safe_official_url, electricity_city_choices
 from vault_core import encrypt_secret, decrypt_secret, mask_secret, validate_secret_type, ALLOWED_SECRET_TYPES, encrypt_blob, decrypt_blob
 from integrations_core import category_module, user_can_access_category, safe_connection_summary, validate_integration_secret_name, normalize_nonsecret_config
 from integrations_catalog import load_integration_catalog, seed_integration_providers, legacy_connection_status, provider_workflow_url
@@ -5232,12 +5232,13 @@ def _electricity_page_context(bill_draft=None):
     providers=_electricity_provider_rows()
     bills=ElectricityBill.query.order_by(ElectricityBill.due_date.asc().nullslast(),ElectricityBill.id.desc()).limit(300).all()
     cities=City.query.filter_by(active=True).order_by(City.name).all()
+    city_choices=electricity_city_choices(cities,providers)
     vault_entries=VaultSecret.query.order_by(VaultSecret.label).all() if current_user() and (current_user().role or '').lower()=='admin' else []
     due_count=sum(1 for bill in bills if bill.status in ('due_soon','due_today','overdue','payment_pending_confirmation'))
     payment_by_bill={}
     for payment in ElectricityPayment.query.order_by(ElectricityPayment.id.desc()).all():
         payment_by_bill.setdefault(payment.bill_id,payment)
-    return dict(connections=connections,providers=providers,bills=bills,cities=cities,vault_entries=vault_entries,bill_draft=bill_draft or {},is_admin=(current_user().role or '').lower()=='admin',due_count=due_count,payment_by_bill=payment_by_bill)
+    return dict(connections=connections,providers=providers,bills=bills,cities=cities,city_choices=city_choices,vault_entries=vault_entries,bill_draft=bill_draft or {},is_admin=(current_user().role or '').lower()=='admin',due_count=due_count,payment_by_bill=payment_by_bill)
 
 def _electricity_extract_text(raw,filename,mimetype):
     ext=Path(filename or '').suffix.lower()
@@ -5399,6 +5400,74 @@ def _electricity_current_reminders(limit=8):
         out.append({'reminder':r,'payload':payload})
     return out
 
+def _resolve_electricity_city_choice(raw):
+    value=(raw or '').strip()
+    if not value:
+        return None
+    if value.startswith('id:') and value[3:].isdigit():
+        row=db.session.get(City,int(value[3:]))
+        return row.id if row and row.active else None
+    if value.startswith('name:'):
+        name=value[5:].strip()[:120]
+        if not name:
+            return None
+        row=City.query.filter(func.lower(City.name)==name.lower()).first()
+        if not row:
+            row=City(name=name,active=True); db.session.add(row); db.session.flush()
+        elif not row.active:
+            row.active=True
+        return row.id
+    # Backward compatibility with old numeric city_id forms.
+    if value.isdigit():
+        row=db.session.get(City,int(value))
+        return row.id if row else None
+    return None
+
+def _billdesk_electricity_config(provider):
+    is_jvvnl=bool(provider and ('JVVNL' in (provider.name or '').upper() or 'JAIPUR VIDYUT VITRAN' in (provider.name or '').upper()))
+    return {
+        'fetch_url':os.getenv('BILLDESK_BILL_FETCH_URL','').strip(),
+        'client_id':os.getenv('BILLDESK_CLIENT_ID','').strip(),
+        'client_secret':os.getenv('BILLDESK_CLIENT_SECRET','').strip(),
+        'api_key':os.getenv('BILLDESK_API_KEY','').strip(),
+        'merchant_id':os.getenv('BILLDESK_MERCHANT_ID','').strip(),
+        'biller_id':(os.getenv('BILLDESK_JVVNL_BILLER_ID','').strip() if is_jvvnl else '') or (provider.bbps_biller_id if provider else ''),
+        'auth_header':os.getenv('BILLDESK_AUTH_HEADER','Authorization').strip() or 'Authorization',
+        'auth_prefix':os.getenv('BILLDESK_AUTH_PREFIX','Bearer'),
+        'api_key_header':os.getenv('BILLDESK_API_KEY_HEADER','X-API-Key').strip() or 'X-API-Key',
+        'client_id_header':os.getenv('BILLDESK_CLIENT_ID_HEADER','X-Client-Id').strip() or 'X-Client-Id',
+    }
+
+def _is_jvvnl_provider(provider):
+    name=(provider.name or '').upper() if provider else ''
+    return 'JVVNL' in name or 'JAIPUR VIDYUT VITRAN' in name
+
+def ensure_jvvnl_billdesk_provider():
+    """Keep an existing JVVNL row ready for authorised BillDesk/Bharat Connect fetch."""
+    try:
+        row=ElectricityProvider.query.filter(or_(ElectricityProvider.name.ilike('%JVVNL%'),ElectricityProvider.name.ilike('%Jaipur Vidyut Vitran%'))).first()
+        if not row:
+            return 0
+        changed=False
+        payment_url='https://pay.billdesk.com/instapayweb/jvvnl'
+        if row.official_payment_url!=payment_url:
+            row.official_payment_url=payment_url; changed=True
+        if row.official_login_url!=payment_url:
+            row.official_login_url=payment_url; changed=True
+        if not row.supports_bbps_fetch:
+            row.supports_bbps_fetch=True; changed=True
+        if row.workflow_mode!='bbps':
+            row.workflow_mode='bbps'; changed=True
+        configured_biller=os.getenv('BILLDESK_JVVNL_BILLER_ID','').strip()
+        if configured_biller and row.bbps_biller_id!=configured_biller:
+            row.bbps_biller_id=configured_biller[:120]; changed=True
+        if changed:
+            db.session.commit()
+            return 1
+        return 0
+    except Exception as exc:
+        db.session.rollback(); app.logger.warning('JVVNL BillDesk provider update skipped: %s',str(exc)[:180]); return 0
+
 def ensure_electricity_provider_seed():
     try:
         if ElectricityProvider.query.count()>0: return 0
@@ -5424,7 +5493,7 @@ def electricity_connection_save():
         connection=ElectricityConnection(provider_id=provider.id,identifier_primary=identifier,created_by_user_id=current_user().id); db.session.add(connection)
     connection.provider_id=provider.id; connection.property_name=property_name[:180]; connection.connection_name=(request.form.get('connection_name') or property_name)[:180]; connection.consumer_name=(request.form.get('consumer_name') or '')[:180]
     connection.identifier_primary=identifier[:180]; connection.identifier_primary_type=(request.form.get('identifier_primary_type') or 'CONSUMER_NO')[:40]; connection.identifier_secondary=(request.form.get('identifier_secondary') or '')[:180]; connection.identifier_secondary_type=(request.form.get('identifier_secondary_type') or '')[:40]; connection.meter_number=(request.form.get('meter_number') or '')[:120]
-    city_id=(request.form.get('city_id') or '').strip(); connection.city_id=int(city_id) if city_id.isdigit() else None
+    city_choice=(request.form.get('city_choice') or request.form.get('city_id') or '').strip(); connection.city_id=_resolve_electricity_city_choice(city_choice)
     vault_id=(request.form.get('vault_credential_id') or '').strip(); connection.vault_credential_id=int(vault_id) if vault_id.isdigit() else None
     try: connection.reminder_days_before=max(0,min(30,int(request.form.get('reminder_days_before') or 5)))
     except Exception: connection.reminder_days_before=5
@@ -5454,13 +5523,23 @@ def electricity_provider_portal(provider_id):
 @permission_required('electricity')
 def electricity_bill_fetch(cid):
     connection=db.session.get(ElectricityConnection,cid) or abort(404); provider=connection.provider
-    config={'base_url':os.getenv('BBPS_PROVIDER_BASE_URL',''),'client_id':os.getenv('BBPS_PROVIDER_CLIENT_ID',''),'client_secret':os.getenv('BBPS_PROVIDER_CLIENT_SECRET',''),'fetch_path':os.getenv('BBPS_PROVIDER_FETCH_PATH','/bill-fetch')}
-    result=fetch_bill_from_provider(connection,provider,config)
+    if _is_jvvnl_provider(provider):
+        result=fetch_bill_from_billdesk(connection,provider,_billdesk_electricity_config(provider))
+        source_type='billdesk_bharat_connect'
+        integration_label='BillDesk / Bharat Connect'
+    else:
+        config={'base_url':os.getenv('BBPS_PROVIDER_BASE_URL',''),'client_id':os.getenv('BBPS_PROVIDER_CLIENT_ID',''),'client_secret':os.getenv('BBPS_PROVIDER_CLIENT_SECRET',''),'fetch_path':os.getenv('BBPS_PROVIDER_FETCH_PATH','/bill-fetch')}
+        result=fetch_bill_from_provider(connection,provider,config)
+        source_type='bbps'
+        integration_label='Bharat Connect / BBPS'
     connection.last_fetch_at=datetime.datetime.utcnow(); connection.last_fetch_status=result.get('status','failed'); connection.status='active' if result.get('ok') else 'needs_attention'
     if result.get('ok'):
-        bill=upsert_electricity_bill(connection,result.get('bill') or {},'bbps'); record_audit('bill_fetched','electricity_bill',bill.id,meta={'provider_id':provider.id}); db.session.commit(); flash(result.get('message') or 'Current bill fetched.','success')
+        bill=upsert_electricity_bill(connection,result.get('bill') or {},source_type)
+        record_audit('bill_fetched','electricity_bill',bill.id,meta={'provider_id':provider.id,'integration':integration_label})
+        db.session.commit(); flash(result.get('message') or 'Current bill fetched automatically.','success')
     else:
-        record_audit('bill_fetch_failed','electricity_connection',connection.id,status='failed',note=result.get('message','')); db.session.commit(); flash(result.get('message') or 'Automatic bill fetch needs manual action. Use the official portal or upload the bill.','warning')
+        record_audit('bill_fetch_failed','electricity_connection',connection.id,status='failed',note=result.get('message',''),meta={'integration':integration_label})
+        db.session.commit(); flash(result.get('message') or 'Automatic bill fetch is temporarily unavailable.','warning')
     return redirect(url_for('electricity_studio'))
 
 @app.route('/electricity/bills/upload',methods=['POST'])
@@ -9084,6 +9163,7 @@ def bootstrap():
     ensure_v1512_user_columns()
     ensure_v190_user_columns()
     ensure_electricity_provider_seed()
+    ensure_jvvnl_billdesk_provider()
     ensure_integration_provider_seed()
     migrate_legacy_party_profiles()
     if User.query.count()==0:

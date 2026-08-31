@@ -1,0 +1,34 @@
+LIVENZA ELECTRICITY STUDIO — BILLDESK/JVVNL AUTOMATIC FETCH UPGRADE
+2026-08-31
+
+Deploy:
+1. Extract this ZIP into the root of livenza-backoffice-web, preserving folders.
+2. Replace matching files only. Do not delete any other repository files.
+3. Commit: Add BillDesk JVVNL automatic electricity bill fetch
+4. Push origin and let Render auto-deploy.
+
+No database migration is required.
+
+JVVNL workflow:
+- Saved K Number is the primary consumer identifier.
+- Fetch Current Bill stays inside Livenza.
+- The server calls the configured authorised BillDesk/Bharat Connect merchant bill-fetch API.
+- Returned bill data is normalized and stored in the existing Electricity Bill Register.
+- Manual bill upload remains emergency fallback only.
+
+BillDesk production configuration (obtain exact values from BillDesk merchant onboarding):
+BILLDESK_BILL_FETCH_URL=
+BILLDESK_CLIENT_ID=
+BILLDESK_CLIENT_SECRET=
+BILLDESK_API_KEY=
+BILLDESK_MERCHANT_ID=
+BILLDESK_JVVNL_BILLER_ID=
+BILLDESK_AUTH_HEADER=Authorization
+BILLDESK_AUTH_PREFIX=Bearer
+BILLDESK_API_KEY_HEADER=X-API-Key
+BILLDESK_CLIENT_ID_HEADER=X-Client-Id
+
+IMPORTANT:
+- Do not point BILLDESK_BILL_FETCH_URL at the public Instapay HTML page.
+- Use only the server API endpoint supplied by BillDesk/Bharat Connect onboarding.
+- Until credentials are configured, Fetch Current Bill will show "BillDesk API is not connected" and will not redirect users away from Livenza.

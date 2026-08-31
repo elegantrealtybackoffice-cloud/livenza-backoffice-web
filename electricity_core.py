@@ -108,6 +108,82 @@ def build_electricity_xlsx(rows):
     ws.freeze_panes='A2'; ws.auto_filter.ref=ws.dimensions
     buf=io.BytesIO(); wb.save(buf); return buf.getvalue()
 
+
+def _nested_bill_payload(data):
+    """Find a likely bill-details object in a JSON response without logging secrets."""
+    if not isinstance(data,dict):
+        return {}
+    priority=('bill','billDetails','bill_details','billdetail','data','payload','response','result')
+    for key in priority:
+        value=data.get(key)
+        if isinstance(value,dict):
+            nested=_nested_bill_payload(value)
+            if nested:
+                return nested
+    billish={'amount','amountDue','amount_due','total_due_amount','dueDate','due_date','billNumber','bill_number','consumerName','consumer_name','meterNo','meter_number'}
+    if billish.intersection(data.keys()):
+        return data
+    for value in data.values():
+        if isinstance(value,dict):
+            nested=_nested_bill_payload(value)
+            if nested:
+                return nested
+    return {}
+
+def fetch_bill_from_billdesk(connection,provider,config,http=requests):
+    """Fetch a current utility bill through an authorised BillDesk/Bharat Connect merchant API.
+
+    The exact production URL/header names are supplied by BillDesk onboarding and therefore
+    remain configuration-driven. The public Instapay web form is intentionally not scraped.
+    """
+    def get(obj,key,default=''):
+        return obj.get(key,default) if isinstance(obj,dict) else getattr(obj,key,default)
+    cfg=config or {}
+    fetch_url=str(cfg.get('fetch_url') or '').strip()
+    client_id=str(cfg.get('client_id') or '').strip()
+    client_secret=str(cfg.get('client_secret') or '').strip()
+    api_key=str(cfg.get('api_key') or '').strip()
+    merchant_id=str(cfg.get('merchant_id') or '').strip()
+    biller_id=str(cfg.get('biller_id') or get(provider,'bbps_biller_id','') or '').strip()
+    if not fetch_url or not client_id or not client_secret:
+        return {'ok':False,'status':'integration_not_configured','bill':{},'message':'BillDesk API is not connected. Add the BillDesk merchant bill-fetch endpoint and credentials in Render/Livenza Vault.','raw_meta':{'integration':'billdesk'}}
+    if not fetch_url.lower().startswith('https://'):
+        return {'ok':False,'status':'integration_not_configured','bill':{},'message':'BillDesk bill-fetch endpoint must use HTTPS.','raw_meta':{'integration':'billdesk'}}
+    identifier=str(get(connection,'identifier_primary','') or '').strip()
+    if not identifier:
+        return {'ok':False,'status':'invalid_identifier','bill':{},'message':'A saved K Number / consumer identifier is required before fetching the bill.','raw_meta':{'integration':'billdesk'}}
+    payload={
+        'biller_id':biller_id,
+        'consumer_identifier':identifier,
+        'identifier_type':str(get(connection,'identifier_primary_type','K_NO') or 'K_NO'),
+        'secondary_identifier':str(get(connection,'identifier_secondary','') or ''),
+    }
+    if merchant_id:
+        payload['merchant_id']=merchant_id
+    headers={'Content-Type':'application/json','Accept':'application/json'}
+    client_id_header=str(cfg.get('client_id_header') or 'X-Client-Id').strip() or 'X-Client-Id'
+    headers[client_id_header]=client_id
+    auth_header=str(cfg.get('auth_header') or 'Authorization').strip() or 'Authorization'
+    auth_prefix=str(cfg.get('auth_prefix') if cfg.get('auth_prefix') is not None else 'Bearer').strip()
+    headers[auth_header]=(f'{auth_prefix} {client_secret}'.strip() if auth_prefix else client_secret)
+    if api_key:
+        api_key_header=str(cfg.get('api_key_header') or 'X-API-Key').strip() or 'X-API-Key'
+        headers[api_key_header]=api_key
+    try:
+        response=http.post(fetch_url,json=payload,headers=headers,timeout=int(cfg.get('timeout') or 30))
+        if not getattr(response,'ok',False):
+            return {'ok':False,'status':'failed','bill':{},'message':f'BillDesk bill fetch returned HTTP {getattr(response,"status_code",0)}.','raw_meta':{'integration':'billdesk','http_status':getattr(response,'status_code',0)}}
+        data=response.json() if hasattr(response,'json') else {}
+        source=_nested_bill_payload(data)
+        if not source:
+            return {'ok':False,'status':'invalid_response','bill':{},'message':'BillDesk returned a response but no bill details were found.','raw_meta':{'integration':'billdesk','http_status':getattr(response,'status_code',200)}}
+        bill=normalize_bill_payload(source)
+        if not bill.get('identifier_primary'):
+            bill['identifier_primary']=identifier
+        return {'ok':True,'status':'successful','bill':bill,'message':'Current bill fetched automatically through BillDesk / Bharat Connect.','raw_meta':{'integration':'billdesk','http_status':getattr(response,'status_code',200)}}
+    except Exception as exc:
+        return {'ok':False,'status':'failed','bill':{},'message':f'BillDesk bill fetch failed: {str(exc)[:140]}','raw_meta':{'integration':'billdesk'}}
+
 def fetch_bill_from_provider(connection,provider,config,http=requests):
     def get(obj,key,default=''):
         return obj.get(key,default) if isinstance(obj,dict) else getattr(obj,key,default)

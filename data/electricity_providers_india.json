@@ -4,17 +4,29 @@
     "state": "Rajasthan",
     "city": "Jaipur / JVVNL Area",
     "official_website_url": "https://energy.rajasthan.gov.in/",
-    "official_payment_url": "",
-    "official_login_url": "",
+    "official_payment_url": "https://pay.billdesk.com/instapayweb/jvvnl",
+    "official_login_url": "https://pay.billdesk.com/instapayweb/jvvnl",
     "identifier_types": [
       "K_NO",
       "CONSUMER_NO"
     ],
     "bbps_biller_id": "",
-    "supports_bbps_fetch": false,
+    "supports_bbps_fetch": true,
     "supports_bbps_payment": false,
     "embedding_mode": "external",
-    "workflow_mode": "hybrid"
+    "workflow_mode": "bbps",
+    "coverage_cities": [
+      "Jaipur",
+      "Dausa",
+      "Alwar",
+      "Dholpur",
+      "Bundi",
+      "Baran",
+      "Jhalawar",
+      "Sawai Madhopur",
+      "Tonk",
+      "Karauli"
+    ]
   },
   {
     "name": "Ajmer Vidyut Vitran Nigam Limited (AVVNL)",

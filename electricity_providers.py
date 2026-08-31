@@ -37,3 +37,30 @@ def seed_electricity_providers(db_session, provider_model, seed_rows):
         db_session.add(obj); inserted+=1
     if inserted: db_session.commit()
     return inserted
+
+
+JVVNL_COVERAGE_CITIES=(
+    'Jaipur','Dausa','Alwar','Dholpur','Bundi','Baran','Jhalawar',
+    'Sawai Madhopur','Tonk','Karauli'
+)
+
+def electricity_city_choices(city_rows,providers):
+    """Build a de-duplicated Electricity Studio city/coverage list.
+
+    Real City rows keep their database id. Provider coverage and known JVVNL districts
+    are selectable virtual names and are resolved to a City row when a connection is saved.
+    """
+    by_label={}
+    for row in city_rows or []:
+        label=str(getattr(row,'name','') or '').strip()
+        if label:
+            by_label.setdefault(label.lower(),{'label':label,'value':f'id:{getattr(row,"id","")}', 'source':'city'})
+    for provider in providers or []:
+        label=str(getattr(provider,'city','') or '').strip()
+        if label and label.lower() not in by_label:
+            by_label[label.lower()]={'label':label,'value':f'name:{label}','source':'provider'}
+        name=str(getattr(provider,'name','') or '').upper()
+        if 'JVVNL' in name or 'JAIPUR VIDYUT VITRAN' in name:
+            for city in JVVNL_COVERAGE_CITIES:
+                by_label.setdefault(city.lower(),{'label':city,'value':f'name:{city}','source':'jvvnl'})
+    return sorted(by_label.values(),key=lambda item:item['label'].lower())

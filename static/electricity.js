@@ -1,4 +1,21 @@
 (()=>{
+  const filterSelectOptions=(input,select)=>{
+    if(!input||!select)return;
+    const options=[...select.options].slice(1);
+    const apply=()=>{
+      const q=(input.value||'').trim().toLowerCase();
+      options.forEach(o=>{o.hidden=Boolean(q&&!o.textContent.toLowerCase().includes(q))});
+      if(select.selectedOptions[0]?.hidden) select.value='';
+    };
+    input.addEventListener('input',apply);
+    input.addEventListener('search',apply);
+    apply();
+  };
+  window.filterSelectOptions=filterSelectOptions;
+
+  const citySearch=document.getElementById('electricityCitySearch'),citySelect=document.getElementById('electricityCitySelect');
+  filterSelectOptions(citySearch,citySelect);
+
   const state=document.getElementById('electricityProviderState'),provider=document.getElementById('electricityProviderSelect');
   if(state&&provider){const options=[...provider.options].slice(1);const apply=()=>{const s=state.value;options.forEach(o=>o.hidden=Boolean(s&&o.dataset.state!==s));if(provider.selectedOptions[0]?.hidden)provider.value=''};state.addEventListener('change',apply);apply()}
   const table=document.getElementById('electricityRegisterTable'),search=document.getElementById('electricityRegisterSearch'),status=document.getElementById('electricityRegisterStatus');
