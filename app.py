@@ -8992,7 +8992,8 @@ def register_livenza_consumer_api():
         'PropertyMedia': PropertyMedia,
     }, send_customer_otp, notify=send_livenza_transactional_notification)
 
-register_livenza_consumer_api()
+if os.getenv('LIVENZA_CONSUMER_PLATFORM_ENABLED','0').strip().lower() in {'1','true','yes','on'}:
+    register_livenza_consumer_api()
 
 def bootstrap():
     from livenza_admin_core import production_config_errors
