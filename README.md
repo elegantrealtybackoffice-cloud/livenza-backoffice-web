@@ -1,18 +1,19 @@
-# Tesla OS 27 — Version 27.0.1 (Build 27A101)
+# Livenza.life Platform — 2026 Consolidated Release
 
-Livenza Life operations workspace presented through the Tesla OS 27 vibrant macOS 27 desktop interface, rebuilt from the official Apple macOS 27 UI Kit measurements and interaction patterns.
+This repository contains the **Livenza.life consumer platform**, **Livenza.stays**, **Livenza.store**, **My Livenza Tenant OS**, and the existing **Tesla OS 27 / Version 27.0.1 / Build 27A101** operations back-office in one migration-compatible release tree. The public consumer experience and staff workspace remain separate interfaces over the same authoritative backend/domain model.
 
 > **Tesla OS 27 is a cumulative release.** The macOS-style interface is only the newest presentation layer. The backend and operational features from the earlier Web 1.7.0, 1.7.1, 1.8.0 and 1.9.0 releases remain included in this build.
 
 ## Interface
 - **Hotfix 10 Light Shell** Home: dedicated lightweight CSS/JS instead of the legacy module, TV and general application bundles.
+- **Navigation fail-safe:** core Home controls are real links first and JavaScript enhancements second, so a failed Home script cannot make Suites/Dock/menu navigation dead.
 - First-run/reset Home uses the **Livenza.life · LIVE ELEVATED.** scenic wallpaper with a compact 34 px macOS-style menu bar.
 - Curated colorful Dock shortcuts for **Suites, Agreement Studio, Rooms, Queries, Reviews, Banking and System Settings**, with restrained magnification and reduced-motion fallback.
 - Widgets are asleep/hidden by default and open only from the top-bar Widgets control; no weather/live-operation polling runs on idle Home.
 - Livenza Companion is dock-adjacent at the lower-right and loads its panel only when requested rather than occupying the desktop centre.
 - System Settings uses its own bright lightweight stylesheet with aligned sidebars, forms, switches, wallpaper controls and a persistent Dock.
 - The approved Livenza brand system uses navy `#061A3A`, emerald `#35D05B` and cyan `#10C8CF` while keeping working content surfaces bright and professional.
-- Every Hotfix 10 CSS/JS URL carries asset revision **`27A101-H10L-20260827E`** so immutable browser/CDN caches cannot silently reuse an older Hotfix shell.
+- Every Hotfix 10 CSS/JS URL carries asset revision **`27A101-H10L-20260827D`** so immutable browser/CDN caches cannot silently reuse an older Hotfix shell.
 - Tesla OS identity remains **Tesla OS 27 / Version 27.0.1 / Build 27A101**.
 
 ## Complete Backend Included
@@ -81,6 +82,7 @@ Depending on the signed-in user's permissions, the Suites launcher can expose:
 - Food
 - Billing
 - Banking
+- Staff Salary Studio
 - Electricity
 - WhatsApp
 - Email
@@ -109,11 +111,11 @@ Repackages the complete cumulative Livenza operations platform under the Tesla O
 ## Deployment Compatibility
 - Existing business data and databases are retained; do not delete historical migration files.
 - Existing secure POST handlers, role permissions and server-side authorization remain authoritative.
-- Existing Agreements, Rooms, Queries, Billing, Banking, Electricity, Food, Video Wall, WhatsApp, Email, Drive, Integrations and Letterhead workflows remain available through Suites according to permissions.
+- Existing Agreements, Rooms, Queries, Billing, Banking, Staff Salary Studio, Electricity, Food, Video Wall, WhatsApp, Email, Drive, Integrations and Letterhead workflows remain available through Suites according to permissions.
 - Historical database migration filenames are retained only for schema compatibility and do not represent the current product version.
 
 ## Deployment Verification
-After deployment, first verify `/version` and response headers expose asset revision **`27A101-H10L-20260827E`**. Home must request only `home_light.css` + `home_light.js` for its Hotfix 10 shell and must not request the legacy module/application/TV bundles. Confirm the Livenza.life default wallpaper, seven curated Dock icons, lower-right Companion, on-demand Widgets, immediate View/Suites menus and refined bright System Settings match the packaged Chromium previews. Full steps are in `VERIFY_DEPLOY.txt`.
+After deployment, first verify `/version` and response headers expose asset revision **`27A101-H10L-20260827D`**. Home must request only `home_light.css` + `home_light.js` for its Hotfix 10 shell and must not request the legacy module/application/TV bundles. Confirm the Livenza.life default wallpaper, seven curated Dock icons, lower-right Companion, on-demand Widgets, immediate View/Suites menus and refined bright System Settings match the packaged Chromium previews. Full steps are in `VERIFY_DEPLOY.txt`.
 
 ## Hotfix 6 — macOS 27 Exact-Kit Pass
 
@@ -205,7 +207,7 @@ The focused Chromium Settings render confirms a bright application canvas, brigh
 Hotfix 10 continues from Hotfix 9.2 but removes the largest source of perceived lag on the desktop itself: Home no longer boots the ~304 KB legacy module stylesheet, ~101 KB general app runtime, TV compatibility layer or ~129 KB macOS application stylesheet. Home instead uses `home_light.css` and `home_light.js`; System Settings uses `settings_light.css` and avoids the legacy module/app/TV bundles. Heavy suite code remains available only where the corresponding suite actually needs it.
 
 ### Deployment cache correction
-Static files are deliberately served with a long immutable cache lifetime. Earlier hotfixes kept `?v=27.0.1`, which allowed a browser or CDN to reuse older CSS/JS even after a newer ZIP was uploaded. Hotfix 10 fixes the source rather than relying on users to clear cache: versioned static URLs now carry **`?rev=27A101-H10L-20260827E`**, `/version` reports that revision, and responses expose `X-Livenza-Revision` / `X-Livenza-Hotfix`. The default scenic wallpaper also uses revision-specific `livenza_life_live_elevated_h10l.jpg`.
+Static files are deliberately served with a long immutable cache lifetime. Earlier hotfixes kept `?v=27.0.1`, which allowed a browser or CDN to reuse older CSS/JS even after a newer ZIP was uploaded. Hotfix 10 fixes the source rather than relying on users to clear cache: versioned static URLs now carry **`?rev=27A101-H10L-20260827D`**, `/version` reports that revision, and responses expose `X-Livenza-Revision` / `X-Livenza-Hotfix`. The default scenic wallpaper also uses revision-specific `livenza_life_live_elevated_h10l.jpg`.
 
 ### Visible Home contract
 - Livenza.life scenic wallpaper is first-run/reset default.
@@ -230,4 +232,179 @@ The exact release tree is verified with the complete source regression suite, Py
 
 
 ### Hotfix 10 deployment-survival hardening — revision B
-Revision `27A101-H10L-20260827E` additionally cache-busts every browser-visible static asset referenced from Jinja templates. Unversioned `/static/*` requests now revalidate instead of receiving a one-year immutable cache header. PWA icons and the CSS-embedded compact Livenza mark use Hotfix-specific filenames. This prevents a correct server deployment from still looking like the prior release because a browser/CDN retained an older logo, favicon, icon or image URL.
+Revision `27A101-H10L-20260827D` additionally cache-busts every browser-visible static asset referenced from Jinja templates. Unversioned `/static/*` requests now revalidate instead of receiving a one-year immutable cache header. PWA icons and the CSS-embedded compact Livenza mark use Hotfix-specific filenames. This prevents a correct server deployment from still looking like the prior release because a browser/CDN retained an older logo, favicon, icon or image URL.
+
+## Livenza.life V1 consumer foundation
+
+The consumer-facing Livenza.life platform uses a separate passwordless customer identity from the existing staff `User` login. The V1 API prefix is `/api/v1`; the existing back-office login and permission model remain unchanged.
+
+### Customer authentication environment
+
+```text
+CUSTOMER_AUTH_TEST_MODE=0        # 1 only in local/test; never production
+CUSTOMER_SESSION_DAYS=30         # customer session lifetime
+CUSTOMER_OTP_EXPIRY_MINUTES=5    # OTP validity
+CUSTOMER_OTP_MAX_REQUESTS_15M=5  # identifier rate window
+```
+
+`CUSTOMER_AUTH_TEST_MODE=1` only returns a test OTP when `LIVENZA_ENV`, `FLASK_ENV`, or `ENVIRONMENT` explicitly identifies a local/development/test environment. A production or unspecified environment never exposes the OTP in an API response.
+
+### Foundation migration order
+
+1. Back up the staging PostgreSQL database.
+2. Apply `migrations/livenza_v1_foundation.sql` to staging before any consumer frontend or Plan 2 traffic is connected.
+3. Start the back-office against staging and verify existing staff login, permissions, integrations, rooms, tenants, and core suites.
+4. Smoke-test `/api/v1/cities`, `/api/v1/properties`, customer OTP delivery, verification, logout, and `/api/v1/me` on staging.
+5. Only after staging passes should the same additive migration be applied to production before enabling consumer traffic.
+
+The migration is additive and does not drop, rename, or alter the legacy `user`, `room`, or `tenant` tables.
+
+## Livenza.life consumer web — Plan 2
+
+The customer-facing Livenza.life experience now lives in `web/` as a separate Next.js App Router application. It consumes the versioned Flask API added in Plan 1 instead of accessing back-office database tables directly.
+
+Required consumer deployment variables:
+
+- `LIVENZA_API_ORIGIN` — server/API origin used for Next.js `/api/*` rewrites and server-side property discovery.
+- `LIVENZA_SITE_URL` — canonical consumer origin used by sitemap and metadata helpers.
+
+The Plan 2 checkpoint includes the master brand homepage, `livenza.stays` search/city/property discovery, future-vertical early-access pages, safe Store/My Livenza/booking handoffs, SEO/analytics contracts, and Playwright/bundle guardrails. Plan 3 replaces the booking handoff with live inventory holds, customer identity, payments, and My Livenza transactions.
+
+Production verification still requires Node.js 20.9+ with the dependencies in `web/package.json`, then `npm test -- --run`, `npm run lint`, `npm run build`, `npm run check:bundle`, and `npm run test:e2e`.
+
+## Livenza.life V1 booking, payments and My Livenza — Plan 3
+
+Plan 3 replaces the consumer booking handoff with the live transaction layer. The Flask API now owns timed inventory holds, Book Now/Reserve bookings, server-priced add-ons, parent-share tokens, Cashfree order creation, signed webhook confirmation with server-side order verification, printable receipts, and owner-scoped My Livenza data. The Next.js application contains the OTP sign-in and booking wizard, parent-share continuation, payment/confirmation views, and My Livenza dashboard modules.
+
+### Booking/payment deployment variables
+
+- `CASHFREE_ENVIRONMENT` — `sandbox` outside production and `production` for live payments.
+- `CASHFREE_CLIENT_ID` — server-only Cashfree App ID/client ID.
+- `CASHFREE_CLIENT_SECRET` — server-only Cashfree secret used for API authentication and raw-body webhook verification.
+- `CASHFREE_TEST_STUB=1` — local/development/test only; simulates provider order state while still requiring the signed webhook path.
+- `RAZORPAY_WEBHOOK_SECRET` — optional legacy-only secret while historic Razorpay rows/events are reconciled; it is not used for new checkout creation.
+- `BOOKING_PAYMENT_HOLD_MINUTES` — minimum inventory-lock window after secure payment is initiated; defaults to 20 minutes and never shortens an existing longer hold.
+- `BOOKING_ADDONS_JSON` — server-authoritative add-on catalog. Client-supplied prices are ignored/rejected; only configured codes can be booked.
+- `PARENT_SHARE_EXPIRY_HOURS` — parent-share validity, default 24 hours.
+
+### Plan 3 migration and staging order
+
+1. Back up staging PostgreSQL.
+2. Ensure `migrations/livenza_v1_foundation.sql` is already applied.
+3. Apply `migrations/livenza_v1_booking_payments.sql` to staging. It is additive and contains no table/column drops.
+4. Seed at least one public property, room category, allocatable inventory unit, and `stay_rate_plan` before testing booking.
+5. Configure customer OTP delivery and Cashfree sandbox client ID/client secret on staging.
+6. Configure the Cashfree webhook target as `https://<api-host>/api/v1/payments/webhooks/cashfree` and enable payment success/failure/user-dropped events required by the account.
+7. Verify Book Now and Reserve separately. Browser checkout success is not confirmation; the booking must remain pending until the signed webhook marks the payment paid.
+8. Verify duplicate webhook delivery leaves one processed event and one booking confirmation.
+9. Verify failed payment never confirms inventory, expired holds cannot start payment, and a second customer cannot see another customer's booking, receipt, payment, document, or support record.
+10. Verify parent-share expiry and login/payment continuation with no resident KYC/private documents exposed.
+11. Run the mobile and desktop booking Playwright journey against staging PostgreSQL before production migration.
+
+### Consumer checks
+
+From `web/` with Node.js 20.9+ and dependencies installed:
+
+```text
+npm test -- --run
+npm run lint
+npm run build
+npm run check:bundle
+npm run test:e2e -- booking.spec.ts
+```
+
+The E2E booking spec expects a staging fixture through `E2E_PROPERTY_SLUG`, `E2E_ROOM_CATEGORY_SLUG`, `E2E_CUSTOMER_MOBILE`, `CUSTOMER_AUTH_TEST_MODE=1`, `CASHFREE_TEST_STUB=1`, and a local test `CASHFREE_CLIENT_SECRET`. The automated browser test stubs only the external Cashfree SDK; confirmation still goes through the signed Cashfree webhook endpoint and test-only server order verification. Staging sign-off must also include one real Cashfree sandbox payment using provider test data.
+
+## Livenza.life V1 Plan 4 — Store + Livenza+
+
+Plan 4 adds the curated Livenza.store commerce layer and unified Livenza+ loyalty on top of the same customer identity and Cashfree webhook authority used by the current transaction layer.
+
+### Added contracts
+- Public catalogue: `GET /api/v1/products`, `GET /api/v1/products/<slug>`
+- Server-authoritative cart quote: `POST /api/v1/cart/quote`
+- Authenticated Store order creation/read: `POST /api/v1/orders`, `GET /api/v1/orders/<id>`
+- My Livenza Store orders: `GET /api/v1/me/orders`
+- Resident delivery eligibility: `GET /api/v1/me/delivery-options`
+- Livenza+ rewards: `GET /api/v1/me/rewards`
+- Store order payments reuse the Cashfree webhook and `PaymentRecord` domain with `source_type=store_order`. Historic Razorpay rows remain readable but are not used for new Store checkout.
+
+### Required migration
+Apply `migrations/livenza_v1_store_loyalty.sql` to the same PostgreSQL database used by the consumer API before publishing Store inventory.
+
+### Configuration
+- `LIVENZA_INTERNAL_DELIVERY_PROPERTIES`: comma-separated `StayProperty.slug` values eligible for room delivery.
+- `LIVENZA_POINTS_PER_100_INR`: integer earning rule for eligible paid value. V1 default/example is `1`; commercial economics remain configurable.
+
+### Catalogue launch
+No fake catalogue is seeded. The public Store deliberately shows an editorial empty state until 15–25 real products/variants, stock and pricing are published. Plan 5 adds the admin/migration/release controls used to manage these records operationally.
+
+### Runtime verification boundary
+Portable Python/source tests, offline TypeScript, route audit, migration compatibility and legacy regressions can be verified in the build sandbox. The real `next build`, Vitest/Playwright, PostgreSQL `FOR UPDATE` concurrency and Cashfree sandbox checkout require the staging environment with npm dependencies, Flask/SQLAlchemy runtime, PostgreSQL and payment credentials.
+
+## Tenant OS — onboarding, dues and Cashfree
+
+Tenant OS adds mandatory tenancy onboarding, private KYC review, Agreement Studio snapshot/acceptance, and a customer-scoped dues ledger. New rent, security, service, booking, parent and Store payments use Cashfree. `migrations/livenza_tenant_os_onboarding.sql` and `migrations/livenza_tenant_dues_cashfree.sql` are additive and must be applied after the V1 foundation/admin migrations.
+
+Tenant dues are exposed through `GET /api/v1/me/dues` and paid through the same verified Cashfree pipeline as bookings and Store orders. Staff manage due creation, reminders and audited waive/cancel/reopen actions from the protected Livenza Admin area.
+
+
+
+## Current additive migration order — final consolidated platform
+
+For a clean staging/production rollout, apply the current additive schema migrations in this exact order:
+
+1. `migrations/livenza_v1_foundation.sql`
+2. `migrations/livenza_v1_booking_payments.sql`
+3. `migrations/livenza_cashfree_gateway_default.sql`
+4. `migrations/livenza_v1_store_loyalty.sql`
+5. `migrations/livenza_v1_admin_migration.sql`
+6. `migrations/livenza_tenant_os_onboarding.sql`
+7. `migrations/livenza_tenant_dues_cashfree.sql`
+8. `migrations/livenza_radius_meter_recharge.sql`
+9. `migrations/livenza_resident_services.sql`
+10. `migrations/livenza_referrals_offers.sql`
+11. `migrations/staff_salary_v1.sql`
+12. `migrations/staff_salary_v1_indexes.sql`
+
+`livenza_cashfree_gateway_default.sql` changes only the default for future payment rows; it does not rewrite historic Razorpay transactions. Resident Services adds notices, maintenance, leave/late-entry, guest and property-menu records. Referrals/Offers adds the Livenza+ referral and resident-benefit records used by My Livenza and Livenza.store.
+
+
+## Staff Salary Studio V1 — people, attendance and payroll
+
+Staff Salary Studio is a native Flask/Tesla OS suite under `/staff-salary`. It adds a permission-aware staff master with photograph, encrypted Aadhaar/PAN and bank account details, encrypted staff documents, salary structures, biometric/manual attendance, leave allowances and approvals, payroll snapshots, staff ledger, printable payslips, salary bank-batch CSV export and reconciliation reports. Payroll arithmetic uses integer paise. Locked payroll is immutable.
+
+Production rollout requires the additive `migrations/staff_salary_v1.sql` migration followed by `migrations/staff_salary_v1_indexes.sql`. Grant the `staff_salary` module permission only to authorized HR/payroll users. Full account-number bank-batch creation/export and final paid reconciliation are Admin-protected in V1. Direct bank-server APIs and automatic biometric feeds can post normalized events to the token-protected `/webhooks/staff-attendance` endpoint using `STAFF_ATTENDANCE_WEBHOOK_TOKEN`; vendor-specific device SDK transport is intentionally not invented without an identified provider.
+
+## Livenza.life V1 platform operations
+
+The `livenza-life-v1` program extends this Flask back-office rather than replacing it. Consumer code lives under `web/`; the shared API is `livenza_api_v1.py`; operational administration is under `/admin/livenza/*`.
+
+- Staging: `docs/runbooks/livenza-v1-staging.md`
+- Production: `docs/runbooks/livenza-v1-production.md`
+- Smoke: `python scripts/livenza_smoke.py --base-url <site> --api-url <api>`
+- Legacy migration: `python scripts/livenza_migrate_legacy.py --source legacy_backoffice --dry-run --strict`
+- Post-deploy reconciliation: `python scripts/livenza_postdeploy_verify.py --base-url <site> --api-url <api>`
+
+Never migrate customers by display name alone, never expose raw private `storage_key` values to consumers, and never place Cashfree client secrets, legacy Razorpay secrets, WhatsApp tokens, or storage credentials in the Next.js browser bundle.
+
+## Tenant OS Release 3 — Radius/Xenius electricity
+
+My Livenza can map an authenticated resident to a staff-assigned Radius/Xenius prepaid meter, display the live provider snapshot, and accept meter recharges through Cashfree. A tenant never submits a Radius account or meter identifier; those identifiers are maintained only in the protected admin Meter Mapping screen.
+
+Recharge order is intentionally strict: **Cashfree payment verification → one Radius credit attempt → recharged or review_required**. If Cashfree is paid but Radius does not confirm credit, My Livenza tells the resident **Do not pay again** and operations can retry the same Radius request with the original idempotency key or record a refund follow-up.
+
+Radius/Xenius partner API details are private partner configuration. **Do not guess live Radius endpoints.** Keep `RADIUS_ENABLED=0` until Livenza has the official Radius/RentOk-compatible partner contract and credentials.
+
+Required/available variables:
+
+- `RADIUS_ENABLED=0|1` — enables live Radius provider traffic. Disabled is safe in production while onboarding the partner contract.
+- `RADIUS_TEST_STUB=1` — development/test only; production rejects it.
+- `RADIUS_BASE_URL` — HTTPS partner API base URL supplied by Radius.
+- `RADIUS_AUTH_TOKEN` — server-only partner credential.
+- `RADIUS_AUTH_HEADER` / `RADIUS_AUTH_SCHEME` — configurable partner authentication header, defaults to `Authorization: Bearer ...`.
+- `RADIUS_SNAPSHOT_PATH` — partner path template for live meter balance/reading, for example a contract-supplied path containing `{meter_id}` or `{account_id}`.
+- `RADIUS_RECHARGE_PATH` — partner path template for recharge credit.
+- `RADIUS_STATUS_PATH` — partner path template for recharge status/reconciliation.
+- `METER_RECHARGE_MIN_MINOR` / `METER_RECHARGE_MAX_MINOR` — server-side recharge bounds in paise; defaults ₹10 to ₹50,000.
+
+Production behavior is fail-closed: if `RADIUS_ENABLED=1`, startup validation requires an HTTPS base URL, auth token and all three partner endpoint paths. `RADIUS_TEST_STUB=1` is always rejected in production.

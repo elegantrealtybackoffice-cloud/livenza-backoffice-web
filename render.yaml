@@ -49,3 +49,47 @@ services:
         sync: false
       - key: WEBAUTHN_ORIGIN
         sync: false
+      - key: LIVENZA_ENV
+        value: production
+      - key: CUSTOMER_AUTH_TEST_MODE
+        value: "0"
+      - key: CASHFREE_TEST_STUB
+        value: "0"
+      - key: CASHFREE_ENVIRONMENT
+        value: production
+      - key: CASHFREE_CLIENT_ID
+        sync: false
+      - key: CASHFREE_CLIENT_SECRET
+        sync: false
+      - key: RADIUS_ENABLED
+        value: "0"
+      - key: RADIUS_TEST_STUB
+        value: "0"
+      - key: RADIUS_BASE_URL
+        sync: false
+      - key: RADIUS_AUTH_TOKEN
+        sync: false
+      - key: RADIUS_AUTH_HEADER
+        value: Authorization
+      - key: RADIUS_AUTH_SCHEME
+        value: Bearer
+      - key: RADIUS_SNAPSHOT_PATH
+        sync: false
+      - key: RADIUS_RECHARGE_PATH
+        sync: false
+      - key: RADIUS_STATUS_PATH
+        sync: false
+      # Legacy Razorpay webhook verification can remain configured during historical reconciliation only.
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: STAFF_ATTENDANCE_WEBHOOK_TOKEN
+        sync: false
+      - key: LIVENZA_PRIVATE_BUCKET
+        value: livenza-private
+      - key: LIVENZA_PUBLIC_BUCKET
+        value: livenza-public
+

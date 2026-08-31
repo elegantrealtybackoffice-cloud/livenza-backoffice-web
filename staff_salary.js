@@ -1,0 +1,1 @@
+(()=>{const root=document.querySelector('[data-staff-salary-suite]');if(!root)return;const active=root.querySelector('.staff-tab.active');if(active)active.scrollIntoView({block:'nearest',inline:'center'});})();

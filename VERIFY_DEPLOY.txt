@@ -6,18 +6,18 @@ DEPLOYMENT FINGERPRINT — CHECK THIS FIRST
    - Version 27.0.1
    - Build 27A101
    - Hotfix 10 Light Shell
-   - revision `27A101-H10L-20260827E`
+   - revision `27A101-H10L-20260827D`
 2. Inspect the main document response headers. It MUST include:
    - `X-Livenza-Build: 27A101`
    - `X-Livenza-Hotfix: Hotfix 10 Light Shell`
-   - `X-Livenza-Revision: 27A101-H10L-20260827E`
+   - `X-Livenza-Revision: 27A101-H10L-20260827D`
 3. In browser DevTools → Network, reload Home and verify the new requests include:
-   - `home_light.css?rev=27A101-H10L-20260827E`
-   - `home_light.js?rev=27A101-H10L-20260827E`
+   - `home_light.css?rev=27A101-H10L-20260827D`
+   - `home_light.js?rev=27A101-H10L-20260827D`
    Home MUST NOT request `legacy_modules.css`, `macos27_system.css`, `app.js` or `tv_compat.js`.
-4. Open System Settings and verify it requests `settings_light.css?rev=27A101-H10L-20260827E`. Settings MUST NOT request `legacy_modules.css`, `app.js` or `tv_compat.js`.
+4. Open System Settings and verify it requests `settings_light.css?rev=27A101-H10L-20260827D`. Settings MUST NOT request `legacy_modules.css`, `app.js` or `tv_compat.js`.
 5. If any fingerprint above is missing, STOP: the host/CDN is still serving an older release. Do not judge the new UI from that session.
-5A. Inspect Login/Home image requests once: template static URLs must carry `?rev=27A101-H10L-20260827E`. Unversioned static responses must return a revalidation cache policy, not `immutable`. PWA manifest icons must request `icon-192-h10l.png` / `icon-512-h10l.png`.
+5A. Inspect Login/Home image requests once: template static URLs must carry `?rev=27A101-H10L-20260827D`. Unversioned static responses must return a revalidation cache policy, not `immutable`. PWA manifest icons must request `icon-192-h10l.png` / `icon-512-h10l.png`.
 
 VISIBLE HOME CONTRACT
 6. Home must visually match the packaged Hotfix 10 light-shell preview:
@@ -59,3 +59,18 @@ NAVIGATION FAIL-SAFE
 25. With JavaScript normally enabled, verify Suites, View, Window, Help, Widgets and Search open their enhanced panels immediately.
 26. In DevTools, temporarily block `home_light.js` and reload Home. Suites must still navigate to `/?suites=1`, Dock application links must still open their routes, and View/Window/Help/Widgets/Search/Companion must still lead to their fallback destinations instead of becoming dead controls.
 27. Re-enable `home_light.js`; the document should expose `data-home-runtime=ready`.
+
+
+STAFF SALARY STUDIO V1 DEPLOYMENT GATE
+28. Apply `migrations/staff_salary_v1.sql` and then `migrations/staff_salary_v1_indexes.sql` to the same PostgreSQL database used by the Flask backoffice. Both are additive; do not delete historical migrations or staff/business data. On Supabase, confirm RLS is enabled on all 15 Staff Salary tables.
+29. In System Settings → Users & Groups, grant `Staff Salary Studio` only to the intended HR/payroll test account. Confirm an account without that permission is redirected/denied from `/staff-salary`.
+30. Open Suites → Finance & Utilities and confirm Staff Salary Studio appears with the staff/payroll icon. Open `/staff-salary` and verify Dashboard, Staff Directory, Attendance, Leave & Holidays, Salary Structure, Payroll, Staff Ledger, Salary Payments, Reports and Settings tabs.
+31. Register one staging staff member with a JPG/PNG/WebP photograph, employment details, Aadhaar, PAN and bank details. Reopen the directory and confirm Aadhaar/PAN/account number are masked. Reopen the staff profile and confirm no raw sensitive identifier is emitted into list markup.
+32. Upload one PDF/JPG staff document, download it again through the protected route, and confirm the decrypted file matches. Confirm the document is not written to public `static/`.
+33. Import a sample attendance CSV with `staff_code,timestamp,event_type,external_id`; import the same file twice and confirm duplicate external IDs are skipped. Add one manual correction and confirm the daily summary is rebuilt. Configure `STAFF_ATTENDANCE_WEBHOOK_TOKEN`, POST the same event to `/webhooks/staff-attendance` with `X-Livenza-Webhook-Token`, and verify the token is required and duplicate delivery is idempotent.
+34. Create/verify a leave type, submit a leave request, approve it and confirm pending/used balances update. Verify an unpaid leave overlaps the payroll period and contributes to loss-of-pay.
+35. Save an effective salary structure, create a staging payroll period, Calculate → Send to Review → Approve. Confirm each item stores a snapshot, the payslip opens, and exactly one salary-credit ledger entry exists per payroll item. Repeating a guarded operation must not duplicate the ledger credit.
+36. As Admin, create a salary payment batch for the approved period and download its UTF-8 CSV. Confirm columns are `Staff Code, Employee, Account Holder, Account Number, IFSC, Amount, Reference` and the total equals the batch total. A non-Admin must not be able to create/export bank batches.
+37. As Admin, mark one staging payment paid using a test UTR/reference. Confirm the payment is idempotent for the same reference, rejects a conflicting second reference, posts exactly one ledger debit and updates payroll paid state.
+38. Export Staff, Attendance and Payroll register CSVs. Confirm Staff Register masks KYC/bank identifiers and no bank password, UPI PIN, card PIN, CVV, OTP, CAPTCHA answer or banking session credential is stored anywhere in Staff Salary Studio.
+39. After the staged salary batch is fully reconciled, transition the payroll to Paid then Lock. Confirm locked payroll cannot be recalculated or modified; later corrections must be handled as a new adjustment in a future period.

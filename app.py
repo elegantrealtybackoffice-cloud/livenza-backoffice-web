@@ -2,14 +2,14 @@ import os, io, csv, json, hashlib, hmac, datetime, urllib.parse, html, base64, r
 from pathlib import Path
 from email.message import EmailMessage
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, abort, g, has_request_context
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.exceptions import RequestEntityTooLarge
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-from sqlalchemy import func, or_, inspect, text
+from sqlalchemy import func, or_, inspect
 from dateutil.relativedelta import relativedelta
 import requests
 import qrcode
@@ -36,17 +36,20 @@ from letterhead_core import validate_structured_content, audit_safe_metadata, fo
 from letterhead_sources import SourceCandidate, resolve_sources, minimize_for_ai, can_access_protected_source
 from letterhead_templates import template_is_usable, signature_is_usable, next_template_version_no, starter_template_definitions
 from party_master_core import (MASTER_FIELD_SET, SENSITIVE_FIELDS, DOCUMENT_CATEGORIES, LANDLORD_AGREEMENT_MAP, TENANT_AGREEMENT_MAP, normalize_master_payload, safe_master_summary, identifier_lookup_hash, identifier_lookup_hashes, mask_identifier, master_display_payload, validate_master_document, legacy_profile_to_master, apply_master_mapping, parse_annexure_ids)
+from livenza_storage import storage_from_env
+from livenza_property_media import prepare_property_media_image, PropertyMediaError
+from livenza_tenant_core import normalize_tenancy_type, required_profile_fields, missing_profile_fields, onboarding_next_step, required_document_types, mask_government_identifier, agreement_preset_for_tenancy, agreement_payload_for_onboarding
+from livenza_dues_core import outstanding_minor, due_status
+from staff_salary_core import (money_minor as staff_money_minor, minor_to_rupees as staff_minor_to_rupees, mask_identifier as staff_mask_identifier, staff_code as build_staff_code, normalize_attendance_status, attendance_minutes, loss_of_pay_minor, calculate_payroll, transition_payroll_status, ledger_balance as staff_ledger_balance, build_bank_batch_rows)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_BRAND_LOGO_PATH = os.path.join(BASE_DIR, 'static', 'brand', 'livenza_wordmark_tagline.png')
 OS_NAME = 'Tesla OS 27'
 OS_VERSION = '27.0.1'
 OS_BUILD = '27A101'
-HOTFIX_LABEL = 'Hotfix 10 Revision M Mascot + UI Polish'
-ASSET_REVISION = '27A101-H10L-20260830M'
+HOTFIX_LABEL = 'Hotfix 10 Light Shell'
+ASSET_REVISION = '27A101-H10L-20260827D'
 APP_VERSION = OS_VERSION
-KIOSK_POLICY_CACHE_TTL_SECONDS = float(os.getenv('KIOSK_POLICY_CACHE_TTL_SECONDS','15'))
-_KIOSK_POLICY_CACHE = {'value': None, 'at': 0.0}
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-this-secret-before-production')
@@ -60,8 +63,7 @@ if raw_db.startswith('postgresql'):
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_pre_ping': True,
         'pool_recycle': 180,
-        'pool_timeout': int(os.getenv('DB_POOL_TIMEOUT_SECONDS','3')),
-        'connect_args': {'connect_timeout': int(os.getenv('DB_CONNECT_TIMEOUT_SECONDS','5'))},
+        'pool_timeout': 20,
         'pool_size': 3,
         'max_overflow': 3,
         'pool_use_lifo': True,
@@ -110,12 +112,605 @@ class User(db.Model):
     active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
+class Customer(db.Model):
+    __tablename__ = 'customer'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    full_name = db.Column(db.String(180), default='')
+    primary_mobile = db.Column(db.String(40), default='', index=True)
+    primary_email = db.Column(db.String(220), default='', index=True)
+    status = db.Column(db.String(32), default='active', index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class CustomerIdentity(db.Model):
+    __tablename__ = 'customer_identity'
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    provider = db.Column(db.String(32), nullable=False, index=True)
+    identifier = db.Column(db.String(220), nullable=False, index=True)
+    verified_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('provider','identifier', name='uq_customer_identity_provider_identifier'),)
+
+class CustomerOtpChallenge(db.Model):
+    __tablename__ = 'customer_otp_challenge'
+    id = db.Column(db.Integer, primary_key=True)
+    identifier = db.Column(db.String(220), nullable=False, index=True)
+    purpose = db.Column(db.String(32), nullable=False, default='login')
+    otp_hash = db.Column(db.String(64), nullable=False)
+    salt = db.Column(db.String(64), nullable=False)
+    attempts = db.Column(db.Integer, default=0)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    consumed_at = db.Column(db.DateTime, nullable=True)
+    requested_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, index=True)
+
+class CustomerSession(db.Model):
+    __tablename__ = 'customer_session'
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    revoked_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+class CustomerAddress(db.Model):
+    __tablename__ = 'customer_address'
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    label = db.Column(db.String(80), default='Home')
+    recipient_name = db.Column(db.String(180), default='')
+    mobile = db.Column(db.String(40), default='')
+    line1 = db.Column(db.String(240), default='')
+    line2 = db.Column(db.String(240), default='')
+    city = db.Column(db.String(120), default='')
+    state = db.Column(db.String(120), default='')
+    postal_code = db.Column(db.String(20), default='')
+    country = db.Column(db.String(80), default='India')
+    active = db.Column(db.Boolean, default=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
 class City(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), unique=True, nullable=False)
     code = db.Column(db.String(30), default='')
     active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+class StayProperty(db.Model):
+    __tablename__ = 'stay_property'
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(160), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(220), nullable=False, index=True)
+    city = db.Column(db.String(120), nullable=False, index=True)
+    area = db.Column(db.String(160), default='', index=True)
+    stay_types_json = db.Column(db.Text, default='["student"]')
+    summary = db.Column(db.Text, default='')
+    active = db.Column(db.Boolean, default=True, index=True)
+    public = db.Column(db.Boolean, default=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    @property
+    def stay_types(self):
+        try:
+            value=json.loads(self.stay_types_json or '[]')
+            return [str(item) for item in value] if isinstance(value,list) else []
+        except Exception:
+            return []
+
+class StayRoomCategory(db.Model):
+    __tablename__ = 'stay_room_category'
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, index=True)
+    slug = db.Column(db.String(120), nullable=False)
+    name = db.Column(db.String(180), nullable=False)
+    occupancy = db.Column(db.Integer, default=1)
+    summary = db.Column(db.Text, default='')
+    active = db.Column(db.Boolean, default=True, index=True)
+    __table_args__ = (db.UniqueConstraint('property_id','slug', name='uq_room_category_property_slug'),)
+
+class StayInventoryUnit(db.Model):
+    __tablename__ = 'stay_inventory_unit'
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, index=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey('stay_inventory_unit.id'), nullable=True, index=True)
+    room_category_id = db.Column(db.Integer, db.ForeignKey('stay_room_category.id'), nullable=True, index=True)
+    unit_type = db.Column(db.String(24), nullable=False, index=True)
+    code = db.Column(db.String(80), nullable=False)
+    display_name = db.Column(db.String(180), default='')
+    allocatable = db.Column(db.Boolean, default=False, index=True)
+    active = db.Column(db.Boolean, default=True, index=True)
+    __table_args__ = (db.UniqueConstraint('property_id','parent_id','code', name='uq_inventory_unit_path_code'),)
+
+class StayRatePlan(db.Model):
+    __tablename__ = 'stay_rate_plan'
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, index=True)
+    room_category_id = db.Column(db.Integer, db.ForeignKey('stay_room_category.id'), nullable=False, index=True)
+    code = db.Column(db.String(80), nullable=False)
+    stay_type = db.Column(db.String(32), nullable=False, index=True)
+    billing_period = db.Column(db.String(32), nullable=False)
+    currency = db.Column(db.String(3), default='INR')
+    amount_minor = db.Column(db.Integer, nullable=False)
+    security_deposit_minor = db.Column(db.Integer, default=0)
+    reservation_amount_minor = db.Column(db.Integer, default=0)
+    hold_minutes = db.Column(db.Integer, default=10)
+    active = db.Column(db.Boolean, default=True, index=True)
+    __table_args__ = (db.UniqueConstraint('property_id','room_category_id','code', name='uq_rate_plan_property_room_code'),)
+
+class StayInventoryHold(db.Model):
+    __tablename__ = 'stay_inventory_hold'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    inventory_unit_id = db.Column(db.Integer, db.ForeignKey('stay_inventory_unit.id'), nullable=False, index=True)
+    rate_plan_id = db.Column(db.Integer, db.ForeignKey('stay_rate_plan.id'), nullable=False, index=True)
+    start_date = db.Column(db.Date, nullable=False, index=True)
+    end_date = db.Column(db.Date, nullable=False, index=True)
+    status = db.Column(db.String(24), default='active', index=True)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+class StayBooking(db.Model):
+    __tablename__ = 'stay_booking'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, index=True)
+    rate_plan_id = db.Column(db.Integer, db.ForeignKey('stay_rate_plan.id'), nullable=False, index=True)
+    booking_mode = db.Column(db.String(24), nullable=False, default='book_now')
+    stay_type = db.Column(db.String(32), nullable=False, index=True)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String(32), default='held', index=True)
+    subtotal_minor = db.Column(db.Integer, default=0)
+    security_deposit_minor = db.Column(db.Integer, default=0)
+    addon_total_minor = db.Column(db.Integer, default=0)
+    total_minor = db.Column(db.Integer, default=0)
+    amount_due_now_minor = db.Column(db.Integer, default=0)
+    guardian_json = db.Column(db.Text, default='{}')
+    details_json = db.Column(db.Text, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class StayBookingItem(db.Model):
+    __tablename__ = 'stay_booking_item'
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=False, index=True)
+    hold_id = db.Column(db.Integer, db.ForeignKey('stay_inventory_hold.id'), nullable=False, unique=True, index=True)
+    inventory_unit_id = db.Column(db.Integer, db.ForeignKey('stay_inventory_unit.id'), nullable=False, index=True)
+
+class BookingAddOn(db.Model):
+    __tablename__ = 'booking_add_on'
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=False, index=True)
+    code = db.Column(db.String(80), nullable=False)
+    label = db.Column(db.String(180), nullable=False)
+    amount_minor = db.Column(db.Integer, default=0)
+    metadata_json = db.Column(db.Text, default='{}')
+
+class PaymentRecord(db.Model):
+    __tablename__ = 'payment_record'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    source_type = db.Column(db.String(32), nullable=False, index=True)
+    source_id = db.Column(db.Integer, nullable=False, index=True)
+    gateway = db.Column(db.String(32), default='cashfree', index=True)
+    gateway_order_id = db.Column(db.String(120), default='', unique=True, index=True)
+    gateway_payment_id = db.Column(db.String(120), default='', index=True)
+    amount_minor = db.Column(db.Integer, nullable=False)
+    currency = db.Column(db.String(3), default='INR')
+    status = db.Column(db.String(32), default='created', index=True)
+    metadata_json = db.Column(db.Text, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class ProcessedWebhookEvent(db.Model):
+    __tablename__ = 'processed_webhook_event'
+    id = db.Column(db.Integer, primary_key=True)
+    gateway = db.Column(db.String(32), nullable=False, index=True)
+    external_event_id = db.Column(db.String(180), nullable=False, unique=True, index=True)
+    event_type = db.Column(db.String(120), nullable=False)
+    processed_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+class CustomerDocument(db.Model):
+    __tablename__ = 'customer_document'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), nullable=True, unique=True, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=True, index=True)
+    onboarding_id = db.Column(db.Integer, db.ForeignKey('tenant_onboarding.id'), nullable=True, index=True)
+    document_type = db.Column(db.String(60), nullable=False, index=True)
+    display_name = db.Column(db.String(180), nullable=False)
+    storage_key = db.Column(db.String(320), nullable=False, unique=True)
+    private = db.Column(db.Boolean, default=True, index=True)
+    verification_status = db.Column(db.String(32), nullable=False, default='submitted', index=True)
+    verification_note = db.Column(db.Text, nullable=False, default='')
+    masked_identifier = db.Column(db.String(80), nullable=False, default='')
+    verified_at = db.Column(db.DateTime, nullable=True)
+    verified_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class TenantOnboarding(db.Model):
+    __tablename__ = 'tenant_onboarding'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=True, unique=True, index=True)
+    tenancy_type = db.Column(db.String(32), nullable=False, default='student', index=True)
+    status = db.Column(db.String(32), nullable=False, default='in_progress', index=True)
+    current_step = db.Column(db.String(40), nullable=False, default='profile', index=True)
+    profile_json = db.Column(db.Text, nullable=False, default='{}')
+    invited_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    @property
+    def profile(self):
+        try:
+            value=json.loads(self.profile_json or '{}')
+            return value if isinstance(value,dict) else {}
+        except Exception:
+            return {}
+
+class CustomerAgreement(db.Model):
+    __tablename__ = 'customer_agreement'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=True, index=True)
+    onboarding_id = db.Column(db.Integer, db.ForeignKey('tenant_onboarding.id'), nullable=False, index=True)
+    agreement_id = db.Column(db.Integer, db.ForeignKey('agreement.id'), nullable=False, unique=True, index=True)
+    status = db.Column(db.String(32), nullable=False, default='generated', index=True)
+    agreement_sha256 = db.Column(db.String(64), nullable=False, default='')
+    pdf_storage_key = db.Column(db.String(320), nullable=False, default='')
+    accepted_at = db.Column(db.DateTime, nullable=True)
+    acceptance_method = db.Column(db.String(40), nullable=False, default='')
+    acceptance_fingerprint = db.Column(db.String(128), nullable=False, default='')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class TenantDue(db.Model):
+    __tablename__ = 'tenant_due'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=True, index=True)
+    onboarding_id = db.Column(db.Integer, db.ForeignKey('tenant_onboarding.id'), nullable=True, index=True)
+    due_type = db.Column(db.String(48), nullable=False, default='rent', index=True)
+    amount_minor = db.Column(db.Integer, nullable=False)
+    due_date = db.Column(db.Date, nullable=True, index=True)
+    status = db.Column(db.String(32), nullable=False, default='open', index=True)
+    description = db.Column(db.String(240), nullable=False, default='')
+    metadata_json = db.Column(db.Text, nullable=False, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class TenantDueAllocation(db.Model):
+    __tablename__ = 'tenant_due_allocation'
+    __table_args__ = (db.UniqueConstraint('due_id','payment_id',name='uq_tenant_due_payment_allocation'),)
+    id = db.Column(db.Integer, primary_key=True)
+    due_id = db.Column(db.Integer, db.ForeignKey('tenant_due.id'), nullable=False, index=True)
+    payment_id = db.Column(db.Integer, db.ForeignKey('payment_record.id'), nullable=False, index=True)
+    amount_minor = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+class TenantMeterAccount(db.Model):
+    __tablename__ = 'tenant_meter_account'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=True, index=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, index=True)
+    inventory_unit_id = db.Column(db.Integer, db.ForeignKey('stay_inventory_unit.id'), nullable=True, index=True)
+    provider = db.Column(db.String(32), nullable=False, default='radius', index=True)
+    provider_account_id = db.Column(db.String(180), nullable=False, index=True)
+    provider_meter_id = db.Column(db.String(180), nullable=False, index=True)
+    display_name = db.Column(db.String(180), nullable=False, default='Electricity meter')
+    status = db.Column(db.String(32), nullable=False, default='active', index=True)
+    metadata_json = db.Column(db.Text, nullable=False, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('provider','provider_meter_id',name='uq_tenant_meter_provider_meter'),)
+
+class MeterRecharge(db.Model):
+    __tablename__ = 'meter_recharge'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    meter_account_id = db.Column(db.Integer, db.ForeignKey('tenant_meter_account.id'), nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    payment_id = db.Column(db.Integer, db.ForeignKey('payment_record.id'), nullable=True, unique=True, index=True)
+    amount_minor = db.Column(db.Integer, nullable=False)
+    currency = db.Column(db.String(3), nullable=False, default='INR')
+    status = db.Column(db.String(32), nullable=False, default='payment_pending', index=True)
+    idempotency_key = db.Column(db.String(120), nullable=False, unique=True, index=True)
+    provider_reference = db.Column(db.String(180), nullable=False, default='')
+    provider_status_json = db.Column(db.Text, nullable=False, default='{}')
+    failure_code = db.Column(db.String(80), nullable=False, default='')
+    failure_message = db.Column(db.String(500), nullable=False, default='')
+    credited_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class SupportTicket(db.Model):
+    __tablename__ = 'support_ticket'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=True, index=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=True, index=True)
+    category = db.Column(db.String(40), nullable=False, index=True)
+    priority = db.Column(db.String(20), nullable=False, default='normal', index=True)
+    subject = db.Column(db.String(180), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    staff_note = db.Column(db.Text, nullable=False, default='')
+    status = db.Column(db.String(32), default='open', index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class ResidentPropertyPolicy(db.Model):
+    __tablename__ = 'resident_property_policy'
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, unique=True, index=True)
+    capabilities_json = db.Column(db.Text, nullable=False, default='["notices","maintenance"]')
+    updated_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    @property
+    def capabilities(self):
+        from livenza_resident_core import normalize_capabilities
+        return list(normalize_capabilities(self.capabilities_json))
+
+class ResidentNotice(db.Model):
+    __tablename__ = 'resident_notice'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), nullable=False, unique=True, index=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=True, index=True)
+    title = db.Column(db.String(180), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    audience_tenancy_json = db.Column(db.Text, nullable=False, default='[]')
+    status = db.Column(db.String(24), nullable=False, default='draft', index=True)
+    publish_at = db.Column(db.DateTime, nullable=True, index=True)
+    expires_at = db.Column(db.DateTime, nullable=True, index=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class ResidentLeaveRequest(db.Model):
+    __tablename__ = 'resident_leave_request'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), nullable=False, unique=True, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=False, index=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, index=True)
+    request_type = db.Column(db.String(24), nullable=False, default='leave', index=True)
+    start_at = db.Column(db.DateTime, nullable=False)
+    end_at = db.Column(db.DateTime, nullable=True)
+    reason = db.Column(db.String(500), nullable=False, default='')
+    status = db.Column(db.String(24), nullable=False, default='submitted', index=True)
+    staff_note = db.Column(db.String(1000), nullable=False, default='')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class ResidentGuestRequest(db.Model):
+    __tablename__ = 'resident_guest_request'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), nullable=False, unique=True, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=False, index=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, index=True)
+    guest_name = db.Column(db.String(180), nullable=False)
+    guest_mobile = db.Column(db.String(40), nullable=False, default='')
+    visit_at = db.Column(db.DateTime, nullable=False)
+    purpose = db.Column(db.String(500), nullable=False, default='')
+    status = db.Column(db.String(24), nullable=False, default='submitted', index=True)
+    staff_note = db.Column(db.String(1000), nullable=False, default='')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class PropertyMenu(db.Model):
+    __tablename__ = 'property_menu'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), nullable=False, unique=True, index=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, index=True)
+    service_date = db.Column(db.Date, nullable=False, index=True)
+    meal_type = db.Column(db.String(32), nullable=False, default='daily', index=True)
+    title = db.Column(db.String(180), nullable=False, default="Today's menu")
+    items_json = db.Column(db.Text, nullable=False, default='[]')
+    status = db.Column(db.String(24), nullable=False, default='draft', index=True)
+    publish_at = db.Column(db.DateTime, nullable=True, index=True)
+    expires_at = db.Column(db.DateTime, nullable=True, index=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class BookingShareToken(db.Model):
+    __tablename__ = 'booking_share_token'
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('stay_booking.id'), nullable=False, index=True)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    revoked_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+class Product(db.Model):
+    __tablename__ = 'product'
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(180), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(220), nullable=False, index=True)
+    brand = db.Column(db.String(40), default='store', index=True)
+    category = db.Column(db.String(60), nullable=False, index=True)
+    collection = db.Column(db.String(80), default='', index=True)
+    summary = db.Column(db.Text, default='')
+    description = db.Column(db.Text, default='')
+    active = db.Column(db.Boolean, default=True, index=True)
+    public = db.Column(db.Boolean, default=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class ProductVariant(db.Model):
+    __tablename__ = 'product_variant'
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False, index=True)
+    sku = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    title = db.Column(db.String(180), nullable=False)
+    price_minor = db.Column(db.Integer, nullable=False)
+    currency = db.Column(db.String(3), default='INR')
+    stock_on_hand = db.Column(db.Integer, default=0)
+    stock_reserved = db.Column(db.Integer, default=0)
+    attributes_json = db.Column(db.Text, default='{}')
+    active = db.Column(db.Boolean, default=True, index=True)
+
+class StoreOrder(db.Model):
+    __tablename__ = 'store_order'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    status = db.Column(db.String(32), default='placed', index=True)
+    fulfilment_mode = db.Column(db.String(32), default='address', index=True)
+    delivery_json = db.Column(db.Text, default='{}')
+    subtotal_minor = db.Column(db.Integer, default=0)
+    discount_minor = db.Column(db.Integer, default=0)
+    delivery_minor = db.Column(db.Integer, default=0)
+    total_minor = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class StoreOrderItem(db.Model):
+    __tablename__ = 'store_order_item'
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('store_order.id'), nullable=False, index=True)
+    variant_id = db.Column(db.Integer, db.ForeignKey('product_variant.id'), nullable=False, index=True)
+    sku = db.Column(db.String(100), nullable=False)
+    product_name = db.Column(db.String(220), nullable=False)
+    variant_title = db.Column(db.String(180), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    unit_price_minor = db.Column(db.Integer, nullable=False)
+    line_total_minor = db.Column(db.Integer, nullable=False)
+
+class LoyaltyAccount(db.Model):
+    __tablename__ = 'loyalty_account'
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), unique=True, nullable=False, index=True)
+    status = db.Column(db.String(24), default='active', index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+class LoyaltyLedgerEntry(db.Model):
+    __tablename__ = 'loyalty_ledger_entry'
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('loyalty_account.id'), nullable=False, index=True)
+    direction = db.Column(db.String(12), nullable=False)
+    points = db.Column(db.Integer, nullable=False)
+    source_type = db.Column(db.String(40), nullable=False)
+    source_id = db.Column(db.Integer, nullable=False)
+    effect_key = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.String(220), default='')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('source_type','source_id','effect_key', name='uq_loyalty_source_effect'),)
+
+
+class ReferralIdentity(db.Model):
+    __tablename__ = 'referral_identity'
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, unique=True, index=True)
+    code = db.Column(db.String(24), nullable=False, unique=True, index=True)
+    status = db.Column(db.String(24), nullable=False, default='active', index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class ReferralEvent(db.Model):
+    __tablename__ = 'referral_event'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), nullable=False, unique=True, index=True)
+    referral_identity_id = db.Column(db.Integer, db.ForeignKey('referral_identity.id'), nullable=False, index=True)
+    referrer_customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    referred_customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, unique=True, index=True)
+    status = db.Column(db.String(24), nullable=False, default='claimed', index=True)
+    qualifying_source_type = db.Column(db.String(40), nullable=False, default='')
+    qualifying_source_id = db.Column(db.Integer, nullable=True)
+    effect_key = db.Column(db.String(120), nullable=False, unique=True, index=True)
+    reward_points = db.Column(db.Integer, nullable=False, default=0)
+    qualified_at = db.Column(db.DateTime, nullable=True)
+    rewarded_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class ResidentOffer(db.Model):
+    __tablename__ = 'resident_offer'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), nullable=False, unique=True, index=True)
+    code = db.Column(db.String(60), nullable=False, unique=True, index=True)
+    title = db.Column(db.String(180), nullable=False)
+    description = db.Column(db.Text, nullable=False, default='')
+    scope = db.Column(db.String(32), nullable=False, default='resident', index=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=True, index=True)
+    audience_tenancy_json = db.Column(db.Text, nullable=False, default='[]')
+    discount_type = db.Column(db.String(24), nullable=False, default='benefit')
+    discount_value = db.Column(db.Integer, nullable=False, default=0)
+    status = db.Column(db.String(24), nullable=False, default='draft', index=True)
+    starts_at = db.Column(db.DateTime, nullable=True, index=True)
+    ends_at = db.Column(db.DateTime, nullable=True, index=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class ContentEntry(db.Model):
+    __tablename__ = 'content_entry'
+    id = db.Column(db.Integer, primary_key=True)
+    content_type = db.Column(db.String(60), nullable=False, index=True)
+    key = db.Column(db.String(180), nullable=False, index=True)
+    locale = db.Column(db.String(12), default='en')
+    status = db.Column(db.String(24), default='draft', index=True)
+    title = db.Column(db.String(240), default='')
+    body_json = db.Column(db.Text, default='{}')
+    seo_json = db.Column(db.Text, default='{}')
+    updated_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('content_type','key','locale', name='uq_content_entry_key_locale'),)
+
+class PropertyMedia(db.Model):
+    __tablename__ = 'property_media'
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, db.ForeignKey('stay_property.id'), nullable=False, index=True)
+    media_type = db.Column(db.String(24), nullable=False)
+    storage_key = db.Column(db.String(320), nullable=False)
+    alt_text = db.Column(db.String(240), default='')
+    sort_order = db.Column(db.Integer, default=0)
+    public = db.Column(db.Boolean, default=True, index=True)
+
+class LegacyEntityMap(db.Model):
+    __tablename__ = 'legacy_entity_map'
+    id = db.Column(db.Integer, primary_key=True)
+    source_system = db.Column(db.String(80), nullable=False)
+    source_entity_type = db.Column(db.String(80), nullable=False)
+    source_id = db.Column(db.String(180), nullable=False)
+    livenza_entity_type = db.Column(db.String(80), nullable=False)
+    livenza_entity_id = db.Column(db.Integer, nullable=False)
+    metadata_json = db.Column(db.Text, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('source_system','source_entity_type','source_id', name='uq_legacy_entity_source_key'),)
+
+class NotificationDelivery(db.Model):
+    __tablename__ = 'notification_delivery'
+    id = db.Column(db.Integer, primary_key=True)
+    event_key = db.Column(db.String(120), nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=True, index=True)
+    channel = db.Column(db.String(24), nullable=False, index=True)
+    destination_masked = db.Column(db.String(180), default='')
+    status = db.Column(db.String(24), default='pending', index=True)
+    provider_message_id = db.Column(db.String(180), default='')
+    error_code = db.Column(db.String(80), default='')
+    attempts = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
 class Agreement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -259,6 +854,253 @@ class Tenant(db.Model):
     notes = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class StaffMember(db.Model):
+    __tablename__ = 'staff_member'
+    id = db.Column(db.Integer, primary_key=True)
+    staff_code = db.Column(db.String(40), unique=True, nullable=False, index=True)
+    full_name = db.Column(db.String(180), nullable=False, index=True)
+    photo_data_uri = db.Column(db.Text, default='')
+    father_spouse_name = db.Column(db.String(180), default='')
+    dob = db.Column(db.Date, nullable=True)
+    gender = db.Column(db.String(40), default='')
+    mobile = db.Column(db.String(40), default='', index=True)
+    alternate_mobile = db.Column(db.String(40), default='')
+    email = db.Column(db.String(220), default='')
+    current_address = db.Column(db.Text, default='')
+    permanent_address = db.Column(db.Text, default='')
+    emergency_name = db.Column(db.String(180), default='')
+    emergency_mobile = db.Column(db.String(40), default='')
+    aadhaar_no = db.Column(db.Text, default='')
+    aadhaar_nonce = db.Column(db.String(180), default='')
+    aadhaar_last4 = db.Column(db.String(4), default='')
+    pan_no = db.Column(db.Text, default='')
+    pan_nonce = db.Column(db.String(180), default='')
+    pan_last4 = db.Column(db.String(4), default='')
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=True, index=True)
+    property_name = db.Column(db.String(180), default='', index=True)
+    designation = db.Column(db.String(120), default='', index=True)
+    department = db.Column(db.String(120), default='', index=True)
+    reporting_manager = db.Column(db.String(180), default='')
+    joining_date = db.Column(db.Date, nullable=True, index=True)
+    employment_type = db.Column(db.String(40), default='full_time')
+    shift_name = db.Column(db.String(80), default='General')
+    weekly_off = db.Column(db.String(40), default='Sunday')
+    probation_end_date = db.Column(db.Date, nullable=True)
+    status = db.Column(db.String(32), default='active', index=True)
+    notes = db.Column(db.Text, default='')
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+class StaffDocument(db.Model):
+    __tablename__ = 'staff_document'
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff_member.id'), nullable=False, index=True)
+    document_type = db.Column(db.String(60), nullable=False, default='other', index=True)
+    file_name = db.Column(db.String(220), default='')
+    mime_type = db.Column(db.String(120), default='application/octet-stream')
+    encrypted_blob = db.Column(db.Text, nullable=False)
+    encrypted_nonce = db.Column(db.String(180), nullable=False)
+    verification_status = db.Column(db.String(40), default='unverified')
+    uploaded_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    uploaded_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
+class StaffBankAccount(db.Model):
+    __tablename__ = 'staff_bank_account'
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff_member.id'), nullable=False, index=True)
+    account_holder = db.Column(db.String(180), default='')
+    account_number = db.Column(db.Text, default='')
+    account_nonce = db.Column(db.String(180), default='')
+    account_last4 = db.Column(db.String(4), default='')
+    ifsc = db.Column(db.String(30), default='', index=True)
+    bank_name = db.Column(db.String(160), default='')
+    branch_name = db.Column(db.String(160), default='')
+    upi_id = db.Column(db.String(180), default='')
+    preferred_method = db.Column(db.String(32), default='bank_transfer')
+    active = db.Column(db.Boolean, default=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+class StaffSalaryStructure(db.Model):
+    __tablename__ = 'staff_salary_structure'
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff_member.id'), nullable=False, index=True)
+    effective_from = db.Column(db.Date, nullable=False, index=True)
+    basic_minor = db.Column(db.BigInteger, default=0)
+    hra_minor = db.Column(db.BigInteger, default=0)
+    fixed_allowance_minor = db.Column(db.BigInteger, default=0)
+    travel_allowance_minor = db.Column(db.BigInteger, default=0)
+    food_allowance_minor = db.Column(db.BigInteger, default=0)
+    mobile_allowance_minor = db.Column(db.BigInteger, default=0)
+    special_allowance_minor = db.Column(db.BigInteger, default=0)
+    overtime_rate_minor = db.Column(db.BigInteger, default=0)
+    statutory_deduction_minor = db.Column(db.BigInteger, default=0)
+    notes = db.Column(db.Text, default='')
+    active = db.Column(db.Boolean, default=True, index=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('staff_id','effective_from',name='uq_staff_salary_effective'),)
+
+
+class StaffAttendanceEvent(db.Model):
+    __tablename__ = 'staff_attendance_event'
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff_member.id'), nullable=False, index=True)
+    event_at = db.Column(db.DateTime, nullable=False, index=True)
+    event_type = db.Column(db.String(24), nullable=False, index=True)
+    source = db.Column(db.String(40), default='biometric', index=True)
+    external_id = db.Column(db.String(180), nullable=True, unique=True, index=True)
+    device_name = db.Column(db.String(180), default='')
+    note = db.Column(db.String(500), default='')
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
+class StaffAttendanceDay(db.Model):
+    __tablename__ = 'staff_attendance_day'
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff_member.id'), nullable=False, index=True)
+    work_date = db.Column(db.Date, nullable=False, index=True)
+    first_in_at = db.Column(db.DateTime, nullable=True)
+    last_out_at = db.Column(db.DateTime, nullable=True)
+    worked_minutes = db.Column(db.Integer, default=0)
+    status = db.Column(db.String(24), default='absent', index=True)
+    late_minutes = db.Column(db.Integer, default=0)
+    overtime_minutes = db.Column(db.Integer, default=0)
+    source_summary = db.Column(db.String(180), default='')
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('staff_id','work_date',name='uq_staff_attendance_day'),)
+
+
+class StaffLeaveType(db.Model):
+    __tablename__ = 'staff_leave_type'
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(30), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(120), nullable=False)
+    paid = db.Column(db.Boolean, default=True)
+    annual_entitlement = db.Column(db.Float, default=0)
+    active = db.Column(db.Boolean, default=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
+class StaffLeaveBalance(db.Model):
+    __tablename__ = 'staff_leave_balance'
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff_member.id'), nullable=False, index=True)
+    leave_type_id = db.Column(db.Integer, db.ForeignKey('staff_leave_type.id'), nullable=False, index=True)
+    year = db.Column(db.Integer, nullable=False, index=True)
+    entitled_units = db.Column(db.Float, default=0)
+    used_units = db.Column(db.Float, default=0)
+    pending_units = db.Column(db.Float, default=0)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('staff_id','leave_type_id','year',name='uq_staff_leave_balance'),)
+
+
+class StaffLeaveRequest(db.Model):
+    __tablename__ = 'staff_leave_request'
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff_member.id'), nullable=False, index=True)
+    leave_type_id = db.Column(db.Integer, db.ForeignKey('staff_leave_type.id'), nullable=False, index=True)
+    start_date = db.Column(db.Date, nullable=False, index=True)
+    end_date = db.Column(db.Date, nullable=False, index=True)
+    units = db.Column(db.Float, default=1)
+    status = db.Column(db.String(24), default='submitted', index=True)
+    reason = db.Column(db.String(1000), default='')
+    review_note = db.Column(db.String(1000), default='')
+    reviewed_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+class StaffPayrollPeriod(db.Model):
+    __tablename__ = 'staff_payroll_period'
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(32), unique=True, nullable=False, index=True)
+    period_start = db.Column(db.Date, nullable=False, index=True)
+    period_end = db.Column(db.Date, nullable=False, index=True)
+    payable_days = db.Column(db.Integer, nullable=False, default=30)
+    status = db.Column(db.String(32), default='draft', index=True)
+    calculated_at = db.Column(db.DateTime, nullable=True)
+    approved_at = db.Column(db.DateTime, nullable=True)
+    locked_at = db.Column(db.DateTime, nullable=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
+class StaffPayrollItem(db.Model):
+    __tablename__ = 'staff_payroll_item'
+    id = db.Column(db.Integer, primary_key=True)
+    payroll_period_id = db.Column(db.Integer, db.ForeignKey('staff_payroll_period.id'), nullable=False, index=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff_member.id'), nullable=False, index=True)
+    snapshot_json = db.Column(db.Text, default='{}')
+    gross_earnings_minor = db.Column(db.BigInteger, default=0)
+    total_deductions_minor = db.Column(db.BigInteger, default=0)
+    net_salary_minor = db.Column(db.BigInteger, default=0)
+    status = db.Column(db.String(24), default='calculated', index=True)
+    paid_minor = db.Column(db.BigInteger, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('payroll_period_id','staff_id',name='uq_staff_payroll_item'),)
+
+
+class StaffPayrollAdjustment(db.Model):
+    __tablename__ = 'staff_payroll_adjustment'
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff_member.id'), nullable=False, index=True)
+    payroll_period_id = db.Column(db.Integer, db.ForeignKey('staff_payroll_period.id'), nullable=True, index=True)
+    adjustment_type = db.Column(db.String(40), nullable=False, default='other')
+    amount_minor = db.Column(db.BigInteger, nullable=False, default=0)
+    description = db.Column(db.String(500), default='')
+    applied = db.Column(db.Boolean, default=False, index=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
+class StaffLedgerEntry(db.Model):
+    __tablename__ = 'staff_ledger_entry'
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff_member.id'), nullable=False, index=True)
+    entry_date = db.Column(db.Date, nullable=False, default=datetime.date.today, index=True)
+    description = db.Column(db.String(500), nullable=False, default='')
+    debit_minor = db.Column(db.BigInteger, default=0)
+    credit_minor = db.Column(db.BigInteger, default=0)
+    source_type = db.Column(db.String(60), default='', index=True)
+    source_id = db.Column(db.Integer, nullable=True, index=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
+class StaffSalaryPaymentBatch(db.Model):
+    __tablename__ = 'staff_salary_payment_batch'
+    id = db.Column(db.Integer, primary_key=True)
+    payroll_period_id = db.Column(db.Integer, db.ForeignKey('staff_payroll_period.id'), nullable=False, index=True)
+    batch_reference = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    status = db.Column(db.String(24), default='created', index=True)
+    total_minor = db.Column(db.BigInteger, default=0)
+    item_count = db.Column(db.Integer, default=0)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+
+class StaffSalaryPayment(db.Model):
+    __tablename__ = 'staff_salary_payment'
+    id = db.Column(db.Integer, primary_key=True)
+    batch_id = db.Column(db.Integer, db.ForeignKey('staff_salary_payment_batch.id'), nullable=False, index=True)
+    payroll_item_id = db.Column(db.Integer, db.ForeignKey('staff_payroll_item.id'), nullable=False, unique=True, index=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff_member.id'), nullable=False, index=True)
+    amount_minor = db.Column(db.BigInteger, nullable=False, default=0)
+    status = db.Column(db.String(24), default='pending', index=True)
+    bank_reference = db.Column(db.String(180), default='', index=True)
+    paid_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
 
 class Review(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -1218,53 +2060,10 @@ class Setting(db.Model):
     value = db.Column(db.Text, default='')
 
 
-def _settings_request_cache():
-    if not has_request_context():
-        return None
-    cache = getattr(g, '_livenza_settings_cache', None)
-    if cache is None:
-        cache = {}
-        g._livenza_settings_cache = cache
-    return cache
-
-
-def settings_snapshot(keys, defaults=None):
-    """Load a group of runtime settings in one query and cache them for this request."""
-    defaults = dict(defaults or {})
-    ordered = list(dict.fromkeys(str(key) for key in keys if key))
-    cache = _settings_request_cache()
-    local = cache if cache is not None else {}
-    missing = [key for key in ordered if key not in local]
-    if missing:
-        try:
-            rows = Setting.query.filter(Setting.key.in_(missing)).all()
-            found = {row.key: row.value for row in rows}
-            for key in missing:
-                local[key] = found.get(key, defaults.get(key, ''))
-        except Exception as exc:
-            try:
-                db.session.rollback()
-            except Exception:
-                pass
-            try:
-                app.logger.warning('Settings snapshot failed for %s keys: %s', len(missing), str(exc)[:180])
-            except Exception:
-                pass
-            for key in missing:
-                local[key] = defaults.get(key, '')
-    return {key: local.get(key, defaults.get(key, '')) for key in ordered}
-
-
 def setting(key, default=''):
-    cache = _settings_request_cache()
-    if cache is not None and key in cache:
-        return cache[key]
     try:
         row = db.session.get(Setting, key)
-        value = row.value if row else default
-        if cache is not None:
-            cache[key] = value
-        return value
+        return row.value if row else default
     except Exception as exc:
         # Settings are presentation/runtime preferences. A stale or temporarily
         # unavailable settings table must never take down login or the shell.
@@ -1276,19 +2075,13 @@ def setting(key, default=''):
             app.logger.warning('Setting lookup failed for %s: %s', key, str(exc)[:180])
         except Exception:
             pass
-        if cache is not None:
-            cache[key] = default
         return default
-
 
 def set_setting(key, value):
     row = db.session.get(Setting, key)
     if row: row.value = value
     else: db.session.add(Setting(key=key, value=value))
     db.session.commit()
-    cache = _settings_request_cache()
-    if cache is not None:
-        cache[key] = value
 
 
 GOOGLE_SCOPES = [
@@ -1517,6 +2310,7 @@ MODULES = {
     'food': 'Food Delivery Hub',
     'rentok': 'Livenza Billing Suite',
     'banking': 'Banking & Reconciliation Suite',
+    'staff_salary': 'Staff Salary Studio',
     'electricity': 'Electricity Bill Studio',
     'queries': 'Live Queries Manager',
     'video_wall': 'Video Wall Studio',
@@ -1525,20 +2319,24 @@ MODULES = {
     'drive': 'Google Drive Files',
     'integrations': 'Integrations Center',
     'letterhead': 'Livenza Letterhead Studio',
+    'customers': 'Livenza Customers',
+    'stays_admin': 'Livenza Stays Admin',
+    'store_admin': 'Livenza Store Admin',
+    'content': 'Livenza Content Studio',
 }
 
 
 SYSTEM_SETTINGS_PANES = [
     {'key':'account','label':'Account','group':'Personal','icon':'account','description':'Your Livenza identity, sign-in status and personal workspace preferences.'},
-    {'key':'network','label':'Network','group':'Connectivity','icon':'wifi','description':'Browser connectivity, secure session, backend health and connection estimates.'},
+    {'key':'network','label':'Network','group':'Connectivity','icon':'wifi','description':'Livenza connectivity, backend reachability and integration health.'},
     {'key':'focus','label':'Focus','group':'Personal','icon':'focus','description':'Reduce non-critical alerts, mascot interruptions and live-status distractions.'},
     {'key':'general','label':'General','group':'System','icon':'general','description':'Version, region, language and core Livenza defaults.'},
     {'key':'appearance','label':'Appearance','group':'System','icon':'appearance','description':'macOS 27 application material, light/dark appearance, contrast and transparency.'},
     {'key':'accessibility','label':'Accessibility','group':'System','icon':'accessibility','description':'Motion, transparency, text and interaction accessibility preferences.'},
+    {'key':'control-centre','label':'Control Centre','group':'System','icon':'control-centre','description':'Choose the quick controls available in the Livenza toolbar.'},
     {'key':'desktop-dock','label':'Desktop & Dock','group':'System','icon':'desktop-dock','description':'Dock size, magnification and automatic hiding.'},
     {'key':'wallpaper','label':'Wallpaper','group':'System','icon':'wallpaper','description':'Choose a vibrant Tesla OS desktop wallpaper or use your own image.'},
     {'key':'widgets','label':'Widgets','group':'System','icon':'widgets','description':'Manage operational widgets from System Settings without adding clutter to Home.'},
-    {'key':'notifications','label':'Notifications','group':'System','icon':'notifications','description':'Control in-app Livenza alerts, badges, companion notices and reminders.'},
     {'key':'privacy-security','label':'Privacy & Security','group':'Security','icon':'privacy','description':'Passkeys, kiosk controls, secure sessions and sensitive-data visibility.'},
     {'key':'users-groups','label':'Users & Groups','group':'Administration','icon':'users','description':'Users, roles, permissions, profile identity and access controls.','admin_only':True},
     {'key':'internet-accounts','label':'Internet Accounts','group':'Connectivity','icon':'integrations','description':'Connected services, providers, secrets and integration workflows.','permission':'integrations'},
@@ -1579,34 +2377,28 @@ def _system_settings_server_keys():
             'host3d_default_intensity','host3d_max_intensity','host3d_default_city','host3d_operational_updates_default','host3d_weather_default','host3d_motivational_default')
 
 
-def _system_settings_server_values(keys=None):
+def _system_settings_server_values():
     defaults={'companion_enabled':'1','companion_weather_enabled':'1','companion_weather_effects':'1','companion_quotes_enabled':'1','companion_operations_enabled':'1','companion_default_city':'Gurugram','companion_effect_seconds':'11',
               'host3d_default_intensity':'full','host3d_max_intensity':'full','host3d_default_city':'Gurugram','host3d_operational_updates_default':'1','host3d_weather_default':'1','host3d_motivational_default':'1'}
-    requested = tuple(keys or _system_settings_server_keys())
-    return settings_snapshot(requested, defaults)
+    return {k:setting(k,defaults.get(k,'')) for k in _system_settings_server_keys()}
 
 
 def settings_pane_context(pane, user=None):
     user = user or current_user()
-    settings_values = _system_settings_server_values() if pane == 'automations' else {}
-    ctx = {'user':user, 'settings':settings_values}
-    if pane == 'account':
-        ctx.update(avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()))
-    if pane == 'intelligence':
+    ctx = {'user':user, 'settings':_system_settings_server_values()}
+    if pane in ('account','intelligence'):
         ctx.update(avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()), mascot_preferences=mascot_preferences_for(user))
     if pane == 'privacy-security':
-        kiosk = settings_snapshot(('kiosk_mode_enabled',), {'kiosk_mode_enabled':'0'})
-        ctx.update(credentials=WebAuthnCredential.query.filter_by(user_id=user.id).order_by(WebAuthnCredential.id).all() if user else [], kiosk_enabled=kiosk['kiosk_mode_enabled']=='1')
+        ctx.update(credentials=WebAuthnCredential.query.filter_by(user_id=user.id).order_by(WebAuthnCredential.id).all() if user else [], kiosk_enabled=setting('kiosk_mode_enabled','0')=='1')
     if pane == 'internet-accounts':
         ctx.update(_integration_center_context((request.args.get('category') or '').strip().lower(),(request.args.get('provider') or '').strip(),(request.args.get('workflow') or '').strip()))
     if pane == 'users-groups':
         users=User.query.order_by(User.username).all()
-        admin_settings=settings_snapshot(('google_drive_folder_id','google_drive_auto_backup','kiosk_mode_enabled'), {'google_drive_folder_id':'','google_drive_auto_backup':'0','kiosk_mode_enabled':'0'})
         ctx.update(users=users, credentials={u.id:WebAuthnCredential.query.filter_by(user_id=u.id).order_by(WebAuthnCredential.id).all() for u in users},
                    cities=City.query.order_by(City.name).all(), modules=MODULES, letterhead_capabilities=LETTERHEAD_CAPABILITIES,
                    query_templates=QueryTemplate.query.order_by(QueryTemplate.id.desc()).all(), aadhaar_provider_configured=bool(os.getenv('AADHAAR_AUTH_URL','').strip()),
-                   google_oauth_ready=google_oauth_configured(), google_is_connected=google_connected(), drive_folder_id=admin_settings['google_drive_folder_id'],
-                   drive_auto_backup=admin_settings['google_drive_auto_backup']=='1', kiosk_enabled=admin_settings['kiosk_mode_enabled']=='1', avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()))
+                   google_oauth_ready=google_oauth_configured(), google_is_connected=google_connected(), drive_folder_id=setting('google_drive_folder_id',''),
+                   drive_auto_backup=setting('google_drive_auto_backup','0')=='1', kiosk_enabled=setting('kiosk_mode_enabled','0')=='1', avatar_ai_ready=bool(os.getenv('OPENAI_API_KEY','').strip()))
     if pane == 'organisation':
         edit_secret_id=(request.args.get('edit_secret') or '').strip(); edit_provider_id=(request.args.get('edit_provider') or '').strip()
         ctx.update(entries=VaultSecret.query.order_by(VaultSecret.id.desc()).all(), audits=AuditEvent.query.filter(AuditEvent.module.in_(['vault','electricity'])).order_by(AuditEvent.id.desc()).limit(150).all(),
@@ -2397,37 +3189,7 @@ def login_required(fn):
 
 
 def current_user():
-    uid = session.get('uid')
-    if not uid:
-        return None
-    if getattr(g, '_livenza_current_user_loaded', False):
-        return getattr(g, '_livenza_current_user', None)
-    g._livenza_current_user = db.session.get(User, uid)
-    g._livenza_current_user_loaded = True
-    return g._livenza_current_user
-
-
-def _cached_kiosk_mode_enabled(force_refresh=False):
-    now = time.monotonic()
-    cached = _KIOSK_POLICY_CACHE
-    if not force_refresh and cached['value'] is not None and now - cached['at'] < KIOSK_POLICY_CACHE_TTL_SECONDS:
-        return bool(cached['value'])
-    enabled = setting('kiosk_mode_enabled','0') == '1'
-    cached['value'] = enabled
-    cached['at'] = now
-    return enabled
-
-
-def _refresh_session_kiosk_state(preserve_unlock=False):
-    enabled = _cached_kiosk_mode_enabled(force_refresh=True)
-    session['kiosk_mode_enabled'] = enabled
-    if not enabled:
-        session['kiosk_unlocked'] = True
-    elif not preserve_unlock:
-        session['kiosk_unlocked'] = False
-    else:
-        session.setdefault('kiosk_unlocked', False)
-    return enabled
+    return db.session.get(User, session.get('uid')) if session.get('uid') else None
 
 
 HOST3D_INTENSITIES = {'static': 0, 'gentle': 1, 'full': 2}
@@ -2440,18 +3202,10 @@ def _setting_bool(key, default='1'):
 
 
 def mascot_preferences_for(user):
-    pref_settings = settings_snapshot(
-        ('host3d_default_intensity','host3d_max_intensity','host3d_default_city','companion_default_city','companion_enabled',
-         'host3d_operational_updates_default','companion_operations_enabled','host3d_motivational_default','companion_quotes_enabled',
-         'host3d_weather_default','companion_weather_effects'),
-        {'host3d_default_intensity':'full','host3d_max_intensity':'full','host3d_default_city':'','companion_default_city':'Gurugram','companion_enabled':'1',
-         'host3d_operational_updates_default':'1','companion_operations_enabled':'1','host3d_motivational_default':'1','companion_quotes_enabled':'1',
-         'host3d_weather_default':'1','companion_weather_effects':'1'}
-    )
-    global_default = pref_settings['host3d_default_intensity'].strip().lower()
+    global_default = setting('host3d_default_intensity', 'full').strip().lower()
     if global_default not in HOST3D_INTENSITIES:
         global_default = 'full'
-    policy_max = pref_settings['host3d_max_intensity'].strip().lower()
+    policy_max = setting('host3d_max_intensity', 'full').strip().lower()
     if policy_max not in HOST3D_INTENSITIES:
         policy_max = 'full'
     try:
@@ -2470,17 +3224,17 @@ def mascot_preferences_for(user):
     effective = requested if HOST3D_INTENSITIES[requested] <= HOST3D_INTENSITIES[policy_max] else policy_max
     size = row.size if row and row.size in HOST3D_SIZES else 'medium'
     position = row.position if row and row.position in HOST3D_POSITIONS else 'bottom-right'
-    default_city = (pref_settings['host3d_default_city'] or pref_settings['companion_default_city'] or 'Gurugram')[:120]
+    default_city = setting('host3d_default_city', setting('companion_default_city', 'Gurugram'))[:120]
     return {
-        'enabled': bool(row.enabled) if row else str(pref_settings['companion_enabled']).strip().lower() in ('1','true','yes','on'),
+        'enabled': bool(row.enabled) if row else _setting_bool('companion_enabled', '1'),
         'intensity': effective,
         'requested_intensity': requested,
         'policy_max_intensity': policy_max,
         'size': size,
         'position': position,
-        'operational_updates': bool(row.operational_updates) if row else str(pref_settings['host3d_operational_updates_default'] or pref_settings['companion_operations_enabled']).strip().lower() in ('1','true','yes','on'),
-        'motivational_messages': bool(row.motivational_messages) if row else str(pref_settings['host3d_motivational_default'] or pref_settings['companion_quotes_enabled']).strip().lower() in ('1','true','yes','on'),
-        'weather_reactions': bool(row.weather_reactions) if row else str(pref_settings['host3d_weather_default'] or pref_settings['companion_weather_effects']).strip().lower() in ('1','true','yes','on'),
+        'operational_updates': bool(row.operational_updates) if row else _setting_bool('host3d_operational_updates_default', setting('companion_operations_enabled', '1')),
+        'motivational_messages': bool(row.motivational_messages) if row else _setting_bool('host3d_motivational_default', setting('companion_quotes_enabled', '1')),
+        'weather_reactions': bool(row.weather_reactions) if row else _setting_bool('host3d_weather_default', setting('companion_weather_effects', '1')),
         'weather_city': (row.weather_city or default_city)[:120] if row else default_city,
     }
 
@@ -2549,8 +3303,6 @@ def all_form_data(preset_name=None):
 LIVENZA_APP_REGISTRY = [
     {'title':'Home','endpoint':'dashboard','permission':'','icon':'home','tone':'finder','family':'desktop','accent':'#10C8CF','accent2':'#35D05B','availability':'internal'},
     {'title':'Agreement Studio','endpoint':'agreements','permission':'agreements','icon':'agreement','tone':'blue','family':'productivity','accent':'#0E7594','accent2':'#10C8CF','availability':'internal'},
-    {'title':'Landlord Master','endpoint':'landlord_masters','permission':'agreements','icon':'property','tone':'blue','family':'productivity','accent':'#4C84FF','accent2':'#6A5CFF','availability':'internal'},
-    {'title':'Tenant Master','endpoint':'tenant_masters','permission':'agreements','icon':'resident','tone':'teal','family':'productivity','accent':'#24C7C0','accent2':'#247DFF','availability':'internal'},
     {'title':'Rooms','endpoint':'rooms','permission':'rooms','icon':'room','tone':'cyan','family':'occupancy','accent':'#24C7F4','accent2':'#197BFF','availability':'internal'},
     {'title':'Residents','endpoint':'tenants','permission':'rooms','icon':'resident','tone':'teal','family':'occupancy','accent':'#2FD3B8','accent2':'#0A9C87','availability':'internal'},
     {'title':'Queries','endpoint':'queries','permission':'queries','icon':'queries','tone':'orange','family':'pipeline','accent':'#FF9B42','accent2':'#FF5D3A','availability':'internal'},
@@ -2559,12 +3311,12 @@ LIVENZA_APP_REGISTRY = [
     {'title':'Food','endpoint':'food','permission':'food','icon':'food','tone':'green','family':'hospitality','accent':'#49CD72','accent2':'#FF9A3D','availability':'internal'},
     {'title':'Billing','endpoint':'billing','permission':'rentok','icon':'billing','tone':'mint','family':'finance','accent':'#2ED5B5','accent2':'#1A9DE0','availability':'internal'},
     {'title':'Banking','endpoint':'banking_suite','permission':'banking','icon':'banking','tone':'navy','family':'finance','accent':'#5575D9','accent2':'#283A8C','availability':'internal'},
+    {'title':'Staff Salary Studio','endpoint':'staff_salary_studio','permission':'staff_salary','icon':'staff_salary','tone':'violet','family':'finance','accent':'#7B61FF','accent2':'#D56BFF','availability':'internal'},
     {'title':'Electricity','endpoint':'electricity_studio','permission':'electricity','icon':'electricity','tone':'amber','family':'utilities','accent':'#FFD24A','accent2':'#FF8A2D','availability':'internal'},
     {'title':'WhatsApp','endpoint':'whatsapp_workspace','permission':'whatsapp','icon':'whatsapp','tone':'green','family':'communication','accent':'#48D06A','accent2':'#13A857','availability':'whatsapp'},
     {'title':'Email','endpoint':'email_workspace','permission':'email','icon':'email','tone':'blue','family':'communication','accent':'#59B1FF','accent2':'#4D62E8','availability':'google'},
     {'title':'Drive','endpoint':'drive_workspace','permission':'drive','icon':'drive','tone':'cyan','family':'communication','accent':'#37D1E8','accent2':'#3478F6','availability':'google'},
     {'title':'Letterhead Studio','endpoint':'letterhead_studio','permission':'letterhead','icon':'letterhead','tone':'red','family':'documents','accent':'#FF5B6C','accent2':'#8B57FF','availability':'internal'},
-    {'title':'Livenza Vault','endpoint':'vault_page','permission':'','icon':'lock','tone':'settings','family':'system','accent':'#243A65','accent2':'#10C8CF','availability':'internal','admin_only':True},
     {'title':'System Settings','endpoint':'settings_page','permission':'','icon':'settings','tone':'settings','family':'system','accent':'#10C8CF','accent2':'#35D05B','availability':'internal'},
 ]
 
@@ -2582,6 +3334,10 @@ LIVENZA_APP_VISUAL_PARENT = {
     'master_safe_view':'agreements',
     'query_sheet':'queries',
     'bank_reconciliation':'banking_suite',
+    'staff_salary_staff_new':'staff_salary_studio',
+    'staff_salary_staff_edit':'staff_salary_studio',
+    'staff_salary_payslip':'staff_salary_studio',
+    'staff_salary_ledger':'staff_salary_studio',
     'electricity_portal':'electricity_studio',
     'electricity_register':'electricity_studio',
     'food_integrations':'food',
@@ -2624,8 +3380,6 @@ def ui_app_available(endpoint, user=None):
     if not item:
         return True
     user=user or current_user()
-    if item.get('admin_only') and (not user or (user.role or '').lower()!='admin'):
-        return False
     permission=item.get('permission') or ''
     if permission and not can_access(permission,user):
         return False
@@ -2640,27 +3394,6 @@ def ui_app_available(endpoint, user=None):
 def visible_dock_apps(user=None):
     user=user or current_user()
     return [dict(item) for item in LIVENZA_APP_REGISTRY if ui_app_available(item['endpoint'],user)]
-
-
-def lightweight_dock_apps(user=None):
-    """Fast Dock registry for Home/Settings: permission-aware, route-safe, provider-agnostic."""
-    user=user or current_user()
-    if not user:
-        return []
-    admin=(user.role or '').lower()=='admin'
-    route_names={rule.endpoint for rule in app.url_map.iter_rules()}
-    items=[]
-    for item in LIVENZA_APP_REGISTRY:
-        endpoint=item['endpoint']
-        if endpoint=='dashboard' or endpoint not in route_names:
-            continue
-        if item.get('admin_only') and not admin:
-            continue
-        permission=item.get('permission') or ''
-        if permission and not can_access(permission,user):
-            continue
-        items.append(dict(item))
-    return items
 
 
 @app.context_processor
@@ -2682,17 +3415,19 @@ def inject_common():
             can_access=can_access, module_labels=MODULES,
             is_admin=bool(user and (user.role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar,
             kiosk_mode_enabled=False, companion_enabled=False, companion_default_city='Gurugram', companion_weather_effects=False,
-            mascot_preferences={}, dock_apps=lightweight_dock_apps(user), ui_app_available=lambda endpoint: endpoint in {row['endpoint'] for row in LIVENZA_APP_REGISTRY}, ui_app_meta=ui_app_meta
+            mascot_preferences={}, dock_apps=[], ui_app_available=lambda endpoint: endpoint in {row['endpoint'] for row in LIVENZA_APP_REGISTRY}, ui_app_meta=ui_app_meta
         )
     user=current_user()
-    lightweight_settings = request.endpoint in {'settings_page','system_settings_pane','admin_panel','admin_vault','integrations_center'}
+    mascot_preferences=mascot_preferences_for(user) if user else {}
     return dict(
         current_user=user, app_version=APP_VERSION, asset_revision=ASSET_REVISION, os_name=OS_NAME, os_version=OS_VERSION, os_build=OS_BUILD,
         can_access=can_access, module_labels=MODULES,
         is_admin=bool(user and (user.role or '').lower()=='admin'), masked_aadhaar=masked_aadhaar,
-        kiosk_mode_enabled=bool(session.get('kiosk_mode_enabled', False)),
-        companion_enabled=False, companion_default_city='Gurugram', companion_weather_effects=False,
-        mascot_preferences={}, dock_apps=lightweight_dock_apps(user) if lightweight_settings else visible_dock_apps(user), ui_app_available=ui_app_available, ui_app_meta=ui_app_meta
+        kiosk_mode_enabled=setting('kiosk_mode_enabled','0')=='1',
+        companion_enabled=setting('companion_enabled','1')=='1' and bool(mascot_preferences.get('enabled',True)),
+        companion_default_city=mascot_preferences.get('weather_city') or setting('companion_default_city','Gurugram'),
+        companion_weather_effects=setting('companion_weather_effects','1')=='1' and bool(mascot_preferences.get('weather_reactions',True)),
+        mascot_preferences=mascot_preferences, dock_apps=visible_dock_apps(user), ui_app_available=ui_app_available, ui_app_meta=ui_app_meta
     )
 
 @app.before_request
@@ -2700,18 +3435,9 @@ def enforce_kiosk_pin_gate():
     """Server-side gate for every authenticated page while application lock is enabled."""
     # Diagnostics must never depend on Settings/current-user lookups before their
     # own stage-by-stage error reporting has a chance to run.
-    if request.endpoint in {'health','health_db','version','diagnostics','diagnostics_authenticated','diagnostics_runtime','static'}:
+    if request.endpoint in {'health','version','diagnostics','diagnostics_authenticated','diagnostics_runtime','static'}:
         return None
-    if not session.get('uid'):
-        return None
-    previous_enabled = bool(session.get('kiosk_mode_enabled', False))
-    enabled = _cached_kiosk_mode_enabled()
-    session['kiosk_mode_enabled'] = enabled
-    if not enabled:
-        session['kiosk_unlocked'] = True
-    elif not previous_enabled:
-        session['kiosk_unlocked'] = False
-    if not session.get('kiosk_mode_enabled') or session.get('kiosk_unlocked'):
+    if not session.get('uid') or setting('kiosk_mode_enabled','0')!='1' or session.get('kiosk_unlocked'):
         return None
     allowed={'kiosk_lock','kiosk_unlock','logout'}
     if request.endpoint not in allowed:
@@ -2752,21 +3478,6 @@ def kiosk_relock():
 
 @app.route('/health')
 def health(): return jsonify(status='ok', service='livenza-back-office-web', version=APP_VERSION)
-
-@app.route('/health/db')
-def health_db():
-    started = time.perf_counter()
-    try:
-        db.session.execute(text('SELECT 1'))
-        latency_ms = round((time.perf_counter() - started) * 1000, 1)
-        return jsonify(ok=True, revision=ASSET_REVISION, latency_ms=latency_ms)
-    except Exception as exc:
-        try:
-            db.session.rollback()
-        except Exception:
-            pass
-        latency_ms = round((time.perf_counter() - started) * 1000, 1)
-        return jsonify(ok=False, revision=ASSET_REVISION, latency_ms=latency_ms, error=type(exc).__name__), 503
 
 @app.after_request
 def livenza_cache_policy(response):
@@ -2906,8 +3617,8 @@ def version():
             'tesla-os-27','macos27-clean-shell','wallpaper-picker','functional-app-registry','raf-dock-motion',
             'unified-system-settings','livenza-symbol-system','ai-logo-identity','reduced-motion',
             'agreements','rooms','queries','billing','banking','electricity','food','video-wall',
-            'whatsapp','email','drive','letterhead-studio','livenza-vault','role-permissions',
-            'webauthn-passkeys','pattern-login','live-companion','responsive-5k-layout','status-strip-removed','vibrant-suite-materials','request-path-db-stabilization','db-health-latency','functional-web-settings','settings-inline-fail-safe','mascot-ui-polish'
+            'whatsapp','email','drive','letterhead-studio','staff-salary-studio','livenza-vault','role-permissions',
+            'webauthn-passkeys','pattern-login','live-companion','responsive-5k-layout','status-strip-removed','vibrant-suite-materials'
         ]
     )
 
@@ -2930,7 +3641,7 @@ def login():
                 error={'field':'pattern','message':'Connect at least four different points, then try the gesture again.'}
             elif u and u.pattern_hash and check_password_hash(u.pattern_hash,'pattern:'+pattern):
                 session.clear(); session['uid']=u.id
-                _refresh_session_kiosk_state()
+                session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
                 session['show_login_welcome']=True
                 return redirect(url_for('kiosk_lock') if not session['kiosk_unlocked'] else (request.args.get('next') or url_for('dashboard')))
             else:
@@ -2941,7 +3652,7 @@ def login():
                 error={'field':'password','message':'Enter your password to continue.'}
             elif u and check_password_hash(u.password_hash,password):
                 session.clear(); session['uid']=u.id
-                _refresh_session_kiosk_state()
+                session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
                 session['show_login_welcome']=True
                 return redirect(url_for('kiosk_lock') if not session['kiosk_unlocked'] else (request.args.get('next') or url_for('dashboard')))
             else:
@@ -5127,7 +5838,7 @@ def webauthn_auth_verify():
             credential_current_sign_count=row.sign_count,require_user_verification=True,
         )
         row.sign_count=verified.new_sign_count; row.last_used_at=datetime.datetime.utcnow(); db.session.commit()
-        session.clear(); session['uid']=u.id; _refresh_session_kiosk_state(); session['show_login_welcome']=True
+        session.clear(); session['uid']=u.id; session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'; session['show_login_welcome']=True
         return jsonify(ok=True,redirect=(url_for('kiosk_lock') if not session['kiosk_unlocked'] else url_for('dashboard')))
     except Exception as exc:
         db.session.rollback(); return jsonify(ok=False,error=f'Fingerprint/passkey verification failed: {exc}'),400
@@ -6384,6 +7095,965 @@ def system_settings_pane(pane):
     context=settings_pane_context(pane,user)
     return render_template('system_settings.html',settings_panes=panes,selected_settings_pane=pane,selected_settings=selected,**context)
 
+def _livenza_loyalty_balance(customer_id):
+    account=LoyaltyAccount.query.filter_by(customer_id=customer_id).first()
+    if not account:
+        return 0
+    rows=LoyaltyLedgerEntry.query.filter_by(account_id=account.id).all()
+    return sum((row.points if row.direction=='credit' else -row.points) for row in rows)
+
+def generate_customer_agreement_for_onboarding(onboarding):
+    existing=CustomerAgreement.query.filter_by(onboarding_id=onboarding.id).filter(CustomerAgreement.status.notin_(['cancelled','superseded'])).order_by(CustomerAgreement.id.desc()).first()
+    if existing:
+        return existing
+    customer=db.session.get(Customer,onboarding.customer_id)
+    booking=db.session.get(StayBooking,onboarding.booking_id) if onboarding.booking_id else None
+    if not customer or not booking:
+        raise ValueError('A linked customer booking is required to generate this agreement.')
+    required=required_document_types(onboarding.tenancy_type)
+    documents=CustomerDocument.query.filter_by(onboarding_id=onboarding.id).filter(CustomerDocument.verification_status!='withdrawn').order_by(CustomerDocument.created_at.desc(),CustomerDocument.id.desc()).all()
+    latest={}
+    for document in documents: latest.setdefault(document.document_type,document)
+    if not all(kind in latest and latest[kind].verification_status=='verified' for kind in required):
+        raise ValueError('Required tenant documents must be verified before agreement generation.')
+    prop=db.session.get(StayProperty,booking.property_id)
+    rate_plan=db.session.get(StayRatePlan,booking.rate_plan_id)
+    booking_item=StayBookingItem.query.filter_by(booking_id=booking.id).order_by(StayBookingItem.id.asc()).first()
+    unit=db.session.get(StayInventoryUnit,booking_item.inventory_unit_id) if booking_item else None
+    if not prop or not rate_plan:
+        raise ValueError('Booking property or rate plan is unavailable.')
+    payload=agreement_payload_for_onboarding(
+        onboarding,customer,booking,prop,rate_plan,unit,
+        legal_entity_name=os.getenv('LIVENZA_LEGAL_ENTITY_NAME','Livenza Life LLP'),
+        legal_address=os.getenv('LIVENZA_LEGAL_ENTITY_ADDRESS',''),
+    )
+    government_id=latest.get('government_id')
+    if government_id and government_id.masked_identifier:
+        payload['tenant_id_type']='Other'
+        payload['tenant_id_no']=government_id.masked_identifier
+    preset=agreement_preset_for_tenancy(onboarding.tenancy_type)
+    agreement=Agreement(
+        name=f"Livenza {preset} - {customer.full_name or customer.public_id} - {booking.public_id}",
+        preset=preset,
+        data_json=json.dumps(payload,ensure_ascii=False),
+    )
+    pdf_buffer=build_agreement_pdf_bytes(agreement)
+    pdf_bytes=pdf_buffer.getvalue()
+    agreement_public_id=str(uuid.uuid4())
+    pdf_storage_key=f"customer-agreements/{customer.public_id}/{onboarding.public_id}/{agreement_public_id}.pdf"
+    storage_from_env().put_private(pdf_storage_key,pdf_bytes,'application/pdf')
+    db.session.add(agreement)
+    db.session.flush()
+    link=CustomerAgreement(
+        public_id=agreement_public_id,customer_id=customer.id,booking_id=booking.id,onboarding_id=onboarding.id,
+        agreement_id=agreement.id,status='awaiting_acceptance',agreement_sha256=hashlib.sha256(pdf_bytes).hexdigest(),
+        pdf_storage_key=pdf_storage_key,
+    )
+    db.session.add(link)
+    onboarding.current_step='agreement_acceptance'
+    return link
+
+@app.route('/admin/livenza')
+@login_required
+def livenza_admin_home():
+    return render_template('admin.html')
+
+@app.route('/admin/livenza/postdeploy/verify/<kind>/<public_id>')
+def livenza_postdeploy_verify(kind,public_id):
+    expected=(os.getenv('LIVENZA_POSTDEPLOY_TOKEN') or '').strip()
+    supplied=(request.headers.get('Authorization') or '').strip()
+    token=supplied[7:].strip() if supplied.lower().startswith('bearer ') else ''
+    if len(expected)<32 or not token or not hmac.compare_digest(token,expected): abort(403)
+    if kind=='booking':
+        row=StayBooking.query.filter_by(public_id=public_id).first() or abort(404)
+        payment=PaymentRecord.query.filter_by(source_type='booking',source_id=row.id).order_by(PaymentRecord.id.desc()).first()
+        return jsonify(ok=True,entity='booking',public_id=row.public_id,status=row.status,payment_status=(payment.status if payment else 'none'),property_id=row.property_id)
+    if kind=='order':
+        row=StoreOrder.query.filter_by(public_id=public_id).first() or abort(404)
+        payment=PaymentRecord.query.filter_by(source_type='store_order',source_id=row.id).order_by(PaymentRecord.id.desc()).first()
+        return jsonify(ok=True,entity='order',public_id=row.public_id,status=row.status,payment_status=(payment.status if payment else 'none'),fulfilment_mode=row.fulfilment_mode)
+    abort(404)
+
+@app.route('/admin/livenza/onboarding')
+@permission_required('customers')
+def livenza_tenant_onboarding_admin():
+    rows=TenantOnboarding.query.order_by(TenantOnboarding.updated_at.desc(),TenantOnboarding.id.desc()).limit(300).all()
+    items=[]
+    for row in rows:
+        customer=db.session.get(Customer,row.customer_id)
+        booking=db.session.get(StayBooking,row.booking_id) if row.booking_id else None
+        prop=db.session.get(StayProperty,booking.property_id) if booking else None
+        documents=CustomerDocument.query.filter_by(onboarding_id=row.id).filter(CustomerDocument.verification_status!='withdrawn').all()
+        items.append({'row':row,'customer':customer,'booking':booking,'property':prop,'documents':documents})
+    return render_template('livenza_tenant_onboarding_admin.html',items=items)
+
+@app.route('/admin/livenza/onboarding/<int:onboarding_id>')
+@permission_required('customers')
+def livenza_tenant_onboarding_detail_admin(onboarding_id):
+    row=db.session.get(TenantOnboarding,onboarding_id) or abort(404)
+    customer=db.session.get(Customer,row.customer_id) or abort(404)
+    booking=db.session.get(StayBooking,row.booking_id) if row.booking_id else None
+    prop=db.session.get(StayProperty,booking.property_id) if booking else None
+    documents=CustomerDocument.query.filter_by(onboarding_id=row.id).order_by(CustomerDocument.created_at.desc(),CustomerDocument.id.desc()).all()
+    customer_agreement=CustomerAgreement.query.filter_by(onboarding_id=row.id).filter(CustomerAgreement.status.notin_(['cancelled','superseded'])).order_by(CustomerAgreement.id.desc()).first()
+    return render_template('livenza_tenant_onboarding_detail.html',onboarding=row,customer=customer,booking=booking,property=prop,documents=documents,required_documents=required_document_types(row.tenancy_type),customer_agreement=customer_agreement)
+
+@app.route('/admin/livenza/onboarding/<int:onboarding_id>/agreement/generate',methods=['POST'])
+@permission_required('customers')
+def livenza_tenant_agreement_generate_admin(onboarding_id):
+    onboarding=db.session.get(TenantOnboarding,onboarding_id) or abort(404)
+    try:
+        agreement=generate_customer_agreement_for_onboarding(onboarding)
+        db.session.commit()
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc),'danger')
+        return redirect(url_for('livenza_tenant_onboarding_detail_admin',onboarding_id=onboarding_id))
+    except Exception:
+        db.session.rollback()
+        flash('Agreement Studio could not create the private tenant agreement. Check private storage configuration and try again.','danger')
+        return redirect(url_for('livenza_tenant_onboarding_detail_admin',onboarding_id=onboarding_id))
+    record_audit('tenant_agreement_generated','customer_agreement',agreement.id,module='tenant_onboarding',meta={'onboarding_id':onboarding.id,'agreement_id':agreement.public_id})
+    db.session.commit()
+    flash('Agreement Studio generated the tenant agreement and it is ready for acceptance.','success')
+    return redirect(url_for('livenza_tenant_onboarding_detail_admin',onboarding_id=onboarding.id))
+
+@app.route('/admin/livenza/onboarding/documents/<int:document_id>/download')
+@permission_required('customers')
+def livenza_tenant_document_download_admin(document_id):
+    document=db.session.get(CustomerDocument,document_id) or abort(404)
+    if not document.onboarding_id or document.verification_status=='withdrawn': abort(404)
+    try:
+        signed=storage_from_env().signed_get_url(document.storage_key,expires_seconds=300)
+    except Exception:
+        flash('Private document storage is temporarily unavailable.','danger')
+        return redirect(url_for('livenza_tenant_onboarding_detail_admin',onboarding_id=document.onboarding_id))
+    record_audit('tenant_document_viewed','customer_document',document.id,module='tenant_onboarding',meta={'onboarding_id':document.onboarding_id,'document_type':document.document_type})
+    db.session.commit()
+    return redirect(signed)
+
+@app.route('/admin/livenza/onboarding/documents/<int:document_id>/decision',methods=['POST'])
+@permission_required('customers')
+def livenza_tenant_document_decision_admin(document_id):
+    document=db.session.get(CustomerDocument,document_id) or abort(404)
+    onboarding=db.session.get(TenantOnboarding,document.onboarding_id) if document.onboarding_id else None
+    if not onboarding or document.verification_status=='withdrawn': abort(404)
+    decision=(request.form.get('decision') or '').strip().lower()
+    note=(request.form.get('note') or '').strip()[:1000]
+    if decision not in ('verify','reject'): abort(400)
+    if decision=='reject' and not note:
+        flash('Add a rejection reason so the tenant knows what to correct.','danger')
+        return redirect(url_for('livenza_tenant_onboarding_detail_admin',onboarding_id=onboarding.id))
+    actor=current_user()
+    if decision=='verify':
+        document.verification_status='verified'
+        document.verification_note=note
+        document.verified_at=datetime.datetime.utcnow()
+        document.verified_by_user_id=actor.id if actor else None
+        record_audit('tenant_document_verified','customer_document',document.id,module='tenant_onboarding',meta={'onboarding_id':onboarding.id,'document_type':document.document_type})
+    else:
+        document.verification_status='rejected'
+        document.verification_note=note
+        document.verified_at=None
+        document.verified_by_user_id=actor.id if actor else None
+        onboarding.current_step='documents'
+        record_audit('tenant_document_rejected','customer_document',document.id,module='tenant_onboarding',note=note,meta={'onboarding_id':onboarding.id,'document_type':document.document_type})
+    required=required_document_types(onboarding.tenancy_type)
+    latest={}
+    docs=CustomerDocument.query.filter_by(onboarding_id=onboarding.id).filter(CustomerDocument.verification_status!='withdrawn').order_by(CustomerDocument.created_at.desc(),CustomerDocument.id.desc()).all()
+    for item in docs: latest.setdefault(item.document_type,item)
+    ready_for_agreement=decision=='verify' and all(kind in latest and latest[kind].verification_status=='verified' for kind in required)
+    if ready_for_agreement:
+        onboarding.current_step='agreement'
+    elif decision=='verify':
+        onboarding.current_step='verification'
+    db.session.commit()
+    generation_error=''
+    if ready_for_agreement:
+        try:
+            agreement=generate_customer_agreement_for_onboarding(onboarding)
+            db.session.commit()
+            record_audit('tenant_agreement_generated','customer_agreement',agreement.id,module='tenant_onboarding',meta={'onboarding_id':onboarding.id,'agreement_id':agreement.public_id})
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            generation_error=' KYC is verified, but Agreement Studio could not create the private PDF yet; use Generate agreement to retry.'
+    flash(('Document verified.' if decision=='verify' else 'Document rejected and returned to the tenant.')+generation_error,'success' if decision=='verify' and not generation_error else 'warning')
+    return redirect(url_for('livenza_tenant_onboarding_detail_admin',onboarding_id=onboarding.id))
+
+@app.route('/admin/livenza/dues',methods=['GET','POST'])
+@permission_required('customers')
+def livenza_tenant_dues_admin():
+    if request.method=='POST':
+        customer_id=request.form.get('customer_id',type=int)
+        customer=db.session.get(Customer,customer_id) if customer_id else None
+        if not customer:
+            flash('Choose a valid customer.','danger')
+            return redirect(url_for('livenza_tenant_dues_admin'))
+        due_type=(request.form.get('due_type') or 'rent').strip().lower()[:48]
+        description=(request.form.get('description') or '').strip()[:240]
+        try:
+            amount_rupees=decimal.Decimal((request.form.get('amount') or '0').replace(',','')).quantize(decimal.Decimal('0.01'))
+            amount_minor=int(amount_rupees*100)
+        except Exception:
+            amount_minor=0
+        if amount_minor<=0:
+            flash('Due amount must be greater than zero.','danger')
+            return redirect(url_for('livenza_tenant_dues_admin'))
+        raw_date=(request.form.get('due_date') or '').strip()
+        try: due_date=datetime.date.fromisoformat(raw_date) if raw_date else None
+        except Exception:
+            flash('Use a valid due date.','danger')
+            return redirect(url_for('livenza_tenant_dues_admin'))
+        booking_id=request.form.get('booking_id',type=int)
+        booking=db.session.get(StayBooking,booking_id) if booking_id else None
+        if booking and booking.customer_id!=customer.id:
+            flash('The selected booking does not belong to this customer.','danger')
+            return redirect(url_for('livenza_tenant_dues_admin'))
+        onboarding=TenantOnboarding.query.filter_by(customer_id=customer.id).order_by(TenantOnboarding.id.desc()).first()
+        row=TenantDue(public_id=str(uuid.uuid4()),customer_id=customer.id,booking_id=(booking.id if booking else None),onboarding_id=(onboarding.id if onboarding else None),due_type=due_type,amount_minor=amount_minor,due_date=due_date,status='open',description=description)
+        db.session.add(row);db.session.flush()
+        record_audit('tenant_due_created','tenant_due',row.id,module='tenant_dues',meta={'customer_id':customer.id,'due_type':due_type,'amount_minor':amount_minor,'due_date':raw_date})
+        db.session.commit();flash('Tenant due created.','success')
+        return redirect(url_for('livenza_tenant_dues_admin'))
+    rows=TenantDue.query.order_by(TenantDue.due_date.asc(),TenantDue.created_at.desc(),TenantDue.id.desc()).limit(500).all()
+    items=[]
+    for row in rows:
+        customer=db.session.get(Customer,row.customer_id)
+        allocations=TenantDueAllocation.query.filter_by(due_id=row.id).all()
+        allocated=sum(max(int(item.amount_minor or 0),0) for item in allocations)
+        remaining=outstanding_minor(row.amount_minor,allocated)
+        if row.status not in ('waived','cancelled'):
+            row.status=due_status(row.amount_minor,allocated)
+        items.append({'row':row,'customer':customer,'allocated_minor':allocated,'outstanding_minor':0 if row.status in ('waived','cancelled') else remaining})
+    customers=Customer.query.order_by(Customer.full_name.asc(),Customer.primary_mobile.asc()).limit(1000).all()
+    return render_template('livenza_tenant_dues_admin.html',items=items,customers=customers)
+
+@app.route('/admin/livenza/dues/<int:due_id>/adjust',methods=['POST'])
+@permission_required('customers')
+def livenza_tenant_due_adjust_admin(due_id):
+    row=db.session.get(TenantDue,due_id) or abort(404)
+    decision=(request.form.get('decision') or '').strip().lower()
+    note=(request.form.get('note') or '').strip()[:1000]
+    if decision not in ('waive','cancel','reopen'): abort(400)
+    if not note:
+        flash('Add an adjustment note for the audit trail.','danger')
+        return redirect(url_for('livenza_tenant_dues_admin'))
+    allocations=TenantDueAllocation.query.filter_by(due_id=row.id).all()
+    allocated=sum(max(int(item.amount_minor or 0),0) for item in allocations)
+    before=row.status
+    if decision=='reopen':
+        row.status=due_status(row.amount_minor,allocated)
+    elif decision=='waive':
+        row.status='waived'
+    else:
+        row.status='cancelled'
+    record_audit('tenant_due_adjusted','tenant_due',row.id,module='tenant_dues',note=note,meta={'decision':decision,'before':before,'after':row.status,'allocated_minor':allocated})
+    db.session.commit();flash('Tenant due updated.','success')
+    return redirect(url_for('livenza_tenant_dues_admin'))
+
+@app.route('/admin/livenza/dues/<int:due_id>/remind',methods=['POST'])
+@permission_required('customers')
+def livenza_tenant_due_remind_admin(due_id):
+    row=db.session.get(TenantDue,due_id) or abort(404)
+    customer=db.session.get(Customer,row.customer_id) or abort(404)
+    allocations=TenantDueAllocation.query.filter_by(due_id=row.id).all()
+    allocated=sum(max(int(item.amount_minor or 0),0) for item in allocations)
+    remaining=0 if row.status in ('waived','cancelled') else outstanding_minor(row.amount_minor,allocated)
+    if remaining<=0:
+        flash('This due has no outstanding balance.','info')
+        return redirect(url_for('livenza_tenant_dues_admin'))
+    send_livenza_transactional_notification('tenant_due.reminder',customer,{'due_id':row.public_id,'due_type':row.due_type,'description':row.description,'outstanding_minor':remaining,'due_date':row.due_date.isoformat() if row.due_date else ''},['email','whatsapp'])
+    record_audit('tenant_due_reminder_sent','tenant_due',row.id,module='tenant_dues',meta={'customer_id':customer.id,'outstanding_minor':remaining})
+    db.session.commit();flash('Due reminder queued through configured customer channels.','success')
+    return redirect(url_for('livenza_tenant_dues_admin'))
+
+@app.route('/admin/livenza/meters',methods=['GET','POST'])
+@permission_required('customers')
+def livenza_meter_accounts_admin():
+    if request.method=='POST':
+        customer_id=request.form.get('customer_id',type=int)
+        property_id=request.form.get('property_id',type=int)
+        inventory_unit_id=request.form.get('inventory_unit_id',type=int)
+        booking_id=request.form.get('booking_id',type=int)
+        customer=db.session.get(Customer,customer_id) if customer_id else None
+        prop=db.session.get(StayProperty,property_id) if property_id else None
+        unit=db.session.get(StayInventoryUnit,inventory_unit_id) if inventory_unit_id else None
+        booking=db.session.get(StayBooking,booking_id) if booking_id else None
+        provider_account_id=(request.form.get('provider_account_id') or '').strip()[:180]
+        provider_meter_id=(request.form.get('provider_meter_id') or '').strip()[:180]
+        display_name=(request.form.get('display_name') or 'Electricity meter').strip()[:180] or 'Electricity meter'
+        if not customer or not prop or not provider_account_id or not provider_meter_id:
+            flash('Customer, property, Radius account ID and Radius meter ID are required.','danger')
+            return redirect(url_for('livenza_meter_accounts_admin'))
+        if unit and unit.property_id!=prop.id:
+            flash('The selected room / inventory unit does not belong to this property.','danger')
+            return redirect(url_for('livenza_meter_accounts_admin'))
+        if booking and (booking.customer_id!=customer.id or booking.property_id!=prop.id):
+            flash('The selected booking must belong to this customer and property.','danger')
+            return redirect(url_for('livenza_meter_accounts_admin'))
+        existing=TenantMeterAccount.query.filter_by(provider='radius',provider_meter_id=provider_meter_id).first()
+        if existing:
+            flash('This Radius meter is already mapped.','danger')
+            return redirect(url_for('livenza_meter_accounts_admin'))
+        row=TenantMeterAccount(
+            public_id=str(uuid.uuid4()),customer_id=customer.id,booking_id=(booking.id if booking else None),
+            property_id=prop.id,inventory_unit_id=(unit.id if unit else None),provider='radius',
+            provider_account_id=provider_account_id,provider_meter_id=provider_meter_id,display_name=display_name,status='active',
+        )
+        db.session.add(row);db.session.flush()
+        record_audit('tenant_meter_mapped','tenant_meter_account',row.id,module='tenant_electricity',meta={'customer_id':customer.id,'property_id':prop.id,'public_id':row.public_id})
+        db.session.commit();flash('Tenant meter mapped.','success')
+        return redirect(url_for('livenza_meter_accounts_admin'))
+    rows=TenantMeterAccount.query.order_by(TenantMeterAccount.status.asc(),TenantMeterAccount.updated_at.desc(),TenantMeterAccount.id.desc()).limit(1000).all()
+    items=[]
+    for row in rows:
+        items.append({'row':row,'customer':db.session.get(Customer,row.customer_id),'property':db.session.get(StayProperty,row.property_id),'unit':db.session.get(StayInventoryUnit,row.inventory_unit_id) if row.inventory_unit_id else None})
+    customers=Customer.query.order_by(Customer.full_name.asc(),Customer.primary_mobile.asc()).limit(1000).all()
+    properties=StayProperty.query.order_by(StayProperty.city.asc(),StayProperty.name.asc()).all()
+    units=StayInventoryUnit.query.filter_by(active=True).order_by(StayInventoryUnit.property_id.asc(),StayInventoryUnit.code.asc()).all()
+    return render_template('livenza_meter_accounts_admin.html',items=items,customers=customers,properties=properties,units=units)
+
+@app.route('/admin/livenza/meters/<int:meter_id>/status',methods=['POST'])
+@permission_required('customers')
+def livenza_meter_status_admin(meter_id):
+    row=db.session.get(TenantMeterAccount,meter_id) or abort(404)
+    decision=(request.form.get('decision') or '').strip().lower()
+    note=(request.form.get('note') or '').strip()[:1000]
+    if decision not in ('activate','deactivate'): abort(400)
+    if not note:
+        flash('Add a status-change note for the audit trail.','danger')
+        return redirect(url_for('livenza_meter_accounts_admin'))
+    before=row.status
+    row.status='active' if decision=='activate' else 'inactive'
+    record_audit('tenant_meter_status_changed','tenant_meter_account',row.id,module='tenant_electricity',note=note,meta={'customer_id':row.customer_id,'property_id':row.property_id,'from_status':before,'to_status':row.status,'public_id':row.public_id})
+    db.session.commit();flash('Tenant meter status updated.','success')
+    return redirect(url_for('livenza_meter_accounts_admin'))
+
+@app.route('/admin/livenza/meter-recharges')
+@permission_required('customers')
+def livenza_meter_recharges_admin():
+    rows=MeterRecharge.query.order_by(MeterRecharge.created_at.desc(),MeterRecharge.id.desc()).limit(1000).all()
+    items=[]
+    for row in rows:
+        meter=db.session.get(TenantMeterAccount,row.meter_account_id)
+        customer=db.session.get(Customer,row.customer_id)
+        payment=db.session.get(PaymentRecord,row.payment_id) if row.payment_id else None
+        items.append({'row':row,'meter':meter,'customer':customer,'payment':payment})
+    return render_template('livenza_meter_recharges_admin.html',items=items)
+
+@app.route('/admin/livenza/meter-recharges/<int:recharge_id>/retry',methods=['POST'])
+@permission_required('customers')
+def livenza_meter_recharge_retry_admin(recharge_id):
+    from livenza_integrations import RadiusAdapter
+    row=db.session.get(MeterRecharge,recharge_id) or abort(404)
+    note=(request.form.get('note') or '').strip()[:1000]
+    if not note:
+        flash('Add a retry note for the audit trail.','danger')
+        return redirect(url_for('livenza_meter_recharges_admin'))
+    if row.status not in ('review_required','paid','radius_processing'):
+        flash('This recharge is not awaiting Radius reconciliation.','info')
+        return redirect(url_for('livenza_meter_recharges_admin'))
+    meter=db.session.get(TenantMeterAccount,row.meter_account_id)
+    if not meter or meter.customer_id!=row.customer_id:
+        flash('The assigned meter mapping is unavailable.','danger')
+        return redirect(url_for('livenza_meter_recharges_admin'))
+    before=row.status
+    try:
+        result=RadiusAdapter.from_env().credit_recharge(meter.provider_account_id,meter.provider_meter_id,row.amount_minor,row.currency or 'INR',row.idempotency_key)
+        provider_status=str(result.get('status') or '').strip().lower()
+        row.provider_reference=str(result.get('provider_reference') or row.provider_reference or '')[:180]
+        row.provider_status_json=json.dumps(result.get('raw') if isinstance(result.get('raw'),dict) else result)
+        if provider_status in ('credited','recharged','success','successful','completed'):
+            row.status='recharged';row.credited_at=datetime.datetime.utcnow();row.failure_code='';row.failure_message=''
+        else:
+            row.status='review_required';row.failure_code='radius_credit_unconfirmed';row.failure_message='Provider has not confirmed meter credit yet.'
+    except Exception as exc:
+        row.status='review_required';row.failure_code='radius_credit_failed';row.failure_message=str(exc)[:500] or 'Radius meter credit failed.'
+    record_audit('meter_recharge_retry','meter_recharge',row.id,module='tenant_electricity',note=note,meta={'customer_id':row.customer_id,'amount_minor':row.amount_minor,'from_status':before,'to_status':row.status,'provider_reference':row.provider_reference,'public_id':row.public_id})
+    db.session.commit();flash('Meter recharge reconciliation updated.','success' if row.status=='recharged' else 'warning')
+    return redirect(url_for('livenza_meter_recharges_admin'))
+
+@app.route('/admin/livenza/meter-recharges/<int:recharge_id>/refund-followup',methods=['POST'])
+@permission_required('customers')
+def livenza_meter_recharge_refund_followup_admin(recharge_id):
+    row=db.session.get(MeterRecharge,recharge_id) or abort(404)
+    note=(request.form.get('note') or '').strip()[:1000]
+    if not note:
+        flash('Add a refund follow-up note for the audit trail.','danger')
+        return redirect(url_for('livenza_meter_recharges_admin'))
+    if row.status not in ('review_required','paid','radius_processing'):
+        flash('This recharge is not eligible for refund follow-up.','info')
+        return redirect(url_for('livenza_meter_recharges_admin'))
+    before=row.status;row.status='refund_followup'
+    record_audit('meter_recharge_refund_followup','meter_recharge',row.id,module='tenant_electricity',note=note,meta={'customer_id':row.customer_id,'amount_minor':row.amount_minor,'from_status':before,'to_status':row.status,'provider_reference':row.provider_reference,'public_id':row.public_id})
+    db.session.commit();flash('Refund follow-up recorded. The payment status remains unchanged until the payment provider confirms the refund.','warning')
+    return redirect(url_for('livenza_meter_recharges_admin'))
+
+@app.route('/admin/livenza/customers')
+@permission_required('customers')
+def livenza_customers_admin():
+    q=(request.args.get('q') or '').strip()
+    query=Customer.query
+    if q:
+        like=f'%{q.lower()}%'
+        query=query.filter(or_(func.lower(Customer.full_name).like(like),func.lower(Customer.primary_mobile).like(like),func.lower(Customer.primary_email).like(like),func.lower(Customer.public_id).like(like)))
+    rows=query.order_by(Customer.updated_at.desc()).limit(250).all()
+    return render_template('livenza_customers.html',customers=rows,q=q)
+
+@app.route('/admin/livenza/customers/<int:customer_id>')
+@permission_required('customers')
+def livenza_customer_detail_admin(customer_id):
+    customer=db.session.get(Customer,customer_id) or abort(404)
+    bookings=StayBooking.query.filter_by(customer_id=customer.id).order_by(StayBooking.created_at.desc()).all()
+    payments=PaymentRecord.query.filter_by(customer_id=customer.id).order_by(PaymentRecord.created_at.desc()).all()
+    documents=CustomerDocument.query.filter_by(customer_id=customer.id).order_by(CustomerDocument.created_at.desc()).all()
+    orders=StoreOrder.query.filter_by(customer_id=customer.id).order_by(StoreOrder.created_at.desc()).all()
+    tickets=SupportTicket.query.filter_by(customer_id=customer.id).order_by(SupportTicket.updated_at.desc()).all()
+    return render_template('livenza_customer_detail.html',customer=customer,bookings=bookings,payments=payments,documents=documents,orders=orders,tickets=tickets,loyalty_balance=_livenza_loyalty_balance(customer.id))
+
+@app.route('/admin/livenza/properties')
+@permission_required('stays_admin')
+def livenza_properties_admin():
+    rows=StayProperty.query.order_by(StayProperty.city,StayProperty.name).all()
+    return render_template('livenza_properties.html',properties=rows)
+
+@app.route('/admin/livenza/properties/<int:property_id>',methods=['GET','POST'])
+@permission_required('stays_admin')
+def livenza_property_edit_admin(property_id):
+    prop=db.session.get(StayProperty,property_id) or abort(404)
+    if request.method=='POST':
+        action=(request.form.get('action') or 'save_property').strip()
+        if action=='upload_media':
+            upload=request.files.get('media_file')
+            if not upload or not upload.filename:
+                flash('Choose a property image to upload.','danger')
+                return redirect(url_for('livenza_property_edit_admin',property_id=prop.id))
+            try:
+                upload.stream.seek(0)
+                raw=upload.stream.read(15*1024*1024+1)
+                prepared=prepare_property_media_image(raw)
+            except PropertyMediaError as exc:
+                flash(str(exc),'danger')
+                return redirect(url_for('livenza_property_edit_admin',property_id=prop.id))
+            except Exception:
+                flash('The selected property image could not be read.','danger')
+                return redirect(url_for('livenza_property_edit_admin',property_id=prop.id))
+
+            storage=storage_from_env()
+            storage_key=f"properties/{prop.id}/{uuid.uuid4().hex}{prepared.extension}"
+            try:
+                storage.put_public(storage_key,prepared.data,prepared.content_type)
+            except Exception:
+                flash('Public property storage is not configured or the upload failed. No media record was created.','danger')
+                return redirect(url_for('livenza_property_edit_admin',property_id=prop.id))
+
+            existing=PropertyMedia.query.filter_by(property_id=prop.id).order_by(PropertyMedia.sort_order,PropertyMedia.id).all()
+            next_order=max([int(row.sort_order or 0) for row in existing],default=-10)+10
+            media=PropertyMedia(
+                property_id=prop.id,
+                media_type=prepared.content_type,
+                storage_key=storage_key,
+                alt_text=(request.form.get('media_alt') or '').strip()[:240] or f'{prop.name} — {prop.city}',
+                sort_order=next_order,
+                public=request.form.get('media_public')=='1',
+            )
+            db.session.add(media)
+            db.session.flush()
+            if request.form.get('media_cover')=='1':
+                ordered=[media]+[row for row in existing if row.id!=media.id]
+                for index,row in enumerate(ordered): row.sort_order=index*10
+            db.session.commit()
+            flash('Property photography published.','success')
+            return redirect(url_for('livenza_property_edit_admin',property_id=prop.id))
+
+        if action in {'set_cover','toggle_media'}:
+            try: media_id=int(request.form.get('media_id') or 0)
+            except ValueError: media_id=0
+            media=PropertyMedia.query.filter_by(id=media_id,property_id=prop.id).first()
+            if not media:
+                abort(404)
+            if action=='toggle_media':
+                media.public=not bool(media.public)
+                db.session.commit()
+                flash('Property photo visibility updated.','success')
+            else:
+                rows=PropertyMedia.query.filter_by(property_id=prop.id).order_by(PropertyMedia.sort_order,PropertyMedia.id).all()
+                ordered=[media]+[row for row in rows if row.id!=media.id]
+                for index,row in enumerate(ordered): row.sort_order=index*10
+                db.session.commit()
+                flash('Cover photo updated.','success')
+            return redirect(url_for('livenza_property_edit_admin',property_id=prop.id))
+
+        prop.name=(request.form.get('name') or '').strip() or prop.name
+        prop.city=(request.form.get('city') or '').strip() or prop.city
+        prop.area=(request.form.get('area') or '').strip()
+        prop.summary=(request.form.get('summary') or '').strip()
+        prop.public=request.form.get('public')=='1'
+        prop.active=request.form.get('active')=='1'
+        types=[x.strip() for x in (request.form.get('stay_types') or '').split(',') if x.strip()]
+        if types: prop.stay_types_json=json.dumps(sorted(set(types)))
+        db.session.commit(); flash('Livenza property saved.','success')
+        return redirect(url_for('livenza_property_edit_admin',property_id=prop.id))
+    categories=StayRoomCategory.query.filter_by(property_id=prop.id).order_by(StayRoomCategory.name).all()
+    rate_plans=StayRatePlan.query.filter_by(property_id=prop.id).order_by(StayRatePlan.code).all()
+    media=PropertyMedia.query.filter_by(property_id=prop.id).order_by(PropertyMedia.sort_order,PropertyMedia.id).all()
+    storage=storage_from_env()
+    media_cards=[]
+    for row in media:
+        try: public_url=storage.public_url(row.storage_key)
+        except Exception: public_url=''
+        media_cards.append({'row':row,'url':public_url})
+    return render_template('livenza_property_edit.html',property=prop,categories=categories,rate_plans=rate_plans,media=media,media_cards=media_cards)
+
+@app.route('/admin/livenza/bookings')
+@permission_required('stays_admin')
+def livenza_bookings_admin():
+    status=(request.args.get('status') or '').strip()
+    query=StayBooking.query
+    if status: query=query.filter_by(status=status)
+    rows=query.order_by(StayBooking.created_at.desc()).limit(300).all()
+    customer_ids={r.customer_id for r in rows}; property_ids={r.property_id for r in rows}
+    customers={c.id:c for c in Customer.query.filter(Customer.id.in_(customer_ids)).all()} if customer_ids else {}
+    properties={p.id:p for p in StayProperty.query.filter(StayProperty.id.in_(property_ids)).all()} if property_ids else {}
+    return render_template('livenza_bookings.html',bookings=rows,customers=customers,properties=properties,status=status)
+
+@app.route('/admin/livenza/bookings/<int:booking_id>')
+@permission_required('stays_admin')
+def livenza_booking_detail_admin(booking_id):
+    booking=db.session.get(StayBooking,booking_id) or abort(404)
+    customer=db.session.get(Customer,booking.customer_id)
+    prop=db.session.get(StayProperty,booking.property_id)
+    items=StayBookingItem.query.filter_by(booking_id=booking.id).all()
+    addons=BookingAddOn.query.filter_by(booking_id=booking.id).all()
+    payments=PaymentRecord.query.filter_by(source_type='booking',source_id=booking.id).order_by(PaymentRecord.created_at.desc()).all()
+    review_units=[]
+    if booking.status == 'payment_review':
+        rate_plan=db.session.get(StayRatePlan,booking.rate_plan_id)
+        if rate_plan:
+            review_units=StayInventoryUnit.query.filter_by(
+                property_id=booking.property_id,
+                room_category_id=rate_plan.room_category_id,
+                allocatable=True,
+                active=True,
+            ).order_by(StayInventoryUnit.code.asc(),StayInventoryUnit.id.asc()).all()
+    return render_template('livenza_booking_detail.html',booking=booking,customer=customer,property=prop,items=items,addons=addons,payments=payments,review_units=review_units)
+
+def _award_reconciled_booking_loyalty(booking,payment):
+    from livenza_loyalty_core import points_for_paid_amount
+    effect_key='stay_booking_paid'
+    if LoyaltyLedgerEntry.query.filter_by(source_type='booking',source_id=booking.id,effect_key=effect_key).first():
+        return False
+    rate=max(int(os.getenv('LIVENZA_POINTS_PER_100_INR','1') or 0),0)
+    points=points_for_paid_amount(payment.amount_minor,points_per_100_inr=rate)
+    if points <= 0:
+        return False
+    account=LoyaltyAccount.query.filter_by(customer_id=booking.customer_id).first()
+    if not account:
+        account=LoyaltyAccount(customer_id=booking.customer_id,status='active')
+        db.session.add(account); db.session.flush()
+    db.session.add(LoyaltyLedgerEntry(
+        account_id=account.id,direction='credit',points=points,
+        source_type='booking',source_id=booking.id,effect_key=effect_key,
+        description='Livenza stay payment',
+    ))
+    return True
+
+@app.route('/admin/livenza/bookings/<int:booking_id>/payment-review',methods=['POST'])
+@permission_required('stays_admin')
+def livenza_booking_payment_review_admin(booking_id):
+    from livenza_admin_core import audit_meta
+    booking=db.session.get(StayBooking,booking_id) or abort(404)
+    if booking.status != 'payment_review':
+        abort(409)
+    item=StayBookingItem.query.filter_by(booking_id=booking.id).first()
+    hold=db.session.get(StayInventoryHold,item.hold_id) if item else None
+    payment=PaymentRecord.query.filter_by(source_type='booking',source_id=booking.id).order_by(PaymentRecord.created_at.desc()).first()
+    if not item or not hold or not payment or payment.status != 'paid':
+        abort(409)
+    resolution_note=(request.form.get('resolution_note') or '').strip()[:1000]
+    if not resolution_note:
+        flash('A reconciliation note is required.','danger')
+        return redirect(url_for('livenza_booking_detail_admin',booking_id=booking.id))
+    action=(request.form.get('action') or '').strip().lower()
+    old=booking.status
+    if action == 'confirm':
+        try: target_id=int(request.form.get('inventory_unit_id') or 0)
+        except Exception: target_id=0
+        rate_plan=db.session.get(StayRatePlan,booking.rate_plan_id)
+        if not rate_plan or target_id <= 0:
+            abort(400)
+        target_query=StayInventoryUnit.query.filter_by(
+            id=target_id,
+            property_id=booking.property_id,
+            room_category_id=rate_plan.room_category_id,
+            allocatable=True,
+            active=True,
+        )
+        try:
+            if db.engine.dialect.name == 'postgresql':
+                target_query=target_query.with_for_update()
+        except Exception:
+            pass
+        target=target_query.first()
+        if not target:
+            abort(400)
+        confirmed_conflict=db.session.query(StayBookingItem.id).join(
+            StayBooking,StayBooking.id == StayBookingItem.booking_id
+        ).filter(
+            StayBookingItem.inventory_unit_id == target.id,
+            StayBookingItem.booking_id != booking.id,
+            StayBooking.status == 'confirmed',
+            StayBooking.start_date < booking.end_date,
+            StayBooking.end_date > booking.start_date,
+        ).first()
+        now=datetime.datetime.utcnow()
+        live_hold_conflict=StayInventoryHold.query.filter(
+            StayInventoryHold.inventory_unit_id == target.id,
+            StayInventoryHold.id != hold.id,
+            StayInventoryHold.status == 'active',
+            StayInventoryHold.expires_at > now,
+            StayInventoryHold.start_date < booking.end_date,
+            StayInventoryHold.end_date > booking.start_date,
+        ).first()
+        if confirmed_conflict or live_hold_conflict:
+            flash('That inventory unit is no longer conflict-free for these dates. Choose another unit.','danger')
+            return redirect(url_for('livenza_booking_detail_admin',booking_id=booking.id))
+        item.inventory_unit_id = target.id
+        hold.inventory_unit_id = target.id
+        hold.status = 'converted'
+        booking.status = 'confirmed'
+        details={}
+        try: details=json.loads(booking.details_json or '{}')
+        except Exception: details={}
+        if not isinstance(details,dict): details={}
+        details.update({'payment_review_resolution':'confirmed','payment_review_resolution_note':resolution_note,'payment_review_resolved_at':now.isoformat(),'refund_follow_up_required':False})
+        booking.details_json=json.dumps(details,separators=(',',':'))
+        _award_reconciled_booking_loyalty(booking,payment)
+        record_audit('booking.payment_review.resolve','stay_booking',booking.id,module='stays_admin',meta=audit_meta({'booking_id':booking.id,'from_status':old,'to_status':booking.status,'inventory_unit_id':target.id,'resolution_note':resolution_note}))
+        db.session.commit()
+        customer=db.session.get(Customer,booking.customer_id)
+        if customer:
+            try: send_livenza_transactional_notification('booking.confirmed',customer,{'booking_id':booking.public_id})
+            except Exception: pass
+        flash('Paid booking reconciled and confirmed.','success')
+        return redirect(url_for('livenza_booking_detail_admin',booking_id=booking.id))
+    if action == 'cancel_refund':
+        booking.status = 'cancelled'
+        if hold.status in {'active','payment_review'}:
+            hold.status = 'released'
+        now=datetime.datetime.utcnow()
+        details={}
+        try: details=json.loads(booking.details_json or '{}')
+        except Exception: details={}
+        if not isinstance(details,dict): details={}
+        details.update({'payment_review_resolution':'cancelled_refund','payment_review_resolution_note':resolution_note,'payment_review_resolved_at':now.isoformat(),'refund_follow_up_required':True,'refund_payment_id':payment.public_id})
+        booking.details_json=json.dumps(details,separators=(',',':'))
+        record_audit('booking.payment_review.resolve','stay_booking',booking.id,module='stays_admin',meta=audit_meta({'booking_id':booking.id,'from_status':old,'to_status':booking.status,'refund_follow_up_required':True,'payment_id':payment.id,'resolution_note':resolution_note}))
+        db.session.commit()
+        flash('Booking cancelled. The paid transaction is flagged for refund follow-up.','warning')
+        return redirect(url_for('livenza_booking_detail_admin',booking_id=booking.id))
+    abort(400)
+
+@app.route('/admin/livenza/store/orders')
+@permission_required('store_admin')
+def livenza_store_orders_admin():
+    status=(request.args.get('status') or '').strip()
+    query=StoreOrder.query
+    if status: query=query.filter_by(status=status)
+    rows=query.order_by(StoreOrder.created_at.desc()).limit(300).all()
+    customer_ids={r.customer_id for r in rows}
+    customers={c.id:c for c in Customer.query.filter(Customer.id.in_(customer_ids)).all()} if customer_ids else {}
+    return render_template('livenza_store_admin.html',orders=rows,customers=customers,status=status)
+
+@app.route('/admin/livenza/store/orders/<int:order_id>')
+@permission_required('store_admin')
+def livenza_order_detail_admin(order_id):
+    order=db.session.get(StoreOrder,order_id) or abort(404)
+    customer=db.session.get(Customer,order.customer_id)
+    items=StoreOrderItem.query.filter_by(order_id=order.id).order_by(StoreOrderItem.id).all()
+    payments=PaymentRecord.query.filter_by(source_type='store_order',source_id=order.id).order_by(PaymentRecord.created_at.desc()).all()
+    return render_template('livenza_order_detail.html',order=order,customer=customer,items=items,payments=payments)
+
+@app.route('/admin/livenza/rewards-referrals',methods=['GET','POST'])
+@permission_required('customers')
+def livenza_rewards_referrals_admin():
+    if request.method=='POST':
+        action=(request.form.get('action') or '').strip().lower()
+        if action=='create_offer':
+            code=''.join(ch for ch in (request.form.get('code') or '').upper() if ch.isalnum() or ch in {'_','-'})[:60]
+            title=(request.form.get('title') or '').strip()[:180]
+            description=(request.form.get('description') or '').strip()[:4000]
+            if not code or not title:
+                flash('Offer code and title are required.','danger');return redirect(url_for('livenza_rewards_referrals_admin'))
+            if ResidentOffer.query.filter_by(code=code).first():
+                flash('That offer code already exists.','danger');return redirect(url_for('livenza_rewards_referrals_admin'))
+            try: property_id=int(request.form.get('property_id') or 0) or None
+            except Exception: property_id=None
+            if property_id and not db.session.get(StayProperty,property_id):
+                flash('Choose a valid property.','danger');return redirect(url_for('livenza_rewards_referrals_admin'))
+            audience=[v for v in request.form.getlist('tenancy_type') if v in {'student','corporate','ota_short_stay','long_term'}]
+            starts_at=None;ends_at=None
+            try:
+                if (request.form.get('starts_at') or '').strip(): starts_at=datetime.datetime.fromisoformat(request.form.get('starts_at').strip())
+                if (request.form.get('ends_at') or '').strip(): ends_at=datetime.datetime.fromisoformat(request.form.get('ends_at').strip())
+            except Exception:
+                flash('Use valid offer start/end date-times.','danger');return redirect(url_for('livenza_rewards_referrals_admin'))
+            if starts_at and ends_at and ends_at<=starts_at:
+                flash('Offer end must be after its start.','danger');return redirect(url_for('livenza_rewards_referrals_admin'))
+            discount_type=(request.form.get('discount_type') or 'benefit').strip().lower()
+            if discount_type not in {'benefit','percent','fixed'}: discount_type='benefit'
+            try: discount_value=max(int(request.form.get('discount_value') or 0),0)
+            except Exception: discount_value=0
+            row=ResidentOffer(public_id=str(uuid.uuid4()),code=code,title=title,description=description,scope=(request.form.get('scope') or 'resident').strip()[:32],property_id=property_id,audience_tenancy_json=json.dumps(audience),discount_type=discount_type,discount_value=discount_value,status='published' if request.form.get('publish_now')=='1' else 'draft',starts_at=starts_at,ends_at=ends_at,created_by_user_id=current_user().id)
+            db.session.add(row);db.session.flush();record_audit('resident_offer.create','resident_offer',row.id,module='loyalty',meta={'code':code,'status':row.status,'property_id':property_id,'audience':audience,'discount_type':discount_type,'discount_value':discount_value});db.session.commit();flash('Resident offer saved.','success')
+        return redirect(url_for('livenza_rewards_referrals_admin'))
+    offers=ResidentOffer.query.order_by(ResidentOffer.created_at.desc()).limit(100).all()
+    identities=ReferralIdentity.query.order_by(ReferralIdentity.created_at.desc()).limit(200).all()
+    events=ReferralEvent.query.order_by(ReferralEvent.created_at.desc()).limit(300).all()
+    customer_ids={r.customer_id for r in identities}|{r.referrer_customer_id for r in events}|{r.referred_customer_id for r in events}
+    customers={c.id:c for c in Customer.query.filter(Customer.id.in_(customer_ids)).all()} if customer_ids else {}
+    properties=StayProperty.query.order_by(StayProperty.city,StayProperty.name).all()
+    return render_template('livenza_rewards_referrals_admin.html',offers=offers,identities=identities,events=events,customers=customers,properties=properties)
+
+@app.route('/admin/livenza/rewards-referrals/offers/<int:offer_id>/status',methods=['POST'])
+@permission_required('customers')
+def livenza_resident_offer_status_admin(offer_id):
+    row=db.session.get(ResidentOffer,offer_id) or abort(404);status=(request.form.get('status') or '').strip().lower()
+    if status not in {'draft','published','archived'}: abort(400)
+    before=row.status;row.status=status;record_audit('resident_offer.status','resident_offer',row.id,module='loyalty',meta={'code':row.code,'from_status':before,'to_status':status});db.session.commit();flash('Offer status updated.','success');return redirect(url_for('livenza_rewards_referrals_admin'))
+
+@app.route('/admin/livenza/resident-services',methods=['GET','POST'])
+@permission_required('customers')
+def livenza_resident_services_admin():
+    from livenza_resident_core import ALLOWED_CAPABILITIES, normalize_capabilities
+    properties=StayProperty.query.order_by(StayProperty.city,StayProperty.name).all()
+    if request.method=='POST':
+        action=(request.form.get('action') or '').strip().lower()
+        try: property_id=int(request.form.get('property_id') or 0)
+        except Exception: property_id=0
+        property_row=db.session.get(StayProperty,property_id) if property_id else None
+        if not property_row:
+            flash('Choose a valid property.','danger');return redirect(url_for('livenza_resident_services_admin'))
+        if action=='save_policy':
+            selected=[value for value in request.form.getlist('capability') if value in ALLOWED_CAPABILITIES]
+            row=ResidentPropertyPolicy.query.filter_by(property_id=property_row.id).first()
+            if not row:
+                row=ResidentPropertyPolicy(property_id=property_row.id);db.session.add(row)
+            row.capabilities_json=json.dumps(list(normalize_capabilities(selected)))
+            row.updated_by_user_id=current_user().id
+            record_audit('resident_policy.update','resident_property_policy',row.id or 0,module='resident_services',meta={'property_id':property_row.id,'capabilities':json.loads(row.capabilities_json)})
+            db.session.commit();flash('Resident service policy saved.','success')
+        elif action=='create_notice':
+            title=(request.form.get('title') or '').strip()[:180];body=(request.form.get('body') or '').strip()[:5000]
+            if not title or not body:
+                flash('Notice title and body are required.','danger');return redirect(url_for('livenza_resident_services_admin',property_id=property_row.id))
+            audience=[v for v in request.form.getlist('tenancy_type') if v in {'student','corporate','ota_short_stay','long_term'}]
+            publish_now=request.form.get('publish_now')=='1';expires_at=None
+            expires_raw=(request.form.get('expires_at') or '').strip()
+            if expires_raw:
+                try: expires_at=datetime.datetime.fromisoformat(expires_raw)
+                except Exception: flash('Use a valid notice expiry date/time.','danger');return redirect(url_for('livenza_resident_services_admin',property_id=property_row.id))
+            row=ResidentNotice(public_id=str(uuid.uuid4()),property_id=property_row.id,title=title,body=body,audience_tenancy_json=json.dumps(audience),status='published' if publish_now else 'draft',publish_at=datetime.datetime.utcnow() if publish_now else None,expires_at=expires_at,created_by_user_id=current_user().id)
+            db.session.add(row);db.session.flush();record_audit('resident_notice.create','resident_notice',row.id,module='resident_services',meta={'property_id':property_row.id,'status':row.status,'audience':audience});db.session.commit();flash('Resident notice saved.','success')
+        elif action=='create_menu':
+            service_raw=(request.form.get('service_date') or '').strip();items=[line.strip() for line in (request.form.get('items') or '').splitlines() if line.strip()]
+            try: service_date=datetime.date.fromisoformat(service_raw)
+            except Exception: flash('Use a valid menu service date.','danger');return redirect(url_for('livenza_resident_services_admin',property_id=property_row.id))
+            if not items:
+                flash('Add at least one menu item.','danger');return redirect(url_for('livenza_resident_services_admin',property_id=property_row.id))
+            row=PropertyMenu(public_id=str(uuid.uuid4()),property_id=property_row.id,service_date=service_date,meal_type=(request.form.get('meal_type') or 'daily').strip()[:32],title=(request.form.get('menu_title') or "Today's menu").strip()[:180],items_json=json.dumps(items,ensure_ascii=False),status='published' if request.form.get('publish_now')=='1' else 'draft',publish_at=datetime.datetime.utcnow() if request.form.get('publish_now')=='1' else None,created_by_user_id=current_user().id)
+            db.session.add(row);db.session.flush();record_audit('resident_menu.create','property_menu',row.id,module='resident_services',meta={'property_id':property_row.id,'service_date':service_date.isoformat(),'status':row.status});db.session.commit();flash('Property menu saved.','success')
+        return redirect(url_for('livenza_resident_services_admin',property_id=property_row.id))
+    try: selected_id=int(request.args.get('property_id') or (properties[0].id if properties else 0))
+    except Exception: selected_id=0
+    selected_property=db.session.get(StayProperty,selected_id) if selected_id else None
+    policy=ResidentPropertyPolicy.query.filter_by(property_id=selected_id).first() if selected_id else None
+    selected_capabilities=set(policy.capabilities if policy else normalize_capabilities(None))
+    notices=ResidentNotice.query.filter_by(property_id=selected_id).order_by(ResidentNotice.created_at.desc()).limit(50).all() if selected_id else []
+    menus=PropertyMenu.query.filter_by(property_id=selected_id).order_by(PropertyMenu.service_date.desc(),PropertyMenu.id.desc()).limit(50).all() if selected_id else []
+    leave_requests=ResidentLeaveRequest.query.filter_by(property_id=selected_id).order_by(ResidentLeaveRequest.created_at.desc()).limit(100).all() if selected_id else []
+    guest_requests=ResidentGuestRequest.query.filter_by(property_id=selected_id).order_by(ResidentGuestRequest.created_at.desc()).limit(100).all() if selected_id else []
+    customer_ids={r.customer_id for r in leave_requests}|{r.customer_id for r in guest_requests}
+    customers={c.id:c for c in Customer.query.filter(Customer.id.in_(customer_ids)).all()} if customer_ids else {}
+    return render_template('livenza_resident_services_admin.html',properties=properties,selected_property=selected_property,selected_capabilities=selected_capabilities,all_capabilities=ALLOWED_CAPABILITIES,notices=notices,menus=menus,leave_requests=leave_requests,guest_requests=guest_requests,customers=customers)
+
+@app.route('/admin/livenza/resident-services/requests/<int:request_id>/status',methods=['POST'])
+@permission_required('customers')
+def resident_service_request_status_admin(request_id):
+    from livenza_resident_core import transition_resident_request
+    row=db.session.get(ResidentLeaveRequest,request_id) or abort(404);event=(request.form.get('event') or '').strip().lower();note=(request.form.get('staff_note') or '').strip()[:1000];before=row.status
+    try: row.status=transition_resident_request(row.status,event)
+    except ValueError: abort(409)
+    row.staff_note=note;record_audit('resident_request.status','resident_leave_request',row.id,module='resident_services',note=note,meta={'from_status':before,'to_status':row.status,'request_type':row.request_type,'customer_id':row.customer_id});db.session.commit()
+    customer=db.session.get(Customer,row.customer_id)
+    if customer:
+        try: send_livenza_transactional_notification('resident.request.updated',customer,{'request_id':row.public_id,'status':row.status})
+        except Exception: pass
+    flash('Resident request updated.','success');return redirect(url_for('livenza_resident_services_admin',property_id=row.property_id))
+
+@app.route('/admin/livenza/resident-services/guest-requests/<int:request_id>/status',methods=['POST'])
+@permission_required('customers')
+def resident_guest_request_status_admin(request_id):
+    from livenza_resident_core import transition_resident_request
+    row=db.session.get(ResidentGuestRequest,request_id) or abort(404);event=(request.form.get('event') or '').strip().lower();note=(request.form.get('staff_note') or '').strip()[:1000];before=row.status
+    try: row.status=transition_resident_request(row.status,event)
+    except ValueError: abort(409)
+    row.staff_note=note;record_audit('resident_guest.status','resident_guest_request',row.id,module='resident_services',note=note,meta={'from_status':before,'to_status':row.status,'customer_id':row.customer_id});db.session.commit()
+    customer=db.session.get(Customer,row.customer_id)
+    if customer:
+        try: send_livenza_transactional_notification('resident.guest.updated',customer,{'request_id':row.public_id,'status':row.status})
+        except Exception: pass
+    flash('Guest request updated.','success');return redirect(url_for('livenza_resident_services_admin',property_id=row.property_id))
+
+@app.route('/admin/livenza/support')
+@permission_required('customers')
+def livenza_support_admin():
+    status=(request.args.get('status') or '').strip()
+    query=SupportTicket.query
+    if status: query=query.filter_by(status=status)
+    rows=query.order_by(SupportTicket.updated_at.desc()).limit(300).all()
+    customer_ids={r.customer_id for r in rows}
+    customers={c.id:c for c in Customer.query.filter(Customer.id.in_(customer_ids)).all()} if customer_ids else {}
+    return render_template('livenza_support_admin.html',tickets=rows,customers=customers,status=status)
+
+@app.route('/admin/livenza/bookings/<int:booking_id>/cancel',methods=['POST'])
+@permission_required('stays_admin')
+def livenza_booking_cancel_admin(booking_id):
+    from livenza_booking_core import transition_booking
+    from livenza_admin_core import audit_meta
+    booking=db.session.get(StayBooking,booking_id) or abort(404)
+    old=booking.status
+    try:
+        booking.status=transition_booking(old,'cancel')
+    except ValueError:
+        abort(409)
+    reason=(request.form.get('reason') or '').strip()[:500]
+    record_audit('booking.cancel','stay_booking',booking.id,module='stays_admin',meta=audit_meta({'booking_id':booking.id,'from_status':old,'to_status':booking.status,'reason':reason}))
+    db.session.commit(); flash('Booking cancelled.','success')
+    return redirect(url_for('livenza_booking_detail_admin',booking_id=booking.id))
+
+@app.route('/admin/livenza/payments/<int:payment_id>/refund-state',methods=['POST'])
+@admin_required
+def livenza_payment_refund_state_admin(payment_id):
+    from livenza_admin_core import audit_meta
+    payment=db.session.get(PaymentRecord,payment_id) or abort(404)
+    status=(request.form.get('status') or '').strip().lower()
+    if status not in {'refunded','partially_refunded'}: abort(400)
+    try: refund_amount_minor=max(int(request.form.get('refund_amount_minor') or payment.amount_minor),0)
+    except Exception: abort(400)
+    if refund_amount_minor>payment.amount_minor: abort(400)
+    old=payment.status; payment.status=status
+    meta={}
+    try: meta=json.loads(payment.metadata_json or '{}')
+    except Exception: meta={}
+    if not isinstance(meta,dict): meta={}
+    provider_reference=(request.form.get('provider_reference') or '').strip()[:180]
+    if provider_reference: meta['refund_provider_reference']=provider_reference
+    meta['refund_amount_minor']=refund_amount_minor
+    payment.metadata_json=json.dumps(meta)
+    record_audit('payment.refund_state','payment_record',payment.id,module='finance',meta=audit_meta({'payment_id':payment.id,'from_status':old,'to_status':status,'refund_amount_minor':refund_amount_minor,'provider_reference':provider_reference,'source_type':payment.source_type,'source_id':payment.source_id}))
+    db.session.commit(); flash('Refund result recorded.','success')
+    return redirect(request.referrer or url_for('admin_panel'))
+
+@app.route('/admin/livenza/store/orders/<int:order_id>/status',methods=['POST'])
+@permission_required('store_admin')
+def livenza_order_status_admin(order_id):
+    from livenza_commerce_core import transition_order
+    from livenza_admin_core import audit_meta
+    order=db.session.get(StoreOrder,order_id) or abort(404)
+    event=(request.form.get('event') or '').strip().lower(); old=order.status
+    try: order.status=transition_order(old,event)
+    except ValueError: abort(409)
+    reason=(request.form.get('reason') or '').strip()[:500]
+    record_audit('order.status','store_order',order.id,module='store_admin',meta=audit_meta({'order_id':order.id,'from_status':old,'to_status':order.status,'event':event,'reason':reason}))
+    db.session.commit()
+    if order.status=='shipped':
+        customer=db.session.get(Customer,order.customer_id)
+        if customer:
+            try: send_livenza_transactional_notification('order.shipped',customer,{'order_id':order.public_id})
+            except Exception: pass
+    flash('Order status updated.','success')
+    return redirect(url_for('livenza_order_detail_admin',order_id=order.id))
+
+@app.route('/admin/livenza/store/variants/<int:variant_id>/stock',methods=['POST'])
+@permission_required('store_admin')
+def livenza_variant_stock_admin(variant_id):
+    from livenza_admin_core import audit_meta
+    variant=db.session.get(ProductVariant,variant_id) or abort(404)
+    try: delta=int(request.form.get('quantity_delta') or '0')
+    except Exception: abort(400)
+    new_on_hand=int(variant.stock_on_hand or 0)+delta
+    if new_on_hand<0 or new_on_hand<int(variant.stock_reserved or 0): abort(400)
+    variant.stock_on_hand=new_on_hand
+    reason=(request.form.get('reason') or '').strip()[:500]
+    record_audit('variant.stock_adjust','product_variant',variant.id,module='store_admin',meta=audit_meta({'variant_id':variant.id,'sku':variant.sku,'quantity_delta':delta,'reason':reason}))
+    db.session.commit(); flash('Variant stock adjusted.','success')
+    return redirect(request.referrer or url_for('livenza_store_orders_admin'))
+
+@app.route('/admin/livenza/content',methods=['GET','POST'])
+@permission_required('content')
+def livenza_content_admin():
+    CONTENT_TYPES={'homepage','city','property_editorial','journal','faq','offer','early_access'}
+    SEO_KEYS={'title','description','canonical_path','og_title','og_description','og_image_key'}
+    if request.method=='POST':
+        content_type=(request.form.get('content_type') or '').strip().lower()
+        key=(request.form.get('key') or '').strip()[:180]
+        locale=(request.form.get('locale') or 'en').strip()[:12]
+        title=(request.form.get('title') or '').strip()[:240]
+        body_raw=request.form.get('body_json') or '{}'; seo_raw=request.form.get('seo_json') or '{}'
+        if content_type not in CONTENT_TYPES or not key: abort(400)
+        if len(body_raw.encode('utf-8'))>250 * 1024 or len(seo_raw.encode('utf-8'))>250 * 1024: abort(413)
+        try:
+            body=json.loads(body_raw); seo=json.loads(seo_raw)
+        except Exception: abort(400)
+        if not isinstance(body,dict) or not isinstance(seo,dict): abort(400)
+        if any(k not in SEO_KEYS for k in seo): abort(400)
+        row_id=request.form.get('id')
+        row=db.session.get(ContentEntry,int(row_id)) if row_id and row_id.isdigit() else None
+        if not row:
+            row=ContentEntry.query.filter_by(content_type=content_type,key=key,locale=locale).first()
+        if not row:
+            row=ContentEntry(content_type=content_type,key=key,locale=locale,status='draft'); db.session.add(row)
+        row.content_type=content_type; row.key=key; row.locale=locale; row.title=title
+        row.body_json=json.dumps(body,ensure_ascii=False); row.seo_json=json.dumps(seo,ensure_ascii=False); row.updated_by_user_id=current_user().id
+        db.session.commit(); flash('Content draft saved.','success')
+        return redirect(url_for('livenza_content_admin'))
+    rows=ContentEntry.query.order_by(ContentEntry.content_type,ContentEntry.key,ContentEntry.locale).all()
+    return render_template('livenza_content_studio.html',entries=rows,content_types=sorted(CONTENT_TYPES))
+
+@app.route('/admin/livenza/content/<int:content_id>/publish',methods=['POST'])
+@permission_required('content')
+def livenza_content_publish_admin(content_id):
+    from livenza_admin_core import audit_meta
+    row=db.session.get(ContentEntry,content_id) or abort(404); old=row.status; row.status='published'; row.updated_by_user_id=current_user().id
+    record_audit('content.publish','content_entry',row.id,module='content',meta=audit_meta({'content_id':row.id,'from_status':old,'to_status':'published'}))
+    db.session.commit(); flash('Content published.','success')
+    return redirect(url_for('livenza_content_admin'))
+
+@app.route('/admin/livenza/content/<int:content_id>/unpublish',methods=['POST'])
+@permission_required('content')
+def livenza_content_unpublish_admin(content_id):
+    from livenza_admin_core import audit_meta
+    row=db.session.get(ContentEntry,content_id) or abort(404); old=row.status; row.status='draft'; row.updated_by_user_id=current_user().id
+    record_audit('content.unpublish','content_entry',row.id,module='content',meta=audit_meta({'content_id':row.id,'from_status':old,'to_status':'draft'}))
+    db.session.commit(); flash('Content returned to draft.','success')
+    return redirect(url_for('livenza_content_admin'))
+
+@app.route('/admin/livenza/support/<int:ticket_id>/status',methods=['POST'])
+@permission_required('customers')
+def livenza_support_status_admin(ticket_id):
+    ticket=db.session.get(SupportTicket,ticket_id) or abort(404)
+    new_status=(request.form.get('status') or '').strip().lower()
+    if new_status not in {'open','assigned','waiting','resolved'}: abort(400)
+    ticket.status=new_status; ticket.updated_at=datetime.datetime.utcnow(); db.session.commit()
+    customer=db.session.get(Customer,ticket.customer_id)
+    if customer:
+        try: send_livenza_transactional_notification('support.updated',customer,{'ticket_id':ticket.public_id})
+        except Exception: pass
+    flash('Support ticket updated.','success')
+    return redirect(url_for('livenza_support_admin'))
+
 @app.route('/admin')
 @admin_required
 def admin_panel():
@@ -6403,7 +8073,7 @@ def kiosk_settings():
             flash('Kiosk PIN must contain at least 6 characters.','danger'); return redirect(url_for('admin_panel')+'#kiosk-security')
         set_setting('kiosk_pin_hash',generate_password_hash(new_pin))
     set_setting('kiosk_mode_enabled','1' if enabled else '0')
-    _refresh_session_kiosk_state()
+    session['kiosk_unlocked']=not enabled
     flash(('Kiosk lock enabled. Unlock with the kiosk PIN or user password.' if enabled else 'Kiosk lock disabled.'),'success')
     return redirect(url_for('kiosk_lock') if enabled else url_for('admin_panel')+'#kiosk-security')
 
@@ -6576,7 +8246,759 @@ def ensure_letterhead_starter_templates():
     if created: db.session.commit()
     return {'created':created,'existing':existing}
 
+
+def send_customer_otp(identifier, otp):
+    """Deliver a customer login OTP through the existing WhatsApp integration.
+
+    Test delivery is a no-op only in explicit local/test environments. Production
+    uses the Integration Center-backed WhatsApp Cloud configuration already used
+    by Letterhead Studio; no new credential store is introduced here.
+    """
+    environment=(os.getenv('LIVENZA_ENV') or os.getenv('FLASK_ENV') or os.getenv('ENVIRONMENT') or '').strip().lower()
+    test_mode=(os.getenv('CUSTOMER_AUTH_TEST_MODE','0')=='1' and environment in {'test','testing','development','dev','local'})
+    if test_mode:
+        return {'accepted':True,'provider':'test'}
+    cfg=_letterhead_whatsapp_config()
+    to=wa_number(identifier)
+    if not (cfg.get('token') and cfg.get('phone_number_id') and to):
+        raise RuntimeError('customer OTP delivery is not configured')
+    base=f"https://graph.facebook.com/{cfg['graph_version']}/{cfg['phone_number_id']}/messages"
+    payload={
+        'messaging_product':'whatsapp',
+        'to':to,
+        'type':'text',
+        'text':{'body':f'Livenza login code: {otp}. It expires shortly. Do not share this code.','preview_url':False},
+    }
+    try:
+        response=requests.post(base,headers={'Authorization':f"Bearer {cfg['token']}",'Content-Type':'application/json'},json=payload,timeout=20)
+    except Exception as exc:
+        raise RuntimeError('customer OTP delivery failed') from exc
+    if not response.ok:
+        raise RuntimeError('customer OTP delivery failed')
+    return {'accepted':True,'provider':'whatsapp_cloud'}
+
+
+def send_livenza_transactional_notification(event_name, customer, context=None, channels=None):
+    """Deliver notifications after domain commits; delivery state is isolated from commercial state."""
+    from livenza_notification_core import dispatch_notification
+    from livenza_integrations import send_google_email_text, send_whatsapp_text
+    providers={}
+    try:
+        wa_cfg=_letterhead_whatsapp_config()
+        if wa_cfg.get('token') and wa_cfg.get('phone_number_id'):
+            providers['whatsapp']=lambda destination,subject,body: send_whatsapp_text(wa_cfg,destination,subject,body)
+    except Exception:
+        pass
+    try:
+        google_token=str((_google_token_data(refresh=False) or {}).get('access_token') or '')
+        if google_token:
+            providers['email']=lambda destination,subject,body: send_google_email_text(google_token,destination,subject,body)
+    except Exception:
+        pass
+    results=dispatch_notification(event_name,customer,context or {},channels or ['email','whatsapp'],providers)
+    try:
+        for result in results:
+            db.session.add(NotificationDelivery(
+                event_key=event_name,customer_id=getattr(customer,'id',None),channel=result.channel,
+                destination_masked=result.destination_masked,status=result.status,
+                provider_message_id=result.provider_reference,error_code=result.error_code,attempts=1,
+            ))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    return results
+
+# ===== Tesla OS 27 • Staff Salary Studio =====
+STAFF_PHOTO_MAX_BYTES=4*1024*1024
+STAFF_DOCUMENT_MAX_BYTES=20*1024*1024
+STAFF_IMAGE_MIMES={'image/jpeg':'jpeg','image/png':'png','image/webp':'webp'}
+STAFF_TABS={'dashboard','staff','attendance','leave','salary','payroll','ledger','payments','reports','settings'}
+
+
+def _staff_encrypt_text(value):
+    value=(value or '').strip()
+    return encrypt_secret(value,_master_key()) if value else ('','')
+
+
+def _staff_decrypt_text(ciphertext,nonce):
+    if not ciphertext or not nonce: return ''
+    try: return decrypt_secret(ciphertext,nonce,_master_key())
+    except Exception: return ''
+
+
+def _staff_photo_data_uri(upload,current=''):
+    if not upload or not getattr(upload,'filename',''): return current or ''
+    mime=(upload.mimetype or '').lower()
+    if mime not in STAFF_IMAGE_MIMES: raise ValueError('Staff photograph must be JPG, PNG or WebP.')
+    raw=upload.stream.read(STAFF_PHOTO_MAX_BYTES+1)
+    if not raw or len(raw)>STAFF_PHOTO_MAX_BYTES: raise ValueError('Staff photograph must be 4 MB or smaller.')
+    try:
+        img=PILImage.open(io.BytesIO(raw)); img.verify()
+    except Exception as exc:
+        raise ValueError('The selected staff photograph is not a valid image.') from exc
+    return f'data:{mime};base64,'+base64.b64encode(raw).decode('ascii')
+
+
+def _staff_new_code():
+    last=StaffMember.query.order_by(StaffMember.id.desc()).first()
+    sequence=(last.id if last else 0)+1
+    while True:
+        code=build_staff_code('LIV-STF',sequence)
+        if not StaffMember.query.filter_by(staff_code=code).first(): return code
+        sequence+=1
+
+
+def _staff_masked_member(row):
+    bank=StaffBankAccount.query.filter_by(staff_id=row.id,active=True).order_by(StaffBankAccount.id.desc()).first()
+    return {
+        'id':row.id,'staff_code':row.staff_code,'full_name':row.full_name,'photo_data_uri':row.photo_data_uri,
+        'designation':row.designation,'department':row.department,'property_name':row.property_name,'mobile':row.mobile,
+        'email':row.email,'status':row.status,'joining_date':row.joining_date,'employment_type':row.employment_type,
+        'aadhaar_masked':('•••• •••• '+row.aadhaar_last4) if row.aadhaar_last4 else '',
+        'pan_masked':('••••••'+row.pan_last4) if row.pan_last4 else '',
+        'account_masked':('••••••••'+bank.account_last4) if bank and bank.account_last4 else '',
+        'bank_name':bank.bank_name if bank else '', 'ifsc':bank.ifsc if bank else '',
+    }
+
+
+def _staff_apply_member_form(row):
+    row.full_name=(request.form.get('full_name') or row.full_name or '').strip()[:180]
+    if not row.full_name: raise ValueError('Full name is required.')
+    row.photo_data_uri=_staff_photo_data_uri(request.files.get('staff_photo'),row.photo_data_uri)
+    for field,limit in (
+        ('father_spouse_name',180),('gender',40),('mobile',40),('alternate_mobile',40),('email',220),
+        ('emergency_name',180),('emergency_mobile',40),('property_name',180),('designation',120),('department',120),
+        ('reporting_manager',180),('employment_type',40),('shift_name',80),('weekly_off',40),('status',32),('notes',5000)
+    ):
+        if field in request.form: setattr(row,field,(request.form.get(field) or '').strip()[:limit])
+    for field in ('current_address','permanent_address'):
+        if field in request.form: setattr(row,field,(request.form.get(field) or '').strip()[:5000])
+    row.dob=parse_date(request.form.get('dob'))
+    row.joining_date=parse_date(request.form.get('joining_date'))
+    row.probation_end_date=parse_date(request.form.get('probation_end_date'))
+    city=(request.form.get('city_id') or '').strip(); row.city_id=int(city) if city.isdigit() else None
+    aadhaar=re.sub(r'\D','',request.form.get('aadhaar_no') or '')
+    if aadhaar:
+        if len(aadhaar)!=12: raise ValueError('Aadhaar number must contain 12 digits.')
+        row.aadhaar_no,row.aadhaar_nonce=_staff_encrypt_text(aadhaar); row.aadhaar_last4=aadhaar[-4:]
+    pan=re.sub(r'\s','',(request.form.get('pan_no') or '').upper())
+    if pan:
+        if not re.fullmatch(r'[A-Z]{5}[0-9]{4}[A-Z]',pan): raise ValueError('Enter a valid PAN in ABCDE1234F format.')
+        row.pan_no,row.pan_nonce=_staff_encrypt_text(pan); row.pan_last4=pan[-4:]
+    return row
+
+
+def _staff_apply_bank_form(staff_id):
+    account_number=re.sub(r'\s','',request.form.get('account_number') or '')
+    bank_fields=('account_holder','ifsc','bank_name','branch_name','upi_id','preferred_method')
+    if not account_number and not any((request.form.get(k) or '').strip() for k in bank_fields): return None
+    row=StaffBankAccount.query.filter_by(staff_id=staff_id,active=True).order_by(StaffBankAccount.id.desc()).first() or StaffBankAccount(staff_id=staff_id)
+    if account_number:
+        if len(re.sub(r'\D','',account_number))<6: raise ValueError('Enter a valid bank account number.')
+        row.account_number,row.account_nonce=_staff_encrypt_text(account_number); row.account_last4=account_number[-4:]
+    row.account_holder=(request.form.get('account_holder') or row.account_holder or '').strip()[:180]
+    row.ifsc=(request.form.get('ifsc') or row.ifsc or '').strip().upper()[:30]
+    row.bank_name=(request.form.get('bank_name') or row.bank_name or '').strip()[:160]
+    row.branch_name=(request.form.get('branch_name') or row.branch_name or '').strip()[:160]
+    row.upi_id=(request.form.get('upi_id') or row.upi_id or '').strip()[:180]
+    row.preferred_method=(request.form.get('preferred_method') or row.preferred_method or 'bank_transfer').strip()[:32]
+    db.session.add(row); return row
+
+
+def _staff_dashboard_context(active_tab='dashboard'):
+    _staff_ensure_default_leave_types()
+    active_tab=active_tab if active_tab in STAFF_TABS else 'dashboard'
+    staff_rows=StaffMember.query.order_by(StaffMember.status.asc(),StaffMember.full_name.asc()).all()
+    masked=[_staff_masked_member(row) for row in staff_rows]
+    today=datetime.date.today()
+    attendance=StaffAttendanceDay.query.order_by(StaffAttendanceDay.work_date.desc(),StaffAttendanceDay.id.desc()).limit(120).all()
+    leaves=StaffLeaveRequest.query.order_by(StaffLeaveRequest.created_at.desc()).limit(100).all()
+    leave_types=StaffLeaveType.query.filter_by(active=True).order_by(StaffLeaveType.name).all()
+    periods=StaffPayrollPeriod.query.order_by(StaffPayrollPeriod.period_end.desc()).limit(24).all()
+    payroll_items=StaffPayrollItem.query.order_by(StaffPayrollItem.id.desc()).limit(600).all()
+    batches=StaffSalaryPaymentBatch.query.order_by(StaffSalaryPaymentBatch.id.desc()).limit(30).all()
+    payments=StaffSalaryPayment.query.order_by(StaffSalaryPayment.id.desc()).limit(200).all()
+    latest_salary={}
+    for row in staff_rows:
+        latest_salary[row.id]=StaffSalaryStructure.query.filter_by(staff_id=row.id,active=True).order_by(StaffSalaryStructure.effective_from.desc(),StaffSalaryStructure.id.desc()).first()
+    pay_total=sum((x.net_salary_minor or 0)-(x.paid_minor or 0) for p in periods[:1] for x in StaffPayrollItem.query.filter_by(payroll_period_id=p.id).all()) if periods else 0
+    today_rows=StaffAttendanceDay.query.filter_by(work_date=today).all()
+    return dict(active_tab=active_tab,staff_rows=staff_rows,staff_cards=masked,cities=City.query.order_by(City.name).all(),attendance_rows=attendance,
+                leave_rows=leaves,leave_types=leave_types,payroll_periods=periods,payroll_items=payroll_items,payment_batches=batches,payment_rows=payments,latest_salary=latest_salary,staff_by_id={x.id:x for x in staff_rows},
+                today=today,staff_count=len(staff_rows),active_staff_count=sum(1 for s in staff_rows if s.status=='active'),
+                present_today=sum(1 for a in today_rows if a.status=='present'),absent_today=sum(1 for a in today_rows if a.status=='absent'),
+                pending_leave_count=sum(1 for l in leaves if l.status=='submitted'),payroll_pending_minor=pay_total,
+                minor_to_rupees=staff_minor_to_rupees)
+
+
+@app.route('/staff-salary')
+@permission_required('staff_salary')
+def staff_salary_studio():
+    return render_template('staff_salary.html',**_staff_dashboard_context((request.args.get('tab') or 'dashboard').strip().lower()))
+
+
+@app.route('/staff-salary/staff/new',methods=['GET','POST'])
+@permission_required('staff_salary')
+def staff_salary_staff_new():
+    if request.method=='GET':
+        return render_template('staff_salary_staff_edit.html',staff=None,bank=None,salary=None,documents=[],cities=City.query.order_by(City.name).all(),minor_to_rupees=staff_minor_to_rupees)
+    try:
+        row=StaffMember(staff_code=_staff_new_code(),full_name=(request.form.get('full_name') or '').strip(),created_by_user_id=current_user().id)
+        _staff_apply_member_form(row); db.session.add(row); db.session.flush(); _staff_apply_bank_form(row.id)
+        record_audit('staff_created','staff_member',row.id,module='staff_salary',meta={'staff_code':row.staff_code}); db.session.commit()
+        flash(f'{row.full_name} registered as {row.staff_code}.','success'); return redirect(url_for('staff_salary_staff_edit',staff_id=row.id))
+    except Exception as exc:
+        db.session.rollback(); flash(str(exc),'danger'); return redirect(url_for('staff_salary_staff_new'))
+
+
+@app.route('/staff-salary/staff/<int:staff_id>',methods=['GET','POST'])
+@permission_required('staff_salary')
+def staff_salary_staff_edit(staff_id):
+    row=db.session.get(StaffMember,staff_id) or abort(404)
+    if request.method=='POST':
+        try:
+            _staff_apply_member_form(row); _staff_apply_bank_form(row.id)
+            record_audit('staff_updated','staff_member',row.id,module='staff_salary',meta={'staff_code':row.staff_code}); db.session.commit(); flash('Staff profile updated.','success')
+        except Exception as exc:
+            db.session.rollback(); flash(str(exc),'danger')
+        return redirect(url_for('staff_salary_staff_edit',staff_id=row.id))
+    bank=StaffBankAccount.query.filter_by(staff_id=row.id,active=True).order_by(StaffBankAccount.id.desc()).first()
+    salary=StaffSalaryStructure.query.filter_by(staff_id=row.id,active=True).order_by(StaffSalaryStructure.effective_from.desc(),StaffSalaryStructure.id.desc()).first()
+    docs=StaffDocument.query.filter_by(staff_id=row.id).order_by(StaffDocument.id.desc()).all()
+    return render_template('staff_salary_staff_edit.html',staff=row,staff_masked=_staff_masked_member(row),bank=bank,salary=salary,documents=docs,cities=City.query.order_by(City.name).all(),minor_to_rupees=staff_minor_to_rupees)
+
+
+@app.route('/staff-salary/staff/<int:staff_id>/salary-structure',methods=['POST'])
+@permission_required('staff_salary')
+def staff_salary_structure_save(staff_id):
+    staff=db.session.get(StaffMember,staff_id) or abort(404)
+    effective=parse_date(request.form.get('effective_from')) or datetime.date.today()
+    try:
+        existing=StaffSalaryStructure.query.filter_by(staff_id=staff.id,effective_from=effective).first()
+        row=existing or StaffSalaryStructure(staff_id=staff.id,effective_from=effective,created_by_user_id=current_user().id)
+        for field in ('basic','hra','fixed_allowance','travel_allowance','food_allowance','mobile_allowance','special_allowance','overtime_rate','statutory_deduction'):
+            setattr(row,field+'_minor',staff_money_minor(request.form.get(field) or '0'))
+        row.notes=(request.form.get('salary_notes') or '').strip()[:5000]; row.active=True; db.session.add(row)
+        record_audit('salary_structure_saved','staff_salary_structure',row.id,module='staff_salary',meta={'staff_id':staff.id,'effective_from':effective.isoformat()}); db.session.commit(); flash('Salary structure saved.','success')
+    except Exception as exc:
+        db.session.rollback(); flash(str(exc),'danger')
+    return redirect(url_for('staff_salary_staff_edit',staff_id=staff.id))
+
+
+@app.route('/staff-salary/staff/<int:staff_id>/document',methods=['POST'])
+@permission_required('staff_salary')
+def staff_salary_document_upload(staff_id):
+    staff=db.session.get(StaffMember,staff_id) or abort(404); upload=request.files.get('staff_document')
+    try:
+        if not upload or not upload.filename: raise ValueError('Choose a staff document.')
+        raw=upload.stream.read(STAFF_DOCUMENT_MAX_BYTES+1)
+        if not raw or len(raw)>STAFF_DOCUMENT_MAX_BYTES: raise ValueError('Staff documents must be 20 MB or smaller.')
+        mime=(upload.mimetype or 'application/octet-stream')[:120]
+        if mime not in {'application/pdf','image/jpeg','image/png','image/webp'}: raise ValueError('Use PDF, JPG, PNG or WebP for staff documents.')
+        ciphertext,nonce=encrypt_blob(raw,_master_key())
+        doc=StaffDocument(staff_id=staff.id,document_type=(request.form.get('document_type') or 'other')[:60],file_name=(secure_filename(upload.filename) or 'staff-document')[:220],mime_type=mime,encrypted_blob=ciphertext,encrypted_nonce=nonce,verification_status=(request.form.get('verification_status') or 'unverified')[:40],uploaded_by_user_id=current_user().id)
+        db.session.add(doc); db.session.flush(); record_audit('staff_document_uploaded','staff_document',doc.id,module='staff_salary',meta={'staff_id':staff.id,'document_type':doc.document_type}); db.session.commit(); flash('Document encrypted and stored.','success')
+    except Exception as exc:
+        db.session.rollback(); flash(str(exc),'danger')
+    return redirect(url_for('staff_salary_staff_edit',staff_id=staff.id))
+
+
+@app.route('/staff-salary/staff/<int:staff_id>/document/<int:doc_id>/download')
+@permission_required('staff_salary')
+def staff_document_download(staff_id,doc_id):
+    doc=db.session.get(StaffDocument,doc_id) or abort(404)
+    if doc.staff_id!=staff_id: abort(404)
+    raw=decrypt_blob(doc.encrypted_blob,doc.encrypted_nonce,_master_key())
+    record_audit('staff_document_downloaded','staff_document',doc.id,module='staff_salary',meta={'staff_id':staff_id}); db.session.commit()
+    return send_file(io.BytesIO(raw),mimetype=doc.mime_type or 'application/octet-stream',as_attachment=True,download_name=doc.file_name or 'staff-document')
+
+
+
+def _staff_parse_datetime(value):
+    raw=(value or '').strip()
+    if not raw: return None
+    candidates=(raw.replace('Z','+00:00'),raw)
+    for candidate in candidates:
+        try:
+            parsed=datetime.datetime.fromisoformat(candidate)
+            if parsed.tzinfo: parsed=parsed.astimezone(ZoneInfo('Asia/Kolkata')).replace(tzinfo=None)
+            return parsed
+        except Exception: pass
+    for fmt in ('%Y-%m-%d %H:%M:%S','%Y-%m-%d %H:%M','%d-%m-%Y %H:%M:%S','%d-%m-%Y %H:%M','%d/%m/%Y %H:%M'):
+        try: return datetime.datetime.strptime(raw,fmt)
+        except Exception: pass
+    return None
+
+
+def _staff_rebuild_attendance_day(staff_id,work_date):
+    start=datetime.datetime.combine(work_date,datetime.time.min); end=start+datetime.timedelta(days=1)
+    events=StaffAttendanceEvent.query.filter(StaffAttendanceEvent.staff_id==staff_id,StaffAttendanceEvent.event_at>=start,StaffAttendanceEvent.event_at<end).order_by(StaffAttendanceEvent.event_at.asc(),StaffAttendanceEvent.id.asc()).all()
+    row=StaffAttendanceDay.query.filter_by(staff_id=staff_id,work_date=work_date).first() or StaffAttendanceDay(staff_id=staff_id,work_date=work_date)
+    ins=[e.event_at for e in events if e.event_type=='in']; outs=[e.event_at for e in events if e.event_type=='out']
+    explicit=[e.event_type for e in events if e.event_type in {'present','absent','half_day','leave','weekly_off','holiday'}]
+    row.first_in_at=min(ins) if ins else None; row.last_out_at=max(outs) if outs else None
+    row.worked_minutes=attendance_minutes(row.first_in_at,row.last_out_at)
+    if explicit: row.status=explicit[-1]
+    elif row.first_in_at: row.status='present'
+    else: row.status='absent'
+    try: standard=max(60,int(setting('staff_standard_work_minutes','480') or 480))
+    except Exception: standard=480
+    row.overtime_minutes=max(0,row.worked_minutes-standard) if row.status=='present' else 0
+    row.late_minutes=0
+    sources=sorted({e.source for e in events if e.source}); row.source_summary=', '.join(sources)[:180]
+    if row.first_in_at and not row.last_out_at: row.source_summary=(row.source_summary+', missing punch').strip(', ')[:180]
+    db.session.add(row); return row
+
+
+def _staff_attendance_csv_value(raw,*names):
+    normalized={str(k or '').strip().lower().replace(' ','_'):str(v or '').strip() for k,v in raw.items()}
+    for name in names:
+        value=normalized.get(name)
+        if value: return value
+    return ''
+
+
+@app.route('/staff-salary/attendance/import',methods=['POST'])
+@permission_required('staff_salary')
+def staff_salary_attendance_import():
+    upload=request.files.get('attendance_file')
+    try:
+        if not upload or not upload.filename: raise ValueError('Choose a biometric attendance CSV file.')
+        raw=upload.stream.read(5*1024*1024+1)
+        if not raw or len(raw)>5*1024*1024: raise ValueError('Attendance CSV must be 5 MB or smaller.')
+        text=raw.decode('utf-8-sig'); reader=csv.DictReader(io.StringIO(text))
+        fields={str(x or '').strip().lower().replace(' ','_') for x in (reader.fieldnames or [])}
+        if not ({'staff_code','employee_code','staff_id'} & fields) or not ({'timestamp','event_at','datetime'} & fields) or not ({'event_type','punch','status'} & fields):
+            raise ValueError('CSV requires staff_code, timestamp and event_type columns. external_id is optional.')
+        created=0; skipped=0; affected=set()
+        for raw_row in reader:
+            code=_staff_attendance_csv_value(raw_row,'staff_code','employee_code','staff_id').upper()
+            staff=StaffMember.query.filter(func.upper(StaffMember.staff_code)==code).first()
+            if not staff: skipped+=1; continue
+            stamp=_staff_parse_datetime(_staff_attendance_csv_value(raw_row,'timestamp','event_at','datetime'))
+            if not stamp: skipped+=1; continue
+            event_type=normalize_attendance_status(_staff_attendance_csv_value(raw_row,'event_type','punch','status'))
+            external_id=_staff_attendance_csv_value(raw_row,'external_id','event_id','transaction_id')
+            if not external_id: external_id=hashlib.sha256(f'{staff.staff_code}|{stamp.isoformat()}|{event_type}'.encode()).hexdigest()
+            if StaffAttendanceEvent.query.filter_by(external_id=external_id).first(): skipped+=1; continue
+            event=StaffAttendanceEvent(staff_id=staff.id,event_at=stamp,event_type=event_type,source='biometric',external_id=external_id[:180],device_name=_staff_attendance_csv_value(raw_row,'device_name','device')[:180],note=_staff_attendance_csv_value(raw_row,'note','remarks')[:500],created_by_user_id=current_user().id)
+            db.session.add(event); created+=1; affected.add((staff.id,stamp.date()))
+        db.session.flush()
+        for staff_id,day in affected: _staff_rebuild_attendance_day(staff_id,day)
+        record_audit('attendance_imported','staff_attendance_event',None,module='staff_salary',meta={'created':created,'skipped':skipped,'file_name':secure_filename(upload.filename)}); db.session.commit()
+        flash(f'Attendance imported: {created} event(s), {skipped} skipped/duplicate.','success')
+    except Exception as exc:
+        db.session.rollback(); flash(str(exc),'danger')
+    return redirect(url_for('staff_salary_studio',tab='attendance'))
+
+
+@app.route('/staff-salary/attendance/manual',methods=['POST'])
+@permission_required('staff_salary')
+def staff_salary_attendance_manual():
+    try:
+        staff_id=int(request.form.get('staff_id') or 0); staff=db.session.get(StaffMember,staff_id) or abort(404)
+        stamp=_staff_parse_datetime(request.form.get('timestamp'))
+        if not stamp: raise ValueError('Enter a valid attendance date and time.')
+        event_type=normalize_attendance_status(request.form.get('event_type'))
+        external_id='MAN-'+secrets.token_hex(12)
+        event=StaffAttendanceEvent(staff_id=staff.id,event_at=stamp,event_type=event_type,source='manual',external_id=external_id,note=(request.form.get('note') or '')[:500],created_by_user_id=current_user().id)
+        db.session.add(event); db.session.flush(); _staff_rebuild_attendance_day(staff.id,stamp.date())
+        record_audit('attendance_manual_correction','staff_attendance_event',event.id,module='staff_salary',meta={'staff_id':staff.id,'event_type':event_type}); db.session.commit(); flash('Manual attendance entry recorded.','success')
+    except Exception as exc:
+        db.session.rollback(); flash(str(exc),'danger')
+    return redirect(url_for('staff_salary_studio',tab='attendance'))
+
+
+
+def _staff_ingest_attendance_record(payload,source='biometric_api'):
+    if not isinstance(payload,dict): return None,False,'Invalid event payload'
+    code=str(payload.get('staff_code') or payload.get('employee_code') or payload.get('staff_id') or '').strip().upper()
+    staff=StaffMember.query.filter(func.upper(StaffMember.staff_code)==code).first()
+    if not staff: return None,False,'Unknown staff_code'
+    stamp=_staff_parse_datetime(str(payload.get('timestamp') or payload.get('event_at') or payload.get('datetime') or ''))
+    if not stamp: return None,False,'Invalid timestamp'
+    try: event_type=normalize_attendance_status(payload.get('event_type') or payload.get('punch') or payload.get('status'))
+    except Exception as exc: return None,False,str(exc)
+    external_id=str(payload.get('external_id') or payload.get('event_id') or payload.get('transaction_id') or '').strip()
+    if not external_id: external_id=hashlib.sha256(f'{staff.staff_code}|{stamp.isoformat()}|{event_type}'.encode()).hexdigest()
+    if StaffAttendanceEvent.query.filter_by(external_id=external_id).first(): return None,False,'duplicate'
+    event=StaffAttendanceEvent(staff_id=staff.id,event_at=stamp,event_type=event_type,source=source[:40],external_id=external_id[:180],device_name=str(payload.get('device_name') or payload.get('device') or '')[:180],note=str(payload.get('note') or payload.get('remarks') or '')[:500])
+    db.session.add(event); db.session.flush(); _staff_rebuild_attendance_day(staff.id,stamp.date()); return event,True,''
+
+
+@app.route('/webhooks/staff-attendance',methods=['POST'])
+def staff_attendance_webhook():
+    expected=os.getenv('STAFF_ATTENDANCE_WEBHOOK_TOKEN','').strip(); supplied=(request.headers.get('X-Livenza-Webhook-Token') or '').strip()
+    if not expected or not secrets.compare_digest(supplied,expected): abort(401)
+    payload=request.get_json(silent=True)
+    if payload is None: return jsonify(ok=False,error='JSON payload required'),400
+    events=payload.get('events') if isinstance(payload,dict) and isinstance(payload.get('events'),list) else [payload]
+    if len(events)>1000: return jsonify(ok=False,error='Maximum 1000 attendance events per request'),413
+    created=0; skipped=0; errors=[]
+    try:
+        for index,event_payload in enumerate(events):
+            event,was_created,error=_staff_ingest_attendance_record(event_payload,source='biometric_api')
+            if was_created: created+=1
+            else:
+                skipped+=1
+                if error and error!='duplicate': errors.append({'index':index,'error':error})
+        record_audit('attendance_webhook_ingested','staff_attendance_event',None,module='staff_salary',meta={'created':created,'skipped':skipped,'errors':len(errors)}); db.session.commit()
+        return jsonify(ok=not errors,created=created,skipped=skipped,errors=errors),200 if not errors else 207
+    except Exception as exc:
+        db.session.rollback(); return jsonify(ok=False,error=str(exc)[:500]),400
+
+def _staff_ensure_default_leave_types():
+    defaults=[('CL','Casual Leave',True,12),('SL','Sick Leave',True,12),('EL','Earned / Paid Leave',True,12),('UL','Unpaid Leave',False,365),('CO','Compensatory Off',True,0),('EM','Emergency Leave',True,3)]
+    changed=False
+    for code,name,paid,entitlement in defaults:
+        if not StaffLeaveType.query.filter_by(code=code).first():
+            db.session.add(StaffLeaveType(code=code,name=name,paid=paid,annual_entitlement=entitlement)); changed=True
+    if changed: db.session.commit()
+
+
+def _staff_leave_balance(staff_id,leave_type,year):
+    row=StaffLeaveBalance.query.filter_by(staff_id=staff_id,leave_type_id=leave_type.id,year=year).first()
+    if not row:
+        row=StaffLeaveBalance(staff_id=staff_id,leave_type_id=leave_type.id,year=year,entitled_units=float(leave_type.annual_entitlement or 0),used_units=0,pending_units=0); db.session.add(row)
+    return row
+
+
+@app.route('/staff-salary/leave-types',methods=['POST'])
+@permission_required('staff_salary')
+def staff_salary_leave_type_save():
+    try:
+        code=re.sub(r'[^A-Z0-9_]','',(request.form.get('code') or '').upper())[:30]
+        name=(request.form.get('name') or '').strip()[:120]
+        if not code or not name: raise ValueError('Leave code and name are required.')
+        row=StaffLeaveType.query.filter_by(code=code).first() or StaffLeaveType(code=code)
+        row.name=name; row.paid=request.form.get('paid')=='1'; row.annual_entitlement=float(request.form.get('annual_entitlement') or 0); row.active=True; db.session.add(row)
+        record_audit('leave_type_saved','staff_leave_type',row.id,module='staff_salary',meta={'code':code}); db.session.commit(); flash('Leave type saved.','success')
+    except Exception as exc:
+        db.session.rollback(); flash(str(exc),'danger')
+    return redirect(url_for('staff_salary_studio',tab='leave'))
+
+
+@app.route('/staff-salary/leave',methods=['POST'])
+@permission_required('staff_salary')
+def staff_salary_leave_request():
+    try:
+        staff=db.session.get(StaffMember,int(request.form.get('staff_id') or 0)) or abort(404)
+        leave_type=db.session.get(StaffLeaveType,int(request.form.get('leave_type_id') or 0)) or abort(404)
+        start=parse_date(request.form.get('start_date')); end=parse_date(request.form.get('end_date'))
+        if not start or not end or end<start: raise ValueError('Enter a valid leave date range.')
+        if start.year!=end.year: raise ValueError('Create separate leave requests when dates cross a calendar year.')
+        units=float((end-start).days+1); balance=_staff_leave_balance(staff.id,leave_type,start.year)
+        available=float(balance.entitled_units or 0)-float(balance.used_units or 0)-float(balance.pending_units or 0)
+        if leave_type.paid and float(leave_type.annual_entitlement or 0)>0 and units>available: raise ValueError(f'Only {available:g} paid leave day(s) remain.')
+        row=StaffLeaveRequest(staff_id=staff.id,leave_type_id=leave_type.id,start_date=start,end_date=end,units=units,status='submitted',reason=(request.form.get('reason') or '')[:1000]); balance.pending_units=float(balance.pending_units or 0)+units
+        db.session.add(row); db.session.flush(); record_audit('leave_requested','staff_leave_request',row.id,module='staff_salary',meta={'staff_id':staff.id,'units':units}); db.session.commit(); flash('Leave request submitted.','success')
+    except Exception as exc:
+        db.session.rollback(); flash(str(exc),'danger')
+    return redirect(url_for('staff_salary_studio',tab='leave'))
+
+
+@app.route('/staff-salary/leave/<int:leave_id>/status',methods=['POST'])
+@permission_required('staff_salary')
+def staff_salary_leave_status(leave_id):
+    row=db.session.get(StaffLeaveRequest,leave_id) or abort(404)
+    try:
+        if row.status!='submitted': raise ValueError('This leave request has already been reviewed.')
+        leave_type=db.session.get(StaffLeaveType,row.leave_type_id) or abort(404); balance=_staff_leave_balance(row.staff_id,leave_type,row.start_date.year)
+        decision=(request.form.get('decision') or '').strip().lower()
+        balance.pending_units=max(0,float(balance.pending_units or 0)-float(row.units or 0))
+        if decision=='approve':
+            row.status='approved'; balance.used_units=float(balance.used_units or 0)+float(row.units or 0); action='leave_approved'
+        elif decision=='reject': row.status='rejected'; action='leave_rejected'
+        else: raise ValueError('Choose approve or reject.')
+        row.review_note=(request.form.get('review_note') or '')[:1000]; row.reviewed_by_user_id=current_user().id; row.reviewed_at=datetime.datetime.utcnow()
+        record_audit(action,'staff_leave_request',row.id,module='staff_salary',meta={'staff_id':row.staff_id,'units':row.units}); db.session.commit(); flash('Leave request updated.','success')
+    except Exception as exc:
+        db.session.rollback(); flash(str(exc),'danger')
+    return redirect(url_for('staff_salary_studio',tab='leave'))
+
+
+
+def _staff_fixed_gross_minor(salary):
+    return sum(int(getattr(salary,name,0) or 0) for name in ('basic_minor','hra_minor','fixed_allowance_minor','travel_allowance_minor','food_allowance_minor','mobile_allowance_minor','special_allowance_minor'))
+
+
+def _staff_period_unpaid_leave_units(staff_id,period):
+    total=0.0
+    rows=StaffLeaveRequest.query.filter(StaffLeaveRequest.staff_id==staff_id,StaffLeaveRequest.status=='approved',StaffLeaveRequest.start_date<=period.period_end,StaffLeaveRequest.end_date>=period.period_start).all()
+    for row in rows:
+        leave_type=db.session.get(StaffLeaveType,row.leave_type_id)
+        if leave_type and not leave_type.paid:
+            start=max(row.start_date,period.period_start); end=min(row.end_date,period.period_end)
+            total+=max(0,(end-start).days+1)
+    return total
+
+
+def _staff_build_payroll_snapshot(staff,salary,period):
+    attendance_rows=StaffAttendanceDay.query.filter(StaffAttendanceDay.staff_id==staff.id,StaffAttendanceDay.work_date>=period.period_start,StaffAttendanceDay.work_date<=period.period_end).all()
+    attendance_unpaid_units=sum(1.0 if row.status=='absent' else 0.5 if row.status=='half_day' else 0.0 for row in attendance_rows)
+    unpaid_leave_units=_staff_period_unpaid_leave_units(staff.id,period)
+    unpaid_days=max(attendance_unpaid_units,unpaid_leave_units)
+    overtime_minutes=sum(int(row.overtime_minutes or 0) for row in attendance_rows if row.status=='present')
+    overtime_minor=int((decimal.Decimal(int(salary.overtime_rate_minor or 0))*decimal.Decimal(overtime_minutes)/decimal.Decimal(60)).quantize(decimal.Decimal('1'),rounding=decimal.ROUND_HALF_UP))
+    fixed_gross=_staff_fixed_gross_minor(salary)
+    values={
+        'basic_minor':int(salary.basic_minor or 0),'hra_minor':int(salary.hra_minor or 0),'fixed_allowance_minor':int(salary.fixed_allowance_minor or 0),
+        'travel_allowance_minor':int(salary.travel_allowance_minor or 0),'food_allowance_minor':int(salary.food_allowance_minor or 0),'mobile_allowance_minor':int(salary.mobile_allowance_minor or 0),
+        'special_allowance_minor':int(salary.special_allowance_minor or 0),'incentive_minor':0,'overtime_minor':overtime_minor,'bonus_minor':0,'arrears_minor':0,
+        'loss_of_pay_minor':loss_of_pay_minor(fixed_gross,period.payable_days,unpaid_days),'advance_recovery_minor':0,'loan_recovery_minor':0,'penalty_minor':0,
+        'statutory_deduction_minor':int(salary.statutory_deduction_minor or 0),'other_deduction_minor':0,
+    }
+    adjustments=StaffPayrollAdjustment.query.filter_by(staff_id=staff.id,payroll_period_id=period.id).all()
+    for adj in adjustments:
+        amount=abs(int(adj.amount_minor or 0)); kind=(adj.adjustment_type or '').strip().lower()
+        if kind in {'bonus','incentive','arrears'}: values[kind+'_minor']+=amount
+        elif kind in {'advance_recovery','loan_recovery','penalty'}: values[kind+'_minor']+=amount
+        elif int(adj.amount_minor or 0)>=0: values['arrears_minor']+=amount
+        else: values['other_deduction_minor']+=amount
+        adj.applied=True
+    result=calculate_payroll(values)
+    result.update({
+        'staff':{'id':staff.id,'staff_code':staff.staff_code,'full_name':staff.full_name,'designation':staff.designation,'department':staff.department,'property_name':staff.property_name},
+        'period':{'id':period.id,'code':period.code,'start':period.period_start.isoformat(),'end':period.period_end.isoformat(),'payable_days':period.payable_days},
+        'attendance':{'recorded_days':len(attendance_rows),'attendance_unpaid_units':attendance_unpaid_units,'unpaid_leave_units':unpaid_leave_units,'unpaid_days':unpaid_days,'overtime_minutes':overtime_minutes},
+        'salary_structure_id':salary.id,'salary_effective_from':salary.effective_from.isoformat(),'overtime_rate_minor':int(salary.overtime_rate_minor or 0),
+    })
+    return result
+
+
+@app.route('/staff-salary/payroll/period',methods=['POST'])
+@permission_required('staff_salary')
+def staff_salary_payroll_period_create():
+    try:
+        start=parse_date(request.form.get('period_start')); end=parse_date(request.form.get('period_end'))
+        if not start or not end or end<start: raise ValueError('Enter a valid payroll period.')
+        code=(request.form.get('code') or f'PAY-{end:%Y-%m}').strip().upper()[:32]
+        if StaffPayrollPeriod.query.filter_by(code=code).first(): raise ValueError('A payroll period with this code already exists.')
+        payable_days=int(request.form.get('payable_days') or 30)
+        if payable_days<1 or payable_days>31: raise ValueError('Payable days must be between 1 and 31.')
+        row=StaffPayrollPeriod(code=code,period_start=start,period_end=end,payable_days=payable_days,status='draft',created_by_user_id=current_user().id); db.session.add(row); db.session.flush()
+        record_audit('payroll_period_created','staff_payroll_period',row.id,module='staff_salary',meta={'code':code}); db.session.commit(); flash('Payroll period created.','success')
+    except Exception as exc:
+        db.session.rollback(); flash(str(exc),'danger')
+    return redirect(url_for('staff_salary_studio',tab='payroll'))
+
+
+@app.route('/staff-salary/payroll/<int:period_id>/calculate',methods=['POST'])
+@permission_required('staff_salary')
+def staff_salary_payroll_calculate(period_id):
+    period=db.session.get(StaffPayrollPeriod,period_id) or abort(404)
+    try:
+        if period.status=='locked': raise ValueError('Locked payroll is immutable.')
+        if not period.status in {'draft','calculated'}: raise ValueError('Payroll can only be calculated or recalculated before review.')
+        staff_rows=StaffMember.query.filter(StaffMember.status.in_(['active','on_leave'])).order_by(StaffMember.id).all(); processed=0; skipped=0
+        for staff in staff_rows:
+            if staff.joining_date and staff.joining_date>period.period_end: continue
+            salary=StaffSalaryStructure.query.filter(StaffSalaryStructure.staff_id==staff.id,StaffSalaryStructure.active==True,StaffSalaryStructure.effective_from<=period.period_end).order_by(StaffSalaryStructure.effective_from.desc(),StaffSalaryStructure.id.desc()).first()
+            if not salary: skipped+=1; continue
+            snapshot=_staff_build_payroll_snapshot(staff,salary,period)
+            item=StaffPayrollItem.query.filter_by(payroll_period_id=period.id,staff_id=staff.id).first() or StaffPayrollItem(payroll_period_id=period.id,staff_id=staff.id)
+            item.snapshot_json=json.dumps(snapshot,separators=(',',':')); item.gross_earnings_minor=snapshot['gross_earnings_minor']; item.total_deductions_minor=snapshot['total_deductions_minor']; item.net_salary_minor=snapshot['net_salary_minor']; item.status='calculated'; db.session.add(item); processed+=1
+        period.status=transition_payroll_status(period.status,'calculate' if period.status=='draft' else 'recalculate'); period.calculated_at=datetime.datetime.utcnow()
+        record_audit('payroll_calculated','staff_payroll_period',period.id,module='staff_salary',meta={'processed':processed,'skipped_no_salary':skipped}); db.session.commit(); flash(f'Payroll calculated for {processed} staff; {skipped} skipped without salary structure.','success')
+    except Exception as exc:
+        db.session.rollback(); flash(str(exc),'danger')
+    return redirect(url_for('staff_salary_studio',tab='payroll'))
+
+
+def _staff_post_salary_credit(period,item):
+    existing=StaffLedgerEntry.query.filter_by(staff_id=item.staff_id,source_type='payroll_item',source_id=item.id).first()
+    if existing: return existing
+    entry=StaffLedgerEntry(staff_id=item.staff_id,entry_date=period.period_end,description=f'{period.code} Salary',debit_minor=0,credit_minor=int(item.net_salary_minor or 0),source_type='payroll_item',source_id=item.id,created_by_user_id=current_user().id)
+    db.session.add(entry); return entry
+
+
+@app.route('/staff-salary/payroll/<int:period_id>/status',methods=['POST'])
+@permission_required('staff_salary')
+def staff_salary_payroll_status(period_id):
+    period=db.session.get(StaffPayrollPeriod,period_id) or abort(404)
+    try:
+        if period.status=='locked': raise ValueError('Locked payroll is immutable.')
+        event=(request.form.get('event') or '').strip().lower(); new_status=transition_payroll_status(period.status,event)
+        period.status=new_status
+        if event=='approve':
+            items=StaffPayrollItem.query.filter_by(payroll_period_id=period.id).all()
+            if not items: raise ValueError('Calculate payroll before approval.')
+            for item in items: _staff_post_salary_credit(period,item); item.status='approved'
+            period.approved_at=datetime.datetime.utcnow(); record_audit('salary_credit','staff_payroll_period',period.id,module='staff_salary',meta={'items':len(items)})
+        elif event=='lock': period.locked_at=datetime.datetime.utcnow()
+        record_audit('payroll_status_changed','staff_payroll_period',period.id,module='staff_salary',meta={'event':event,'status':new_status}); db.session.commit(); flash(f'Payroll is now {new_status.replace("_"," ")}.','success')
+    except Exception as exc:
+        db.session.rollback(); flash(str(exc),'danger')
+    return redirect(url_for('staff_salary_studio',tab='payroll'))
+
+
+@app.route('/staff-salary/payroll/<int:period_id>/payslip/<int:staff_id>')
+@permission_required('staff_salary')
+def staff_salary_payslip(period_id,staff_id):
+    period=db.session.get(StaffPayrollPeriod,period_id) or abort(404); staff=db.session.get(StaffMember,staff_id) or abort(404)
+    item=StaffPayrollItem.query.filter_by(payroll_period_id=period.id,staff_id=staff.id).first() or abort(404)
+    try: snapshot=json.loads(item.snapshot_json or '{}')
+    except Exception: snapshot={}
+    bank=StaffBankAccount.query.filter_by(staff_id=staff.id,active=True).order_by(StaffBankAccount.id.desc()).first()
+    return render_template('staff_salary_payslip.html',period=period,staff=staff,item=item,snapshot=snapshot,bank=bank,minor_to_rupees=staff_minor_to_rupees)
+
+
+@app.route('/staff-salary/ledger/<int:staff_id>')
+@permission_required('staff_salary')
+def staff_salary_ledger(staff_id):
+    staff=db.session.get(StaffMember,staff_id) or abort(404); entries=StaffLedgerEntry.query.filter_by(staff_id=staff.id).order_by(StaffLedgerEntry.entry_date.asc(),StaffLedgerEntry.id.asc()).all(); running=0; rows=[]
+    for entry in entries:
+        running+=int(entry.credit_minor or 0)-int(entry.debit_minor or 0); rows.append((entry,running))
+    return render_template('staff_salary_ledger.html',staff=staff,rows=rows,balance_minor=running,minor_to_rupees=staff_minor_to_rupees)
+
+
+
+@app.route('/staff-salary/payments/batch',methods=['POST'])
+@permission_required('staff_salary')
+@admin_required
+def staff_salary_payment_batch_create():
+    try:
+        period=db.session.get(StaffPayrollPeriod,int(request.form.get('payroll_period_id') or 0)) or abort(404)
+        if period.status!='approved': raise ValueError('Only an approved payroll period can be sent for salary payment.')
+        items=StaffPayrollItem.query.filter_by(payroll_period_id=period.id).order_by(StaffPayrollItem.id).all()
+        if not items: raise ValueError('This payroll period has no salary items.')
+        payable=[]; bank_detail_errors=[]
+        for item in items:
+            if int(item.net_salary_minor or 0)<=int(item.paid_minor or 0): continue
+            if StaffSalaryPayment.query.filter_by(payroll_item_id=item.id).first(): continue
+            staff=db.session.get(StaffMember,item.staff_id); bank=StaffBankAccount.query.filter_by(staff_id=item.staff_id,active=True).order_by(StaffBankAccount.id.desc()).first()
+            if not staff or not bank or not bank.account_number or not bank.account_nonce or not bank.ifsc or not bank.account_holder:
+                bank_detail_errors.append(staff.full_name if staff else f'Staff #{item.staff_id}'); continue
+            payable.append((item,staff,bank))
+        if bank_detail_errors: raise ValueError('Complete bank details before creating the batch: '+', '.join(bank_detail_errors[:12]))
+        if not payable: raise ValueError('No unpaid payroll items are available for a new batch.')
+        batch=StaffSalaryPaymentBatch(payroll_period_id=period.id,batch_reference=f'SAL-{period.period_end:%Y%m}-{secrets.token_hex(3).upper()}',status='created',created_by_user_id=current_user().id); db.session.add(batch); db.session.flush()
+        payments=[]
+        for item,staff,bank in payable:
+            payment=StaffSalaryPayment(batch_id=batch.id,payroll_item_id=item.id,staff_id=staff.id,amount_minor=max(0,int(item.net_salary_minor or 0)-int(item.paid_minor or 0)),status='pending'); db.session.add(payment); payments.append(payment)
+        batch.total_minor=sum(p.amount_minor for p in payments); batch.item_count=len(payments)
+        period.status=transition_payroll_status(period.status,'start_payment')
+        record_audit('salary_payment_batch_created','staff_salary_payment_batch',batch.id,module='staff_salary',meta={'period_id':period.id,'items':batch.item_count,'total_minor':batch.total_minor}); db.session.commit(); flash(f'Salary payment batch {batch.batch_reference} created.','success')
+    except Exception as exc:
+        db.session.rollback(); flash(str(exc),'danger')
+    return redirect(url_for('staff_salary_studio',tab='payments'))
+
+
+@app.route('/staff-salary/payments/batch/<int:batch_id>.csv')
+@permission_required('staff_salary')
+@admin_required
+def staff_salary_payment_batch_csv(batch_id):
+    batch=db.session.get(StaffSalaryPaymentBatch,batch_id) or abort(404); payments=StaffSalaryPayment.query.filter_by(batch_id=batch.id).order_by(StaffSalaryPayment.id).all(); raw_items=[]
+    for payment in payments:
+        staff=db.session.get(StaffMember,payment.staff_id); bank=StaffBankAccount.query.filter_by(staff_id=payment.staff_id,active=True).order_by(StaffBankAccount.id.desc()).first()
+        if not staff or not bank: continue
+        account_number=_staff_decrypt_text(bank.account_number,bank.account_nonce)
+        raw_items.append({'staff_code':staff.staff_code,'employee':staff.full_name,'account_holder':bank.account_holder,'account_number':account_number,'ifsc':bank.ifsc,'amount_minor':payment.amount_minor,'reference':batch.batch_reference+'-'+staff.staff_code})
+    rows=build_bank_batch_rows(raw_items); columns=['Staff Code','Employee','Account Holder','Account Number','IFSC','Amount','Reference']; output=io.StringIO(); writer=csv.DictWriter(output,fieldnames=columns); writer.writeheader(); writer.writerows(rows)
+    record_audit('salary_payment_batch_exported','staff_salary_payment_batch',batch.id,module='staff_salary',meta={'items':len(rows)}); db.session.commit()
+    return send_file(io.BytesIO(output.getvalue().encode('utf-8-sig')),mimetype='text/csv',as_attachment=True,download_name=f'{batch.batch_reference}.csv')
+
+
+def _staff_payment_ledger_debit(payment,reference):
+    existing=StaffLedgerEntry.query.filter_by(staff_id=payment.staff_id,source_type='salary_payment',source_id=payment.id).first()
+    if existing: return existing
+    entry=StaffLedgerEntry(staff_id=payment.staff_id,entry_date=datetime.date.today(),description=f'Salary paid · {reference}',debit_minor=int(payment.amount_minor or 0),credit_minor=0,source_type='salary_payment',source_id=payment.id,created_by_user_id=current_user().id); db.session.add(entry); return entry
+
+
+@app.route('/staff-salary/payments/<int:payment_id>/mark-paid',methods=['POST'])
+@admin_required
+def staff_salary_payment_mark_paid(payment_id):
+    payment=db.session.get(StaffSalaryPayment,payment_id) or abort(404); reference=(request.form.get('bank_reference') or '').strip()[:180]
+    try:
+        if not reference: raise ValueError('Enter the bank transaction/reference number.')
+        if payment.status=='paid':
+            if payment.bank_reference==reference: flash('This salary payment was already reconciled with the same reference.','success'); return redirect(url_for('staff_salary_studio',tab='payments'))
+            raise ValueError('This salary payment is already paid with a different bank reference.')
+        batch=db.session.get(StaffSalaryPaymentBatch,payment.batch_id) or abort(404); period=db.session.get(StaffPayrollPeriod,batch.payroll_period_id) or abort(404); item=db.session.get(StaffPayrollItem,payment.payroll_item_id) or abort(404)
+        payment.status='paid'; payment.bank_reference=reference; payment.paid_at=datetime.datetime.utcnow(); item.paid_minor=min(int(item.net_salary_minor or 0),int(item.paid_minor or 0)+int(payment.amount_minor or 0)); item.status='paid' if item.paid_minor>=item.net_salary_minor else 'partially_paid'; _staff_payment_ledger_debit(payment,reference)
+        remaining=StaffSalaryPayment.query.filter_by(batch_id=batch.id).filter(StaffSalaryPayment.id!=payment.id,StaffSalaryPayment.status!='paid').count()
+        if remaining==0:
+            batch.status='paid'; batch.completed_at=datetime.datetime.utcnow()
+            period_items=StaffPayrollItem.query.filter_by(payroll_period_id=period.id).all()
+            if all(int(x.paid_minor or 0)>=int(x.net_salary_minor or 0) for x in period_items): period.status=transition_payroll_status(period.status,'mark_paid')
+        record_audit('salary_payment_reconciled','staff_salary_payment',payment.id,module='staff_salary',meta={'batch_id':batch.id,'reference':reference}); db.session.commit(); flash('Salary payment marked paid and posted to the staff ledger.','success')
+    except Exception as exc:
+        db.session.rollback(); flash(str(exc),'danger')
+    return redirect(url_for('staff_salary_studio',tab='payments'))
+
+
+@app.route('/staff-salary/reports/<kind>.csv')
+@permission_required('staff_salary')
+def staff_salary_report(kind):
+    kind=(kind or '').strip().lower(); output=io.StringIO(); writer=csv.writer(output)
+    if kind=='staff':
+        writer.writerow(['Staff Code','Employee','Mobile','Designation','Department','Property','Joining Date','Status','Aadhaar','PAN','Bank Account','IFSC'])
+        for row in StaffMember.query.order_by(StaffMember.staff_code).all():
+            masked=_staff_masked_member(row); writer.writerow([row.staff_code,row.full_name,row.mobile,row.designation,row.department,row.property_name,row.joining_date or '',row.status,masked['aadhaar_masked'],masked['pan_masked'],masked['account_masked'],masked['ifsc']])
+    elif kind=='attendance':
+        writer.writerow(['Date','Staff Code','Employee','Status','First In','Last Out','Worked Minutes','Overtime Minutes','Source'])
+        for row in StaffAttendanceDay.query.order_by(StaffAttendanceDay.work_date.desc(),StaffAttendanceDay.staff_id).all():
+            staff=db.session.get(StaffMember,row.staff_id); writer.writerow([row.work_date,staff.staff_code if staff else row.staff_id,staff.full_name if staff else '',row.status,row.first_in_at or '',row.last_out_at or '',row.worked_minutes,row.overtime_minutes,row.source_summary])
+    elif kind=='payroll':
+        writer.writerow(['Period','Staff Code','Employee','Gross Earnings','Deductions','Net Salary','Paid','Status'])
+        for item in StaffPayrollItem.query.order_by(StaffPayrollItem.payroll_period_id.desc(),StaffPayrollItem.staff_id).all():
+            period=db.session.get(StaffPayrollPeriod,item.payroll_period_id); staff=db.session.get(StaffMember,item.staff_id); writer.writerow([period.code if period else item.payroll_period_id,staff.staff_code if staff else item.staff_id,staff.full_name if staff else '',staff_minor_to_rupees(item.gross_earnings_minor),staff_minor_to_rupees(item.total_deductions_minor),staff_minor_to_rupees(item.net_salary_minor),staff_minor_to_rupees(item.paid_minor),item.status])
+    else: abort(404)
+    record_audit('staff_salary_report_exported','staff_salary_report',None,module='staff_salary',meta={'kind':kind}); db.session.commit()
+    return send_file(io.BytesIO(output.getvalue().encode('utf-8-sig')),mimetype='text/csv',as_attachment=True,download_name=f'livenza-{kind}-report-{datetime.date.today():%Y%m%d}.csv')
+
+
+def register_livenza_consumer_api():
+    from livenza_api_v1 import register_api_v1
+    return register_api_v1(app, db, {
+        'Customer': Customer,
+        'CustomerIdentity': CustomerIdentity,
+        'CustomerOtpChallenge': CustomerOtpChallenge,
+        'CustomerSession': CustomerSession,
+        'StayProperty': StayProperty,
+        'StayRoomCategory': StayRoomCategory,
+        'StayInventoryUnit': StayInventoryUnit,
+        'StayRatePlan': StayRatePlan,
+        'StayInventoryHold': StayInventoryHold,
+        'StayBooking': StayBooking,
+        'StayBookingItem': StayBookingItem,
+        'BookingAddOn': BookingAddOn,
+        'BookingShareToken': BookingShareToken,
+        'PaymentRecord': PaymentRecord,
+        'ProcessedWebhookEvent': ProcessedWebhookEvent,
+        'CustomerDocument': CustomerDocument,
+        'TenantOnboarding': TenantOnboarding,
+        'CustomerAgreement': CustomerAgreement,
+        'TenantDue': TenantDue,
+        'TenantDueAllocation': TenantDueAllocation,
+        'TenantMeterAccount': TenantMeterAccount,
+        'MeterRecharge': MeterRecharge,
+        'SupportTicket': SupportTicket,
+        'ResidentPropertyPolicy': ResidentPropertyPolicy,
+        'ResidentNotice': ResidentNotice,
+        'ResidentLeaveRequest': ResidentLeaveRequest,
+        'ResidentGuestRequest': ResidentGuestRequest,
+        'PropertyMenu': PropertyMenu,
+        'Product': Product,
+        'ProductVariant': ProductVariant,
+        'StoreOrder': StoreOrder,
+        'StoreOrderItem': StoreOrderItem,
+        'LoyaltyAccount': LoyaltyAccount,
+        'LoyaltyLedgerEntry': LoyaltyLedgerEntry,
+        'ReferralIdentity': ReferralIdentity,
+        'ReferralEvent': ReferralEvent,
+        'ResidentOffer': ResidentOffer,
+        'ContentEntry': ContentEntry,
+        'PropertyMedia': PropertyMedia,
+    }, send_customer_otp, notify=send_livenza_transactional_notification)
+
+register_livenza_consumer_api()
+
 def bootstrap():
+    from livenza_admin_core import production_config_errors
+    production_errors=production_config_errors(os.environ)
+    if production_errors:
+        raise RuntimeError('Unsafe Livenza production configuration: '+'; '.join(production_errors))
     os.makedirs(os.path.join(BASE_DIR,'instance'),exist_ok=True)
     db.create_all()
     ensure_v150_user_columns()

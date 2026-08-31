@@ -27,30 +27,14 @@
   <link rel="stylesheet" href="{{url_for('static',filename='home_light.css')}}?rev={{asset_revision}}">
   {% elif lightweight_settings_route %}
   <link rel="stylesheet" href="{{url_for('static',filename='settings_light.css')}}?rev={{asset_revision}}">
-  <style data-settings-critical-states>
-    html[data-appearance="dark"],body.appearance-dark{color-scheme:dark;background:#0e1725!important;color:#edf4fb!important}
-    html[data-appearance="dark"] .mac-toolbar,body.appearance-dark .mac-toolbar{background:#101b2b!important;border-bottom-color:#314057!important;color:#eef5fb!important}
-    html[data-appearance="dark"] .system-settings,html[data-appearance="dark"] .system-settings-detail,html[data-appearance="dark"] .settings-card,html[data-appearance="dark"] .liquid-card,html[data-appearance="dark"] .settings-section,html[data-appearance="dark"] .settings-group,html[data-appearance="dark"] .settings-pane,html[data-appearance="dark"] .settings-panel,body.appearance-dark .system-settings,body.appearance-dark .system-settings-detail,body.appearance-dark .settings-card{background:#162132!important;color:#edf4fb!important;border-color:#34445b!important}
-    html[data-appearance="dark"] .system-settings-sidebar,body.appearance-dark .system-settings-sidebar{background:#111c2b!important;border-right-color:#34445b!important}
-    html[data-appearance="dark"] .settings-search,html[data-appearance="dark"] .settings-nav-icon,html[data-appearance="dark"] input,html[data-appearance="dark"] select,html[data-appearance="dark"] textarea,html[data-appearance="dark"] .appearance-sample,body.appearance-dark .settings-search,body.appearance-dark .settings-nav-icon,body.appearance-dark input,body.appearance-dark select,body.appearance-dark textarea,body.appearance-dark .appearance-sample{background:#1b293b!important;color:#eef4fb!important;border-color:#3b4b61!important}
-    html[data-appearance="dark"] :is(h1,h2,h3,b,strong),body.appearance-dark :is(h1,h2,h3,b,strong){color:#f2f7fb!important}
-    html.settings-increase-contrast .system-settings,html.settings-increase-contrast .settings-card{border-color:#97a4b5!important}
-    html.settings-reduce-transparency .mac-toolbar,html.settings-reduce-transparency .mac-dock{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
-    html.settings-reduce-transparency .mac-dock{background:#18304a!important}
-    html.settings-reduce-motion *,html.settings-reduce-motion *::before,html.settings-reduce-motion *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
-    html.settings-large-text body{font-size:18px!important}
-    html.dock-autohide .mac-dock{transform:translate(-50%,calc(100% - 8px));opacity:.18}
-    html[data-dock-size="small"] .mac-dock{--dock-icon-size:28px;--dock-item-size:31px;--dock-symbol-size:17px}
-    html[data-dock-size="large"] .mac-dock{--dock-icon-size:42px;--dock-item-size:46px;--dock-symbol-size:24px}
-  </style>
   {% else %}
   <script src="{{url_for('static',filename='tv_capability.js')}}?rev={{asset_revision}}"></script>
   {% if not lightweight_settings_route %}<link rel="stylesheet" href="{{url_for('static',filename='legacy_modules.css')}}?rev={{asset_revision}}">{% endif %}
   {% if current_user and can_access('letterhead') and request.endpoint and request.endpoint.startswith('letterhead') %}<link rel="stylesheet" href="{{url_for('static',filename='letterhead.css')}}?rev={{asset_revision}}">{% endif %}
   <link rel="stylesheet" href="{{url_for('static',filename='macos27_system.css')}}?rev={{asset_revision}}">
   {% endif %}
-  <link rel="stylesheet" href="{{url_for('static',filename='ui_polish.css')}}?rev={{asset_revision}}">
   {% block page_styles %}{% endblock %}
+  {% if request.endpoint and request.endpoint.startswith('staff_salary') %}<link rel="stylesheet" href="{{url_for('static',filename='staff_salary.css')}}?rev={{asset_revision}}">{% endif %}
 </head>
 {% set current_app_ui = ui_app_meta(request.endpoint or '') if current_user else {} %}
 <body class="app-liquid-shell macos27-clean{% if request.endpoint == 'dashboard' %} desktop-widgets-hidden{% endif %}" data-page="{{request.endpoint or ''}}" data-build-revision="{{asset_revision}}" data-app-family="{{current_app_ui.family or ''}}" style="--suite-accent:{{current_app_ui.accent or '#248CFF'}};--suite-accent-2:{{current_app_ui.accent2 or '#6757E8'}}">
@@ -100,6 +84,7 @@
           {% if can_access('queries') %}<a class="light-suite-card" href="{{url_for('queries')}}" style="--tile-bg:linear-gradient(145deg,#ff9d42,#ff5b45)"><i>{{icons.symbol('queries')}}</i><span><b>Queries</b><small>Leads and follow-up</small></span></a>{% endif %}
           {% if can_access('reviews') %}<a class="light-suite-card" href="{{url_for('reviews')}}" style="--tile-bg:linear-gradient(145deg,#ffd84d,#ff62a8)"><i>{{icons.symbol('review')}}</i><span><b>Reviews</b><small>Google review studio</small></span></a>{% endif %}
           {% if can_access('banking') %}<a class="light-suite-card" href="{{url_for('banking_suite')}}" style="--tile-bg:linear-gradient(145deg,#4568d9,#172d73)"><i>{{icons.symbol('banking')}}</i><span><b>Banking</b><small>Statements and reconciliation</small></span></a>{% endif %}
+          {% if can_access('staff_salary') %}<a class="light-suite-card" href="{{url_for('staff_salary_studio')}}" style="--tile-bg:linear-gradient(145deg,#7b61ff,#d56bff)"><i>{{icons.symbol('staff_salary')}}</i><span><b>Staff Salary Studio</b><small>Staff, attendance and payroll</small></span></a>{% endif %}
           {% if can_access('electricity') %}<a class="light-suite-card" href="{{url_for('electricity_studio')}}" style="--tile-bg:linear-gradient(145deg,#ffd24a,#ff8a2d)"><i>{{icons.symbol('electricity')}}</i><span><b>Electricity</b><small>Bills and payments</small></span></a>{% endif %}
           {% if can_access('letterhead') %}<a class="light-suite-card" href="{{url_for('letterhead_studio')}}" style="--tile-bg:linear-gradient(145deg,#ff5b6c,#8b57ff)"><i>{{icons.symbol('letterhead')}}</i><span><b>Letterhead</b><small>Official Livenza documents</small></span></a>{% endif %}
         </div>
@@ -107,9 +92,15 @@
       </div>
       <div class="apps-drawer-foot suites-account-bar"><span class="suites-account-copy"><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} · Livenza session</small></span><a class="suites-logout" href="{{url_for('logout')}}" aria-label="Log out of Livenza">{{icons.symbol('logout')}}<span>Logout</span></a></div>
     </nav>
-    <nav id="macDock" class="mac-dock no-print" aria-label="Tesla OS Dock" style="--dock-app-count:{{ dock_apps|length + 1 }}">
-      <a class="mac-dock-item mac-dock-launcher{% if lightweight_home_route %} is-active{% endif %}" href="{{url_for('dashboard',suites=1)}}" data-suites-dock aria-label="Suites" aria-controls="appsDrawer" aria-expanded="false" title="Suites"><span class="mac-dock-icon">{{icons.symbol('grid')}}</span><span class="mac-dock-tooltip">Suites</span><i class="mac-dock-running"></i></a>
-      {{appgroups.render_dock_apps()}}
+    <nav id="macDock" class="mac-dock no-print" aria-label="Tesla OS Dock">
+      <a class="mac-dock-item mac-dock-launcher is-active" href="{{url_for('dashboard',suites=1)}}" data-suites-dock aria-label="Suites" aria-controls="appsDrawer" aria-expanded="false" title="Suites"><span class="mac-dock-icon">{{icons.symbol('grid')}}</span><span class="mac-dock-tooltip">Suites</span><i class="mac-dock-running"></i></a>
+      {% if can_access('agreements') %}<a class="mac-dock-item mac-dock-app dock-agreement" data-dock-app="agreements" href="{{url_for('agreements')}}" data-app-endpoint="agreements" aria-label="Agreement Studio" title="Agreement Studio"><span class="mac-dock-icon">{{icons.symbol('agreement')}}</span><span class="mac-dock-tooltip">Agreement Studio</span><i class="mac-dock-running"></i></a>{% endif %}
+      {% if can_access('rooms') %}<a class="mac-dock-item mac-dock-app dock-rooms" data-dock-app="rooms" href="{{url_for('rooms')}}" data-app-endpoint="rooms" aria-label="Rooms" title="Rooms"><span class="mac-dock-icon">{{icons.symbol('room')}}</span><span class="mac-dock-tooltip">Rooms</span><i class="mac-dock-running"></i></a>{% endif %}
+      {% if can_access('queries') %}<a class="mac-dock-item mac-dock-app dock-queries" data-dock-app="queries" href="{{url_for('queries')}}" data-app-endpoint="queries" aria-label="Queries" title="Queries"><span class="mac-dock-icon">{{icons.symbol('queries')}}</span><span class="mac-dock-tooltip">Queries</span><i class="mac-dock-running"></i></a>{% endif %}
+      {% if can_access('reviews') %}<a class="mac-dock-item mac-dock-app dock-reviews" data-dock-app="reviews" href="{{url_for('reviews')}}" data-app-endpoint="reviews" aria-label="Reviews" title="Reviews"><span class="mac-dock-icon">{{icons.symbol('review')}}</span><span class="mac-dock-tooltip">Reviews</span><i class="mac-dock-running"></i></a>{% endif %}
+      {% if can_access('banking') %}<a class="mac-dock-item mac-dock-app dock-banking" data-dock-app="banking_suite" href="{{url_for('banking_suite')}}" data-app-endpoint="banking_suite" aria-label="Banking" title="Banking"><span class="mac-dock-icon">{{icons.symbol('banking')}}</span><span class="mac-dock-tooltip">Banking</span><i class="mac-dock-running"></i></a>{% endif %}
+      {% if can_access('staff_salary') %}<a class="mac-dock-item mac-dock-app dock-staff-salary" data-dock-app="staff_salary_studio" href="{{url_for('staff_salary_studio')}}" data-app-endpoint="staff_salary_studio" aria-label="Staff Salary Studio" title="Staff Salary Studio"><span class="mac-dock-icon">{{icons.symbol('staff_salary')}}</span><span class="mac-dock-tooltip">Staff Salary Studio</span><i class="mac-dock-running"></i></a>{% endif %}
+      <a class="mac-dock-item mac-dock-app dock-settings" data-dock-app="settings_page" href="{{url_for('settings_page')}}" data-app-endpoint="settings_page" aria-label="System Settings" title="System Settings"><span class="mac-dock-icon">{{icons.symbol('settings')}}</span><span class="mac-dock-tooltip">System Settings</span><i class="mac-dock-running"></i></a>
     </nav>
     {% if not lightweight_shell_route %}<aside id="accountDrawer" class="apps-drawer side-drawer side-drawer-right account-side-drawer no-print" aria-label="Account" aria-hidden="true" hidden>
       <div class="apps-drawer-head account-drawer-head"><div class="account-drawer-identity">{% if current_user.avatar_data_uri or current_user.photo_data_uri %}<img src="{{current_user.avatar_data_uri or current_user.photo_data_uri}}" alt="">{% else %}<span class="profile-initial">{{(current_user.full_name or current_user.username)[:1]|upper}}</span>{% endif %}<span><p class="eyebrow">LIVENZA ACCOUNT</p><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} · Personal workspace</small></span></div><button type="button" id="accountDrawerClose" data-drawer-close aria-label="Close account menu">{{icons.symbol('close')}}</button></div>
@@ -127,6 +118,7 @@
           {% if can_access('queries') %}<a class="mac-command-item" href="{{url_for('queries')}}" data-command-item data-command-label="Queries" data-command-keywords="queries leads follow up"><span>{{icons.symbol('queries')}}</span><span><b>Queries</b><small>Leads and follow-up</small></span><kbd>↵</kbd></a>{% endif %}
           {% if can_access('reviews') %}<a class="mac-command-item" href="{{url_for('reviews')}}" data-command-item data-command-label="Reviews" data-command-keywords="google reviews"><span>{{icons.symbol('review')}}</span><span><b>Reviews</b><small>Google review studio</small></span><kbd>↵</kbd></a>{% endif %}
           {% if can_access('banking') %}<a class="mac-command-item" href="{{url_for('banking_suite')}}" data-command-item data-command-label="Banking" data-command-keywords="banking reconciliation"><span>{{icons.symbol('banking')}}</span><span><b>Banking</b><small>Statements and reconciliation</small></span><kbd>↵</kbd></a>{% endif %}
+          {% if can_access('staff_salary') %}<a class="mac-command-item" href="{{url_for('staff_salary_studio')}}" data-command-item data-command-label="Staff Salary Studio" data-command-keywords="staff salary payroll attendance leave ledger"><span>{{icons.symbol('staff_salary')}}</span><span><b>Staff Salary Studio</b><small>Staff, attendance and payroll</small></span><kbd>↵</kbd></a>{% endif %}
         {% else %}{{appgroups.render_command_items()}}{% endif %}</div>
       </section>
     </div>
@@ -143,8 +135,6 @@
   <section id="viewMenu" class="rotate-menu-global header-display-menu no-print" role="dialog" aria-label="Display orientation" hidden><div class="rotate-menu-head"><b>Display Orientation</b><small>Keep the workspace aligned to this screen.</small></div><button type="button" data-home-display="lock" aria-pressed="false"><span>{{icons.symbol('lock')}}</span><div><b>Rotation Lock</b><small>Prevent automatic orientation changes</small></div></button><button type="button" data-home-display="landscape" aria-pressed="false"><span>{{icons.symbol('display')}}</span><div><b>Horizontal</b><small>Use a wide landscape workspace</small></div></button><button type="button" data-home-display="portrait" aria-pressed="false"><span>{{icons.symbol('display')}}</span><div><b>Vertical</b><small>Use a tall portrait workspace</small></div></button><p id="orientationStatus" class="view-orientation-status" role="status" aria-live="polite">Automatic display active.</p></section>
   {% endif %}
 
-  {% if lightweight_shell_route %}<script src="{{url_for('static',filename='settings_runtime.js')}}?rev={{asset_revision}}"></script>{% endif %}
-  {% if lightweight_settings_route %}<script src="{{url_for('static',filename='settings_page.js')}}?rev={{asset_revision}}"></script>{% endif %}
   {% if lightweight_home_route %}
   <script src="{{url_for('static',filename='home_light.js')}}?rev={{asset_revision}}"></script>
   <script data-home-runtime-watchdog>setTimeout(()=>{if(document.documentElement.dataset.homeRuntime!=='ready')document.documentElement.classList.add('home-runtime-failed')},1600)</script>
@@ -154,5 +144,6 @@
   {% block scripts %}{% endblock %}
   <script src="{{url_for('static',filename='macos27_shell.js')}}?rev={{asset_revision}}"></script>
   {% endif %}
+  {% if request.endpoint and request.endpoint.startswith('staff_salary') %}<script src="{{url_for('static',filename='staff_salary.js')}}?rev={{asset_revision}}"></script>{% endif %}
 </body>
 </html>
