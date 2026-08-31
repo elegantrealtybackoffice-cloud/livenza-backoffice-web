@@ -1,0 +1,14 @@
+Livenza Staff Salary Studio — latest-main supporting-files repair
+
+IMPORTANT:
+- DO NOT replace app.py. The latest main app.py already contains Staff Salary Studio.
+- Copy everything in this package into the repository root, preserving folders.
+- These files supply the missing runtime modules plus Staff Salary templates/assets and launcher symbol entries.
+- The Supabase staff_salary_v1 and staff_salary_v1_indexes migrations are already applied; migration files are included only for repository history. Do not run them again manually.
+
+After copying:
+1. GitHub Desktop should show these files as added/changed.
+2. Commit: "Add Staff Salary Studio runtime dependencies"
+3. Push origin.
+4. Watch Render deployment logs. The livenza_storage ModuleNotFoundError must disappear.
+5. Log into backoffice as Admin and open Suites -> Staff Salary Studio.
