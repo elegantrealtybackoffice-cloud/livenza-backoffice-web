@@ -1,0 +1,14 @@
+Livenza latest-main runtime dependency repair — 2026-08-31
+
+Purpose:
+The current app.py already contains Staff Salary Studio and Livenza consumer API code.
+Render reached register_livenza_consumer_api(), which imports livenza_api_v1 and its dependency graph.
+This package contains the complete livenza_*.py runtime module set from the matching Aug-30 source baseline.
+
+IMPORTANT:
+- This package contains NO app.py.
+- Copy every .py file in this package into the repository ROOT.
+- Allow replacement of existing livenza_*.py support modules.
+- Commit and push; Render auto-deploys.
+
+If deployment then fails inside bootstrap() with "Unsafe Livenza production configuration", the runtime dependency issue is resolved and the next step is Render environment variables, not more Python files.
