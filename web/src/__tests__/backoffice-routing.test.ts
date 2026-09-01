@@ -15,7 +15,7 @@ describe('backoffice routing', () => {
         },
         {
           source: '/backoffice',
-          destination: `${apiOrigin}/backoffice`,
+          destination: `${apiOrigin}/backoffice/`,
         },
         {
           source: '/backoffice/:path*',
