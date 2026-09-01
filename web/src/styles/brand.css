@@ -1,0 +1,10 @@
+[data-brand="life"] { --brand-accent: #7047eb; }
+[data-brand="stays"] { --brand-accent: #155ed6; }
+[data-brand="store"] { --brand-accent: #dd641c; }
+[data-brand="fit"] { --brand-accent: #a6cf24; }
+[data-brand="groom"] { --brand-accent: #6f1734; }
+[data-brand="skin"] { --brand-accent: #e98278; }
+[data-brand="media"] { --brand-accent: #00a9c7; }
+
+.brand-accent { color: var(--brand-accent); }
+.brand-rule { background: var(--brand-accent); }

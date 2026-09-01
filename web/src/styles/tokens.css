@@ -1,0 +1,36 @@
+:root {
+  --surface: #f7f6f2;
+  --surface-strong: #ffffff;
+  --surface-dark: #171719;
+  --ink: #171719;
+  --ink-inverse: #ffffff;
+  --muted: #696970;
+  --border: rgba(23, 23, 25, .12);
+  --brand-accent: #7047eb;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-hero: 32px;
+  --space-1: .5rem;
+  --space-2: .75rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2rem;
+  --space-6: 3rem;
+  --space-7: 4.5rem;
+  --space-8: 7rem;
+  --motion-fast: 180ms;
+  --motion-standard: 280ms;
+  --content-max: 1440px;
+  --content-reading: 760px;
+  --shadow-soft: 0 20px 60px rgba(23,23,25,.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}

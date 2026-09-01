@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["DOM", "ES2020"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "preserve",
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] }
+  },
+  "files": ["tests/offline-stubs.d.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["src/__tests__/**"]
+}

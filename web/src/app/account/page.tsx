@@ -1,0 +1,2 @@
+import { OtpLogin } from '@/components/my/otp-login'
+export default async function AccountPage({searchParams}:{searchParams:Promise<{next?:string}>}){const query=await searchParams;const nextPath=query.next?.startsWith('/')?query.next:'/my';return <main className="ecosystem-page"><section className="ecosystem-hero"><div className="section-inner"><div className="ecosystem-eyebrow">MY LIVENZA</div><h1>ONE PERSON. ONE LIVENZA ID.</h1><p>Sign in once to manage bookings, payments, documents and support.</p><OtpLogin nextPath={nextPath}/></div></section></main>}
