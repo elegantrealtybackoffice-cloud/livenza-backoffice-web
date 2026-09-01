@@ -8490,14 +8490,24 @@ def send_customer_otp(identifier, otp):
         return {'accepted':True,'provider':'test'}
     cfg=_letterhead_whatsapp_config()
     to=wa_number(identifier)
-    if not (cfg.get('token') and cfg.get('phone_number_id') and to):
+    template_name=os.getenv('WHATSAPP_OTP_TEMPLATE_NAME','').strip()
+    template_language=os.getenv('WHATSAPP_OTP_TEMPLATE_LANGUAGE','').strip()
+    if not (cfg.get('token') and cfg.get('phone_number_id') and to and template_name and template_language):
         raise RuntimeError('customer OTP delivery is not configured')
     base=f"https://graph.facebook.com/{cfg['graph_version']}/{cfg['phone_number_id']}/messages"
     payload={
         'messaging_product':'whatsapp',
+        'recipient_type':'individual',
         'to':to,
-        'type':'text',
-        'text':{'body':f'Livenza login code: {otp}. It expires shortly. Do not share this code.','preview_url':False},
+        'type':'template',
+        'template':{
+            'name':template_name,
+            'language':{'code':template_language},
+            'components':[
+                {'type':'body','parameters':[{'type':'text','text':otp}]},
+                {'type':'button','sub_type':'url','index':'0','parameters':[{'type':'text','text':otp}]},
+            ],
+        },
     }
     try:
         response=requests.post(base,headers={'Authorization':f"Bearer {cfg['token']}",'Content-Type':'application/json'},json=payload,timeout=20)

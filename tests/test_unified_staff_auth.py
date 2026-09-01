@@ -16,7 +16,15 @@ os.environ["CUSTOMER_AUTH_TEST_MODE"] = "1"
 os.environ["LIVENZA_CONSUMER_PLATFORM_ENABLED"] = "1"
 
 from livenza_staff_auth import mount_backoffice, normalize_backoffice_next
-from app import Setting, User, WebAuthnCredential, app, db, set_setting
+from app import (
+    Setting,
+    User,
+    WebAuthnCredential,
+    app,
+    db,
+    send_customer_otp,
+    set_setting,
+)
 
 
 class BackofficeNextTests(unittest.TestCase):
@@ -62,6 +70,75 @@ class BackofficeMountTests(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.headers["Location"], "/backoffice/login")
         self.assertEqual(client.get("/login").status_code, 200)
+
+
+class CustomerOtpDeliveryTests(unittest.TestCase):
+    def test_production_otp_uses_configured_whatsapp_authentication_template(self):
+        config = {
+            "token": "cloud-token",
+            "phone_number_id": "phone-number-id",
+            "graph_version": "v23.0",
+        }
+        accepted = SimpleNamespace(ok=True)
+        environment = {
+            "LIVENZA_ENV": "production",
+            "CUSTOMER_AUTH_TEST_MODE": "0",
+            "WHATSAPP_OTP_TEMPLATE_NAME": "livenza_login_otp",
+            "WHATSAPP_OTP_TEMPLATE_LANGUAGE": "en_US",
+        }
+
+        with patch.dict(os.environ, environment, clear=True):
+            with patch("app._letterhead_whatsapp_config", return_value=config):
+                with patch("app.requests.post", return_value=accepted) as request_post:
+                    result = send_customer_otp("+919876543210", "123456")
+
+        self.assertEqual(result, {"accepted": True, "provider": "whatsapp_cloud"})
+        self.assertEqual(
+            request_post.call_args.kwargs["json"],
+            {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": "919876543210",
+                "type": "template",
+                "template": {
+                    "name": "livenza_login_otp",
+                    "language": {"code": "en_US"},
+                    "components": [
+                        {
+                            "type": "body",
+                            "parameters": [{"type": "text", "text": "123456"}],
+                        },
+                        {
+                            "type": "button",
+                            "sub_type": "url",
+                            "index": "0",
+                            "parameters": [{"type": "text", "text": "123456"}],
+                        },
+                    ],
+                },
+            },
+        )
+
+    def test_production_otp_fails_before_delivery_without_template_configuration(self):
+        config = {
+            "token": "cloud-token",
+            "phone_number_id": "phone-number-id",
+            "graph_version": "v23.0",
+        }
+        environment = {
+            "LIVENZA_ENV": "production",
+            "CUSTOMER_AUTH_TEST_MODE": "0",
+        }
+
+        with patch.dict(os.environ, environment, clear=True):
+            with patch("app._letterhead_whatsapp_config", return_value=config):
+                with patch("app.requests.post") as request_post:
+                    with self.assertRaisesRegex(
+                        RuntimeError, "customer OTP delivery is not configured"
+                    ):
+                        send_customer_otp("+919876543210", "123456")
+
+        request_post.assert_not_called()
 
 
 class StaffBridgeIntegrationTests(unittest.TestCase):
