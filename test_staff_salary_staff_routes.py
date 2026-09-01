@@ -1,5 +1,5 @@
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1]
+ROOT=Path(__file__).resolve().parent
 APP=(ROOT/'app.py').read_text(encoding='utf-8')
 MAIN=(ROOT/'templates'/'staff_salary.html').read_text(encoding='utf-8') if (ROOT/'templates'/'staff_salary.html').exists() else ''
 EDIT=(ROOT/'templates'/'staff_salary_staff_edit.html').read_text(encoding='utf-8') if (ROOT/'templates'/'staff_salary_staff_edit.html').exists() else ''

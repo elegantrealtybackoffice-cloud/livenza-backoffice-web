@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="{{url_for('static',filename='legacy_modules.css')}}?rev={{asset_revision}}">
   <link rel="stylesheet" href="{{url_for('static',filename='macos27_system.css')}}?rev={{asset_revision}}">
 </head>
-<body class="kiosk-lock-body macos27-clean" data-page="kiosk_lock">
+<body class="kiosk-lock-body macos27-clean" data-page="kiosk_lock" data-script-root="{{request.script_root}}">
   <main class="kiosk-lock-stage">
     <section class="kiosk-lock-card liquid-card">
       <img src="{{url_for('static',filename='brand/livenza_wordmark_tagline.png')}}?rev={{asset_revision}}" alt="Livenza Life">

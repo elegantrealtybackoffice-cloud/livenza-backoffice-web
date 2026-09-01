@@ -1,6 +1,6 @@
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parent
 APP = (ROOT / 'app.py').read_text(encoding='utf-8')
 GROUPS = (ROOT / 'templates' / '_application_groups.html').read_text(encoding='utf-8')
 SYMBOLS = (ROOT / 'templates' / '_livenza_symbols.html').read_text(encoding='utf-8')

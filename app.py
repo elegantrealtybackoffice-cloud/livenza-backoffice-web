@@ -41,6 +41,11 @@ from livenza_property_media import prepare_property_media_image, PropertyMediaEr
 from livenza_tenant_core import normalize_tenancy_type, required_profile_fields, missing_profile_fields, onboarding_next_step, required_document_types, mask_government_identifier, agreement_preset_for_tenancy, agreement_payload_for_onboarding
 from livenza_dues_core import outstanding_minor, due_status
 from staff_salary_core import (money_minor as staff_money_minor, minor_to_rupees as staff_minor_to_rupees, mask_identifier as staff_mask_identifier, staff_code as build_staff_code, normalize_attendance_status, attendance_minutes, loss_of_pay_minor, calculate_payroll, transition_payroll_status, ledger_balance as staff_ledger_balance, build_bank_batch_rows)
+from livenza_staff_auth import (
+    mount_backoffice,
+    normalize_backoffice_next,
+    normalize_mounted_backoffice_next,
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_BRAND_LOGO_PATH = os.path.join(BASE_DIR, 'static', 'brand', 'livenza_wordmark_tagline.png')
@@ -2211,8 +2216,17 @@ def _b64url_decode(value):
 
 def _webauthn_context():
     rp_id=os.getenv('WEBAUTHN_RP_ID','').strip() or request.host.split(':')[0]
-    origin=os.getenv('WEBAUTHN_ORIGIN','').strip() or request.host_url.rstrip('/')
-    return rp_id,origin
+    primary_origin=os.getenv('WEBAUTHN_ORIGIN','').strip().rstrip('/') or request.host_url.rstrip('/')
+    origins=[]
+    for origin in [primary_origin,*os.getenv('WEBAUTHN_ALLOWED_ORIGINS','').split(',')]:
+        origin=str(origin or '').strip().rstrip('/')
+        if origin and origin not in origins: origins.append(origin)
+    return rp_id,(origins if len(origins)>1 else origins[0])
+
+def _webauthn_rp_supports_request_host(rp_id):
+    host=request.host.split(':')[0].strip().lower().rstrip('.')
+    rp_id=str(rp_id or '').strip().lower().rstrip('.')
+    return bool(rp_id and (host==rp_id or host.endswith('.'+rp_id)))
 
 WEATHER_CACHE = {}
 
@@ -3209,6 +3223,35 @@ def current_user():
     return db.session.get(User, session.get('uid')) if session.get('uid') else None
 
 
+def _authenticate_staff(username, method, credential):
+    username=str(username or '').strip(); method=str(method or '').strip().lower(); credential=str(credential or '')
+    user=User.query.filter_by(username=username).first() if username else None
+    if user and not user.active:
+        return None, {'field':'account','message':'Sign-in is unavailable for this account. Ask an administrator to reactivate access.'}, 403
+    valid=False
+    if user and method=='pattern':
+        pattern=_pattern_value(credential)
+        valid=bool(pattern and user.pattern_hash and check_password_hash(user.pattern_hash,'pattern:'+pattern))
+    elif user and method=='password':
+        valid=bool(credential and check_password_hash(user.password_hash,credential))
+    if not valid:
+        return None, {'field':method or 'credential','message':'The supplied staff credentials did not match.'}, 401
+    return user, {}, 200
+
+
+def _establish_staff_session(user):
+    session.clear(); session['uid']=user.id
+    session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
+    session['show_login_welcome']=True
+    return bool(session['kiosk_unlocked'])
+
+
+def _webauthn_success_redirect(requested_next, kiosk_unlocked):
+    if requested_next is None:
+        return '/' if kiosk_unlocked else '/kiosk'
+    return normalize_backoffice_next(requested_next) if kiosk_unlocked else '/backoffice/kiosk'
+
+
 HOST3D_INTENSITIES = {'static': 0, 'gentle': 1, 'full': 2}
 HOST3D_SIZES = {'small', 'medium', 'large'}
 HOST3D_POSITIONS = {'bottom-left', 'bottom-right'}
@@ -3700,8 +3743,34 @@ def version():
         ]
     )
 
+@app.post('/api/staff/authenticate')
+def staff_authenticate():
+    payload=request.get_json(silent=True) or {}
+    method=str(payload.get('method') or 'password').strip().lower()
+    if method not in {'password','pattern'}:
+        return jsonify(ok=False,error='Choose password or pattern authentication.'),400
+    user,error,status=_authenticate_staff(payload.get('username'),method,payload.get('credential'))
+    if not user:
+        return jsonify(ok=False,error=error.get('message','Staff authentication failed.'),field=error.get('field','credential')),status
+    unlocked=_establish_staff_session(user)
+    destination=normalize_backoffice_next(payload.get('next'))
+    return jsonify(ok=True,redirect=(destination if unlocked else '/backoffice/kiosk'))
+
+
+@app.get('/api/staff/session')
+def staff_session_summary():
+    user=current_user()
+    if not user or not user.active:
+        if session.get('uid'): session.clear()
+        return jsonify(ok=True,authenticated=False)
+    return jsonify(ok=True,authenticated=True,staff={'display_name':user.full_name or user.username,'role':user.role or 'manager'})
+
+
 @app.route('/login', methods=['GET','POST'])
 def login():
+    if request.script_root=='/backoffice':
+        destination=normalize_mounted_backoffice_next(request.args.get('next') or '/')
+        return redirect('/staff-login?next='+urllib.parse.quote(destination,safe=''))
     username=request.form.get('username','').strip() if request.method=='POST' else ''
     method=request.form.get('auth_method','password') if request.method=='POST' else 'fingerprint'
     if request.method=='POST' and method not in {'password','pattern'}: method='password'
@@ -3717,23 +3786,21 @@ def login():
             pattern=_pattern_value(raw_pattern)
             if not pattern:
                 error={'field':'pattern','message':'Connect at least four different points, then try the gesture again.'}
-            elif u and u.pattern_hash and check_password_hash(u.pattern_hash,'pattern:'+pattern):
-                session.clear(); session['uid']=u.id
-                session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
-                session['show_login_welcome']=True
-                return redirect(url_for('kiosk_lock') if not session['kiosk_unlocked'] else (request.args.get('next') or url_for('dashboard')))
             else:
+                authenticated,_,_status=_authenticate_staff(username,'pattern',pattern)
+                if authenticated:
+                    unlocked=_establish_staff_session(authenticated)
+                    return redirect(url_for('kiosk_lock') if not unlocked else (request.args.get('next') or url_for('dashboard')))
                 error={'field':'pattern','message':'That pattern did not match. Clear the grid, redraw the saved sequence, or use another sign-in method.'}
         else:
             password=request.form.get('password','')
             if not password:
                 error={'field':'password','message':'Enter your password to continue.'}
-            elif u and check_password_hash(u.password_hash,password):
-                session.clear(); session['uid']=u.id
-                session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'
-                session['show_login_welcome']=True
-                return redirect(url_for('kiosk_lock') if not session['kiosk_unlocked'] else (request.args.get('next') or url_for('dashboard')))
             else:
+                authenticated,_,_status=_authenticate_staff(username,'password',password)
+                if authenticated:
+                    unlocked=_establish_staff_session(authenticated)
+                    return redirect(url_for('kiosk_lock') if not unlocked else (request.args.get('next') or url_for('dashboard')))
                 error={'field':'password','message':'The password did not match. Check Caps Lock and try again, or use another sign-in method.'}
         return render_template('login.html',login_error=error,login_username=username,login_method=method),401
     return render_template('login.html',login_error=error,login_username=username,login_method=method)
@@ -5921,6 +5988,8 @@ def webauthn_register_options():
         from webauthn import generate_registration_options, options_to_json
         from webauthn.helpers.structs import AuthenticatorSelectionCriteria, PublicKeyCredentialDescriptor, ResidentKeyRequirement, UserVerificationRequirement
         rp_id,_=_webauthn_context()
+        if not _webauthn_rp_supports_request_host(rp_id):
+            return jsonify(ok=False,error='Passkeys are configured for a different Livenza host. Use password or pattern sign-in until WEBAUTHN_RP_ID is set to a shared parent domain.'),409
         existing=WebAuthnCredential.query.filter_by(user_id=u.id).all()
         options=generate_registration_options(
             rp_id=rp_id,rp_name='Livenza Back Office',user_id=str(u.id).encode(),user_name=u.username,
@@ -5969,18 +6038,22 @@ def webauthn_auth_options():
         from webauthn import generate_authentication_options, options_to_json
         from webauthn.helpers.structs import PublicKeyCredentialDescriptor, UserVerificationRequirement
         rp_id,_=_webauthn_context()
+        if not _webauthn_rp_supports_request_host(rp_id):
+            return jsonify(ok=False,error='Passkeys are configured for a different Livenza host. Use password or pattern sign-in until WEBAUTHN_RP_ID is set to a shared parent domain.'),409
         options=generate_authentication_options(
             rp_id=rp_id,allow_credentials=[PublicKeyCredentialDescriptor(id=c.credential_id) for c in credentials],
             user_verification=UserVerificationRequirement.REQUIRED,
         )
         session['webauthn_auth_challenge']=base64.urlsafe_b64encode(options.challenge).decode('ascii'); session['webauthn_auth_user']=u.id
+        if 'next' in payload: session['webauthn_auth_next']=normalize_backoffice_next(payload.get('next'))
+        else: session.pop('webauthn_auth_next',None)
         return app.response_class(options_to_json(options),mimetype='application/json')
     except Exception as exc:
         return jsonify(ok=False,error=f'Passkey service is unavailable: {exc}'),503
 
 @app.route('/api/webauthn/auth/verify',methods=['POST'])
 def webauthn_auth_verify():
-    challenge=session.pop('webauthn_auth_challenge',''); uid=session.pop('webauthn_auth_user',None)
+    challenge=session.pop('webauthn_auth_challenge',''); uid=session.pop('webauthn_auth_user',None); requested_next=session.pop('webauthn_auth_next',None)
     u=db.session.get(User,uid) if uid else None; payload=request.get_json(force=True)
     if not (u and u.active and u.webauthn_enabled and challenge): return jsonify(ok=False,error='Authentication request expired.'),400
     try:
@@ -5995,8 +6068,8 @@ def webauthn_auth_verify():
             credential_current_sign_count=row.sign_count,require_user_verification=True,
         )
         row.sign_count=verified.new_sign_count; row.last_used_at=datetime.datetime.utcnow(); db.session.commit()
-        session.clear(); session['uid']=u.id; session['kiosk_unlocked']=setting('kiosk_mode_enabled','0')!='1'; session['show_login_welcome']=True
-        return jsonify(ok=True,redirect=(url_for('kiosk_lock') if not session['kiosk_unlocked'] else url_for('dashboard')))
+        unlocked=_establish_staff_session(u)
+        return jsonify(ok=True,redirect=_webauthn_success_redirect(requested_next,unlocked))
     except Exception as exc:
         db.session.rollback(); return jsonify(ok=False,error=f'Fingerprint/passkey verification failed: {exc}'),400
 
@@ -8417,14 +8490,24 @@ def send_customer_otp(identifier, otp):
         return {'accepted':True,'provider':'test'}
     cfg=_letterhead_whatsapp_config()
     to=wa_number(identifier)
-    if not (cfg.get('token') and cfg.get('phone_number_id') and to):
+    template_name=os.getenv('WHATSAPP_OTP_TEMPLATE_NAME','').strip()
+    template_language=os.getenv('WHATSAPP_OTP_TEMPLATE_LANGUAGE','').strip()
+    if not (cfg.get('token') and cfg.get('phone_number_id') and to and template_name and template_language):
         raise RuntimeError('customer OTP delivery is not configured')
     base=f"https://graph.facebook.com/{cfg['graph_version']}/{cfg['phone_number_id']}/messages"
     payload={
         'messaging_product':'whatsapp',
+        'recipient_type':'individual',
         'to':to,
-        'type':'text',
-        'text':{'body':f'Livenza login code: {otp}. It expires shortly. Do not share this code.','preview_url':False},
+        'type':'template',
+        'template':{
+            'name':template_name,
+            'language':{'code':template_language},
+            'components':[
+                {'type':'body','parameters':[{'type':'text','text':otp}]},
+                {'type':'button','sub_type':'url','index':'0','parameters':[{'type':'text','text':otp}]},
+            ],
+        },
     }
     try:
         response=requests.post(base,headers={'Authorization':f"Bearer {cfg['token']}",'Content-Type':'application/json'},json=payload,timeout=20)
@@ -9176,6 +9259,8 @@ def bootstrap():
     ensure_letterhead_starter_templates()
 
 with app.app_context(): bootstrap()
+
+app.wsgi_app=mount_backoffice(app.wsgi_app)
 
 if __name__=='__main__':
     app.run(host='0.0.0.0',port=int(os.getenv('PORT','5000')),debug=os.getenv('FLASK_DEBUG')=='1')

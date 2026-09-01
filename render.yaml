@@ -41,6 +41,10 @@ services:
         sync: false
       - key: WHATSAPP_PHONE_NUMBER_ID
         sync: false
+      - key: WHATSAPP_OTP_TEMPLATE_NAME
+        sync: false
+      - key: WHATSAPP_OTP_TEMPLATE_LANGUAGE
+        sync: false
       - key: WHATSAPP_VERIFY_TOKEN
         sync: false
       - key: META_APP_SECRET

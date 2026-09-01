@@ -260,14 +260,14 @@
   });
 
   /* ---------- History / inspector ---------- */
-  $('#macHistoryBack')?.addEventListener('click', () => history.length > 1 ? history.back() : location.assign('/'));
+  $('#macHistoryBack')?.addEventListener('click', () => history.length > 1 ? history.back() : location.assign(window.livenzaBackofficePath?.('/') || '/'));
   $('#macHistoryForward')?.addEventListener('click', () => history.forward());
   $$('[data-route-window-action]').forEach((control) => control.addEventListener('click', (event) => {
     const action = control.dataset.routeWindowAction;
     if (action === 'reload') { event.preventDefault(); location.reload(); return; }
     if (action === 'minimize') {
       event.preventDefault();
-      const home = control.dataset.routeHomeUrl || '/';
+      const home = control.dataset.routeHomeUrl || window.livenzaBackofficePath?.('/') || '/';
       if (history.length > 1 && document.referrer) {
         try { const ref = new URL(document.referrer); if (ref.origin === location.origin) { history.back(); return; } } catch (_) {}
       }

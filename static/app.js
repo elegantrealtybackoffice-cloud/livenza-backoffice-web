@@ -1,3 +1,5 @@
+const livenzaBackofficePath=window.livenzaBackofficePath||((path)=>{const value=String(path||'/'),root=document.body?.dataset.scriptRoot||document.documentElement.dataset.scriptRoot||'';if(!root||!value.startsWith('/')||value===root||value.startsWith(root+'/'))return value;return root+(value==='/'?'/':value)});
+window.livenzaBackofficePath=livenzaBackofficePath;
 const livenzaDeviceIsLimited=()=>window.matchMedia?.('(max-width:820px)').matches||Number(navigator.deviceMemory||8)<=4||Number(navigator.hardwareConcurrency||8)<=4||Boolean(navigator.connection?.saveData);
 const livenzaMobilePerformance=()=>document.documentElement.classList.contains('mobile-performance');
 document.documentElement.classList.toggle('mobile-performance',livenzaDeviceIsLimited());
@@ -13,7 +15,7 @@ function refreshReviewQr(root=document){
   if(!reviewInput)return;
   const v=reviewInput.value.trim(),panel=document.getElementById('reviewQrPanel'),img=document.getElementById('reviewQrImage'),ph=document.getElementById('qrPlaceholder'),open=document.getElementById('openGoogleReview'),down=document.getElementById('downloadReviewQr');
   if(validGoogleReviewUrl(v)){
-    const qr=`/reviews/qr.png?url=${encodeURIComponent(v)}`;
+    const qr=livenzaBackofficePath(`/reviews/qr.png?url=${encodeURIComponent(v)}`);
     panel?.classList.remove('qr-awaiting'); if(img){img.src=qr;img.style.display='block'} if(ph)ph.style.display='none';
     if(open){open.href=v;open.classList.remove('disabled-link')} if(down){down.href=qr;down.classList.remove('disabled-link')}
   }else{
@@ -53,7 +55,7 @@ async function handleAadhaarExtract(btn){
   const original=btn.textContent;btn.disabled=true;btn.textContent='Reading Aadhaar…';setAadhaarStatus('Reading the document securely. The original upload will not be stored.','working');
   const controller=new AbortController(),timeout=window.setTimeout(()=>controller.abort(),100000);
   try{
-    const fd=new FormData();fd.append('aadhaar_file',file);const r=await fetch('/agreements/aadhaar-extract',{method:'POST',body:fd,credentials:'same-origin',signal:controller.signal});
+    const fd=new FormData();fd.append('aadhaar_file',file);const r=await fetch(livenzaBackofficePath('/agreements/aadhaar-extract'),{method:'POST',body:fd,credentials:'same-origin',signal:controller.signal});
     const contentType=(r.headers.get('content-type')||'').toLowerCase();
     if(!contentType.includes('application/json'))throw new Error(r.redirected||r.url.includes('/login')?'Your secure session expired. Sign in again, then retry the Aadhaar upload.':`The server returned an unreadable response (${r.status}). Redeploy Tesla OS 27 and retry.`);
     const d=await r.json();
@@ -114,7 +116,7 @@ function initVideoWallUploader(root=document){
       const started=await sameOriginJson(form.dataset.resumableStart,{filename:file.name,content_type:file.type,size:file.size,title});
       await sendTusFile(file,started.upload,update);status.textContent='Verifying media and adding it to Livenza…';percent.textContent='100%';bar.value=100;
       await sameOriginJson(form.dataset.resumableFinish,{reservation:started.upload.reservation});status.textContent='Upload complete • opening the media library…';bytes.textContent=`${videoBytes(file.size)} verified and ready for TV playback.`;
-      window.setTimeout(()=>location.assign('/video-wall#available-media'),650);
+      window.setTimeout(()=>location.assign(livenzaBackofficePath('/video-wall#available-media')),650);
     }catch(error){status.textContent=error.message||'Upload failed.';panel.classList.add('error');button.disabled=false;input.disabled=false;form.dataset.uploading='0'}
   });
 }
@@ -160,7 +162,7 @@ document.addEventListener('click',async e=>{
   const copyOpen=e.target.closest('.copy-open-btn');if(copyOpen){const ta=copyOpen.closest('.review-card')?.querySelector('textarea');if(ta)await copyText(ta.value);const u=copyOpen.dataset.url;if(u)window.open(u,'_blank','noopener');copyOpen.textContent='Copied • Google Opened';setTimeout(()=>copyOpen.textContent='Copy Review + Open Google',1600);return}
   const calc=e.target.closest('#calcEnd');if(calc){
     e.preventDefault();const start=document.getElementById('startDate')?.value||'',months=document.getElementById('termMonths')?.value||0;const fd=new FormData();fd.append('start_date',start);fd.append('months',months);fd.append('days',0);
-    try{const r=await fetch('/date-calculator',{method:'POST',body:fd,credentials:'same-origin'}),d=await r.json();if(d.end_date){const end=document.getElementById('endDate');if(end)end.value=d.end_date;calc.textContent=`Ends ${d.end_date} • ${d.total_days} days`;setTimeout(()=>calc.textContent='Calculate End Date',2400)}else alert(d.error||'Could not calculate date')}catch(err){alert('Could not calculate date')}return
+    try{const r=await fetch(livenzaBackofficePath('/date-calculator'),{method:'POST',body:fd,credentials:'same-origin'}),d=await r.json();if(d.end_date){const end=document.getElementById('endDate');if(end)end.value=d.end_date;calc.textContent=`Ends ${d.end_date} • ${d.total_days} days`;setTimeout(()=>calc.textContent='Calculate End Date',2400)}else alert(d.error||'Could not calculate date')}catch(err){alert('Could not calculate date')}return
   }
   const aadhaar=e.target.closest('#extractAadhaarBtn');if(aadhaar){e.preventDefault();await handleAadhaarExtract(aadhaar);return}
   const disabled=e.target.closest('a.disabled-link');if(disabled){e.preventDefault();return}
@@ -439,11 +441,11 @@ initPageFeatures(document);
     agreement:{match:/agreement/,eyebrow:'DOCUMENT EXPERIENCE',title:'Clear agreements. Confident decisions.',alt:'Business agreement being reviewed',image:'https://images.unsplash.com/photo-1758518731462-d091b0b4ed0d?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/business-people-signing-a-contract-at-a-table-iPheGw7_UaI'},
     rooms:{match:/room|tenant/,eyebrow:'STAY OPERATIONS',title:'Every room, visibly under control.',alt:'Bright modern shared accommodation room',image:'https://images.unsplash.com/photo-1781415980730-bfcf192e38bc?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/clean-well-lit-room-with-several-neatly-made-beds-0xJJ2k72AQs'},
     food:{match:/food/,eyebrow:'FOOD EXPERIENCE',title:'Orders, kitchens and settlements in motion.',alt:'Restaurant staff preparing food in a professional kitchen',image:'https://images.unsplash.com/photo-1780319232447-4075b592098a?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/restaurant-staff-preparing-food-in-a-professional-kitchen-Ew2PDNZB4qA'},
-    hospitality:{match:/video-wall|billing|rentok/,eyebrow:'LIVENZA 360° ECOSYSTEM',title:'Living, work, food and experiences — connected.',alt:'Futuristic Livenza lifestyle ecosystem',image:'/static/livenza_360_lifestyle_bg.jpg',credit:''},
+    hospitality:{match:/video-wall|billing|rentok/,eyebrow:'LIVENZA 360° ECOSYSTEM',title:'Living, work, food and experiences — connected.',alt:'Futuristic Livenza lifestyle ecosystem',image:livenzaBackofficePath('/static/livenza_360_lifestyle_bg.jpg'),credit:''},
     office:{match:/quer|review|whatsapp|email|drive|admin|setting|account/,eyebrow:'CONNECTED WORKSPACE',title:'One calm command centre for every operation.',alt:'Modern connected office workspace',image:'https://images.unsplash.com/photo-1774186184383-90fc06307e77?auto=format&fit=crop&q=78&w=1600',credit:'https://unsplash.com/photos/modern-office-space-with-city-view-and-desks-56U797Gamac'}
   };
 
-  function visualForPath(){const path=location.pathname.toLowerCase();if(path.startsWith('/agreements'))return null;return Object.values(photos).find(item=>item.match.test(path))}
+  function visualForPath(){const root=document.body?.dataset.scriptRoot||document.documentElement.dataset.scriptRoot||'',current=location.pathname.toLowerCase(),path=root&&current.startsWith(root.toLowerCase())?(current.slice(root.length)||'/'):current;if(path.startsWith('/agreements'))return null;return Object.values(photos).find(item=>item.match.test(path))}
   function mountContextVisual(root=document){
     if(root.querySelector?.('.module-visual-ribbon,.experience-gallery,.agreement-brand-banner'))return;
     const pageHead=root.querySelector?.('.page-head');if(!pageHead)return;
@@ -583,7 +585,7 @@ initPageFeatures(document);
       const options=await jsonRequest('/api/webauthn/auth/options',{username});options.challenge=fromB64url(options.challenge);(options.allowCredentials||[]).forEach(c=>c.id=fromB64url(c.id));
       setStatus('Waiting for the native identity prompt…');const credential=await navigator.credentials.get({publicKey:options});
       const payload={id:credential.id,rawId:toB64url(credential.rawId),type:credential.type,response:{clientDataJSON:toB64url(credential.response.clientDataJSON),authenticatorData:toB64url(credential.response.authenticatorData),signature:toB64url(credential.response.signature),userHandle:toB64url(credential.response.userHandle)},clientExtensionResults:credential.getClientExtensionResults()};
-      const verified=await jsonRequest('/api/webauthn/auth/verify',payload);setStatus('Verified. Opening Livenza…');setCredentialLoader(false);location.assign(verified.redirect||'/');
+      const verified=await jsonRequest('/api/webauthn/auth/verify',payload);setStatus('Verified. Opening Livenza…');setCredentialLoader(false);location.assign(verified.redirect||livenzaBackofficePath('/'));
     }catch(error){setCredentialLoader(false);throw error}
   }
   async function enrollPasskey(button){

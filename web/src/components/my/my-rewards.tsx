@@ -1,0 +1,6 @@
+'use client'
+import{useEffect,useState}from'react'
+import Link from'next/link'
+import{getMyRewards}from'@/lib/api'
+import type{RewardsSummary}from'@/lib/types'
+export function MyRewards(){const[data,setData]=useState<RewardsSummary|null>(null);const[error,setError]=useState('');useEffect(()=>{getMyRewards().then(setData).catch(e=>setError(e instanceof Error?e.message:'Rewards could not be loaded.'))},[]);if(error)return <div className="ecosystem-card"><h2>Sign in to Livenza+</h2><p>{error}</p><Link href="/account?next=/my/rewards">SIGN IN →</Link></div>;if(!data)return <p>Loading Livenza+…</p>;return <div><div className="ecosystem-eyebrow">LIVENZA+</div><h1>{data.balance.toLocaleString('en-IN')} POINTS</h1><p>Live more. Get more. Points are credited only from verified eligible transactions.</p>{data.entries.length?<div className="ecosystem-grid">{data.entries.map(item=><article className="ecosystem-card" key={item.id}><div className="ecosystem-eyebrow">{item.source_type.replace('_',' ')}</div><h2>{item.direction==='credit'?'+':'−'}{item.points}</h2><p>{item.description}</p></article>)}</div>:<div className="ecosystem-card"><h2>Your first reward is ahead.</h2><p>Eligible stays, store purchases and future referrals can earn Livenza+ points.</p></div>}</div>}
