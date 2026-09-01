@@ -78,3 +78,85 @@ html[data-wallpaper-fit="fit"] .desktop-wallpaper-layer{background-size:contain}
   .light-suite-card > span > b{font-size:13.5px}
   .light-suite-card > span > small{font-size:10.75px}
 }
+/* FINAL UI INTEGRATION — V1 LIGHT SUITES LAUNCHER */
+body[data-page="dashboard"] .suites-launcher{
+    background:rgba(248,250,253,.96)!important;
+    border:1px solid rgba(40,52,72,.10)!important;
+    color:#202a3b!important;
+    box-shadow:0 28px 80px rgba(8,20,40,.30)!important;
+    backdrop-filter:blur(28px) saturate(125%)!important;
+}
+
+body[data-page="dashboard"] .suites-launcher .apps-drawer-head,
+body[data-page="dashboard"] .suites-launcher .apps-drawer-scroll,
+body[data-page="dashboard"] .suites-launcher .apps-drawer-foot{
+    background:transparent!important;
+    color:#202a3b!important;
+}
+
+body[data-page="dashboard"] .suites-launcher .apps-drawer-head b{
+    color:#1f2937!important;
+}
+
+body[data-page="dashboard"] .suites-launcher .apps-drawer-head small,
+body[data-page="dashboard"] .suites-launcher .apps-drawer-head .eyebrow{
+    color:#718096!important;
+}
+
+body[data-page="dashboard"] .light-suite-card{
+    display:grid!important;
+    grid-template-columns:64px minmax(0,1fr)!important;
+    align-items:center!important;
+    gap:18px!important;
+    min-height:124px!important;
+    padding:20px!important;
+
+    background:rgba(255,255,255,.88)!important;
+    color:#202a3b!important;
+    border:1px solid rgba(37,51,73,.09)!important;
+    border-radius:22px!important;
+    box-shadow:
+        0 8px 26px rgba(24,39,65,.07),
+        inset 0 1px 0 rgba(255,255,255,.92)!important;
+}
+
+body[data-page="dashboard"] .light-suite-card > span{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:flex-start!important;
+    justify-content:center!important;
+    gap:6px!important;
+    min-width:0!important;
+}
+
+body[data-page="dashboard"] .light-suite-card > span > b{
+    display:block!important;
+    color:#202a3b!important;
+    font-size:17px!important;
+    line-height:1.2!important;
+    font-weight:700!important;
+}
+
+body[data-page="dashboard"] .light-suite-card > span > small{
+    display:block!important;
+    color:#7a8699!important;
+    font-size:13px!important;
+    line-height:1.4!important;
+    white-space:normal!important;
+}
+
+body[data-page="dashboard"] .light-suite-card:hover{
+    background:#fff!important;
+    transform:translateY(-2px)!important;
+    border-color:rgba(36,72,130,.15)!important;
+    box-shadow:0 14px 34px rgba(24,39,65,.11)!important;
+}
+
+body[data-page="dashboard"] .suites-account-bar{
+    border-top:1px solid rgba(37,51,73,.09)!important;
+    color:#202a3b!important;
+}
+
+body[data-page="dashboard"] .suites-account-bar small{
+    color:#7a8699!important;
+}
