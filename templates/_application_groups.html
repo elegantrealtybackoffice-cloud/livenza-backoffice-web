@@ -8,11 +8,19 @@
   {% if ((not perm) or can_access(perm)) and ui_app_available(endpoint) %}
     {% set meta = ui_app_meta(endpoint) %}
     {% if surface == 'launcher' %}
-      <a class="suite-launch-card lg-app-tile" href="{{url_for(endpoint)}}" data-app-nav data-app-endpoint="{{endpoint}}" data-app-family="{{meta.family}}" data-app-tone="{{meta.tone}}" style="--app-accent:{{meta.accent}};--app-accent-2:{{meta.accent2}}">
-        <span class="suite-launch-icon">{{app_icon(symbol_name,endpoint,meta.tone,'suite-launch-app-icon')}}</span>
-        <span class="suite-launch-copy"><b class="suite-launch-title">{{title}}</b><span class="suite-launch-description">{{desc}}</span></span>
-        <span class="suite-launch-open" aria-hidden="true"><span>Open</span><i>›</i></span>
-      </a>
+        <a class="light-suite-card lg-app-tile"
+           href="{{url_for(endpoint)}}"
+           data-app-nav
+           data-app-endpoint="{{endpoint}}"
+           data-app-family="{{meta.family}}"
+           data-app-tone="{{meta.tone}}"
+           style="--tile-bg:linear-gradient(145deg,{{meta.accent}},{{meta.accent2}});--app-accent:{{meta.accent}};--app-accent-2:{{meta.accent2}}">
+            <i>{{icons.symbol(symbol_name)}}</i>
+            <span>
+                <b>{{title}}</b>
+                <small>{{desc}}</small>
+            </span>
+        </a>
     {% elif surface == 'drawer' %}
       <a class="grouped-app-item lg-app-tile lg-control {% if request.endpoint==endpoint %}active is-active{% endif %}" href="{{url_for(endpoint)}}" data-app-nav data-app-endpoint="{{endpoint}}"><i>{{app_icon(symbol_name,endpoint,meta.tone,'suite-tile-app-icon')}}</i><span><b>{{title}}</b><small>{{desc}}</small></span><em aria-hidden="true">›</em></a>
     {% else %}
@@ -26,7 +34,7 @@
 
 {% macro category_panel(surface,key,label) -%}
   {% set group_id = 'suites-launcher-categories' if surface == 'launcher' else ('apps-drawer-categories' if surface == 'drawer' else 'home-app-categories') %}
-  <section class="app-category-panel {% if key=='core' %}active{% endif %}" data-category-tone="{{key}}" data-tv-panel="{{surface}}-{{key}}" data-tv-group="{{group_id}}" {% if key!='core' %}hidden{% endif %} aria-label="{{label}} applications">
+  <section class="app-category-panel {% if key=='core' %}active{% endif %}" data-category-tone="{{key}}" data-tv-panel="{{surface}}-{{key}}" data-tv-group="{{group_id}}" {% if key!='core' and surface != 'launcher' %}hidden{% endif %} aria-label="{{label}} applications">
     <div class="{{'suite-launch-grid' if surface == 'launcher' else ('grouped-app-grid' if surface == 'drawer' else 'home-app-grid')}}">
       {% if key == 'core' %}
         {% if surface != 'launcher' %}{{ app_item(surface,'Home','Live operations overview','dashboard','','home') }}{% endif %}

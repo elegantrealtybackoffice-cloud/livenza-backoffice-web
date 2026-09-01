@@ -79,19 +79,7 @@
     <nav id="appsDrawer" class="apps-drawer no-print grouped-apps-drawer suites-launcher{% if suites_fallback_open %} suites_fallback_open{% endif %}" aria-label="Suites" aria-hidden="{{'false' if suites_fallback_open else 'true'}}"{% if not suites_fallback_open %} hidden{% endif %}>
       <div class="apps-drawer-head"><div><p class="eyebrow">TESLA OS 27</p><b>Suites</b><small>Open a Livenza suite or System Settings.</small></div><button type="button" id="appsDrawerClose" data-drawer-close aria-label="Close Suites">{{icons.symbol('close')}}</button></div>
       <div class="apps-drawer-scroll grouped-apps-scroll">
-        {% if lightweight_shell_route %}
-        <div class="light-suite-grid">
-          <a class="light-suite-card" href="{{url_for('settings_page')}}" style="--tile-bg:linear-gradient(145deg,#edf2f7,#9ba8b8)"><i>{{icons.symbol('settings')}}</i><span><b>System Settings</b><small>Appearance, Dock and controls</small></span></a>
-          {% if can_access('agreements') %}<a class="light-suite-card" href="{{url_for('agreements')}}" style="--tile-bg:linear-gradient(145deg,#1c8cff,#7567ff)"><i>{{icons.symbol('agreement')}}</i><span><b>Agreement Studio</b><small>Draft and manage agreements</small></span></a>{% endif %}
-          {% if can_access('rooms') %}<a class="light-suite-card" href="{{url_for('rooms')}}" style="--tile-bg:linear-gradient(145deg,#10c8cf,#2778ff)"><i>{{icons.symbol('room')}}</i><span><b>Rooms</b><small>Inventory and vacancy</small></span></a>{% endif %}
-          {% if can_access('queries') %}<a class="light-suite-card" href="{{url_for('queries')}}" style="--tile-bg:linear-gradient(145deg,#ff9d42,#ff5b45)"><i>{{icons.symbol('queries')}}</i><span><b>Queries</b><small>Leads and follow-up</small></span></a>{% endif %}
-          {% if can_access('reviews') %}<a class="light-suite-card" href="{{url_for('reviews')}}" style="--tile-bg:linear-gradient(145deg,#ffd84d,#ff62a8)"><i>{{icons.symbol('review')}}</i><span><b>Reviews</b><small>Google review studio</small></span></a>{% endif %}
-          {% if can_access('banking') %}<a class="light-suite-card" href="{{url_for('banking_suite')}}" style="--tile-bg:linear-gradient(145deg,#4568d9,#172d73)"><i>{{icons.symbol('banking')}}</i><span><b>Banking</b><small>Statements and reconciliation</small></span></a>{% endif %}
-          {% if can_access('staff_salary') %}<a class="light-suite-card" href="{{url_for('staff_salary_studio')}}" style="--tile-bg:linear-gradient(145deg,#7b61ff,#d56bff)"><i>{{icons.symbol('staff_salary')}}</i><span><b>Staff Salary Studio</b><small>Staff, attendance and payroll</small></span></a>{% endif %}
-          {% if can_access('electricity') %}<a class="light-suite-card" href="{{url_for('electricity_studio')}}" style="--tile-bg:linear-gradient(145deg,#ffd24a,#ff8a2d)"><i>{{icons.symbol('electricity')}}</i><span><b>Electricity</b><small>Bills and payments</small></span></a>{% endif %}
-          {% if can_access('letterhead') %}<a class="light-suite-card" href="{{url_for('letterhead_studio')}}" style="--tile-bg:linear-gradient(145deg,#ff5b6c,#8b57ff)"><i>{{icons.symbol('letterhead')}}</i><span><b>Letterhead</b><small>Official Livenza documents</small></span></a>{% endif %}
-        </div>
-        {% else %}{{appgroups.render_application_groups('launcher')}}{% endif %}
+        {{ appgroups.render_application_groups('launcher') }}
       </div>
       <div class="apps-drawer-foot suites-account-bar"><span class="suites-account-copy"><b>{{current_user.full_name or current_user.username}}</b><small>{{current_user.role|title}} · Livenza session</small></span><a class="suites-logout" href="{{url_for('logout')}}" aria-label="Log out of Livenza">{{icons.symbol('logout')}}<span>Logout</span></a></div>
     </nav>
