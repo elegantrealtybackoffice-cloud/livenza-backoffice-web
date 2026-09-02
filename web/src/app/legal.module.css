@@ -1,0 +1,110 @@
+.page {
+  min-height: 70vh;
+  background: #f7f6f2;
+}
+
+.shell {
+  max-width: 920px;
+}
+
+.hero {
+  padding: clamp(4rem, 9vw, 7rem) 0 2.5rem;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #fbfaf7 0%, #f7f6f2 100%);
+}
+
+.eyebrow {
+  color: var(--brand-accent);
+  font-size: .78rem;
+  font-weight: 850;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  margin: .8rem 0 1rem;
+  font-size: clamp(2.7rem, 7vw, 5.6rem);
+  line-height: .94;
+  letter-spacing: -.055em;
+}
+
+.lead {
+  max-width: 760px;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(1.05rem, 2vw, 1.22rem);
+  line-height: 1.7;
+}
+
+.updated {
+  margin: 1.25rem 0 0;
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+.content {
+  display: grid;
+  gap: 1rem;
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+}
+
+.section {
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 12px 36px rgba(16, 28, 52, .035);
+}
+
+.section h2 {
+  margin: 0 0 .8rem;
+  font-size: clamp(1.2rem, 2.5vw, 1.55rem);
+  letter-spacing: -.025em;
+}
+
+.section p,
+.list {
+  color: var(--muted);
+  line-height: 1.72;
+}
+
+.section p {
+  margin: .7rem 0 0;
+}
+
+.section a {
+  color: var(--ink);
+  font-weight: 750;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.list {
+  margin: .75rem 0 0;
+  padding-left: 1.35rem;
+}
+
+.list li + li {
+  margin-top: .55rem;
+}
+
+.callout {
+  border-color: color-mix(in srgb, var(--brand-accent) 28%, var(--border));
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding-top: 3.5rem;
+  }
+
+  .content {
+    padding-top: 1.25rem;
+    padding-bottom: 2.5rem;
+  }
+
+  .section {
+    border-radius: 18px;
+    padding: 1.15rem;
+  }
+}
