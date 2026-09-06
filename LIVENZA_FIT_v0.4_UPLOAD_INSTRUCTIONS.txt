@@ -1,0 +1,13 @@
+Livenza.fit Fitness OS v0.4 — Update-Only Upload Instructions
+
+1. Apply this archive at the repository root and preserve every path exactly.
+2. Do not place the .github directory inside web/; it belongs at repository root.
+3. Review .github/workflows/livenza-fit-ci.yml and livenza-fit-staging.yml in the target GitHub repository.
+4. Create/protect the GitHub environment named "staging" and add only the staging secret:
+   LIVENZA_STAGING_DATABASE_URL
+5. Do not store a production database URL in the staging environment.
+6. Open a feature branch / pull request. The Livenza.fit CI workflow should run automatically on Fit-related changes.
+7. After CI is green, manually run "Livenza.fit Staging Gate" in GitHub Actions.
+8. Only after staging passes, proceed through the existing production deployment pipeline.
+
+The update-only package is designed to overlay the verified v0.3 / Livenza.life V1 source tree.

@@ -1,0 +1,97 @@
+name: Livenza.fit CI
+
+on:
+  pull_request:
+    paths:
+      - 'web/src/app/fit/**'
+      - 'web/src/components/fit/**'
+      - 'web/src/lib/fit/**'
+      - 'web/public/fit*'
+      - 'livenza_fit_*.py'
+      - 'migrations/livenza_fit_v1.sql'
+      - 'tests/fit-*.test.cjs'
+      - 'tests/test_livenza_fit_*.py'
+      - 'tests/test_fit_*.py'
+      - 'scripts/deploy_livenza_fit.sh'
+      - 'scripts/Deploy-LivenzaFit.ps1'
+      - '.github/workflows/livenza-fit-*.yml'
+  push:
+    branches: [main, staging, livenza-life-v1]
+    paths:
+      - 'web/src/app/fit/**'
+      - 'web/src/components/fit/**'
+      - 'web/src/lib/fit/**'
+      - 'web/public/fit*'
+      - 'livenza_fit_*.py'
+      - 'migrations/livenza_fit_v1.sql'
+      - 'tests/fit-*.test.cjs'
+      - 'tests/test_livenza_fit_*.py'
+      - 'tests/test_fit_*.py'
+      - 'scripts/deploy_livenza_fit.sh'
+      - 'scripts/Deploy-LivenzaFit.ps1'
+      - '.github/workflows/livenza-fit-*.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: livenza-fit-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Fit source, tests and production web build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.9.0'
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Run repository and Fit Python tests
+        run: python -m pytest -q
+
+      - name: Install consumer web dependencies
+        working-directory: web
+        run: npm install --no-audit --no-fund
+
+      - name: Run Fit domain and browser-independent tests
+        run: |
+          ./web/node_modules/.bin/tsc -p web/tsconfig.fit-domain.json --pretty false
+          node --test tests/fit-*.test.cjs
+          ./web/node_modules/.bin/tsc -p web/tsconfig.offline.json --pretty false
+          ./web/node_modules/.bin/tsc -p web/tsconfig.fit-ui.json --pretty false
+
+      - name: Verify backend and route sources
+        run: |
+          python -m py_compile app.py livenza_*.py
+          cd web
+          node scripts/check-route-sources.mjs
+          node --check public/fit-sw.js
+          python -m json.tool public/fit.webmanifest >/dev/null
+
+      - name: Run consumer unit tests and lint
+        working-directory: web
+        run: |
+          npm test -- --run
+          npm run lint
+
+      - name: Build consumer web
+        working-directory: web
+        run: |
+          npm run build
+          npm run check:bundle

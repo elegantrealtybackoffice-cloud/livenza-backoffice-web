@@ -1,0 +1,51 @@
+name: Livenza.fit Staging Gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DATABASE_URL: ${{ secrets.LIVENZA_STAGING_DATABASE_URL }}
+
+jobs:
+  staging:
+    name: Verify, migrate staging and run browser gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    environment: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.9.0'
+
+      - name: Install PostgreSQL client and Python dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Refuse missing staging database secret
+        run: |
+          test -n "$DATABASE_URL" || { echo 'LIVENZA_STAGING_DATABASE_URL is not configured in the protected staging environment.'; exit 1; }
+
+      - name: Install Playwright browser
+        working-directory: web
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Run guarded full Livenza.fit staging gate
+        run: scripts/deploy_livenza_fit.sh --full
