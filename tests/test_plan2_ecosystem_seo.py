@@ -3,7 +3,7 @@ ROOT=Path(__file__).resolve().parents[1]
 WEB=ROOT/'web'
 
 def test_future_verticals_are_named_and_explicitly_early_access():
-    for name in ['fit','groom','skin','media']:
+    for name in ['groom','skin','media']:
         p=WEB/f'src/app/{name}/page.tsx'
         assert p.exists(), f'missing {name} page'
         t=p.read_text()
@@ -11,6 +11,12 @@ def test_future_verticals_are_named_and_explicitly_early_access():
         assert 'EARLY ACCESS' in t
         assert '<form' not in t.lower()
         assert '/contact' in t
+
+
+def test_fit_is_operational_fitness_os():
+    page=(WEB/'src/app/fit/page.tsx').read_text()
+    assert 'FitApp' in page
+    assert 'EarlyAccessPage' not in page
 
 
 def test_operational_shell_routes_have_pages_or_safe_handoff():

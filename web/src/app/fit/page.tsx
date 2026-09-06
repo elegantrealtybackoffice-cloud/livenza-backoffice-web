@@ -1,2 +1,12 @@
-import { EarlyAccessPage } from '@/components/early-access-page'
-export default function FitPage(){ return <div data-brand="fit"><EarlyAccessPage brand="livenza.fit" eyebrow="EARLY ACCESS" headline="SOMETHING STRONGER IS COMING." contactHref="/contact" copy="Movement, training and wellness—connected to the wider Livenza lifestyle." /></div> }
+import type { Metadata } from 'next';
+import { FitApp } from './fit-app';
+
+export const metadata: Metadata = {
+  title: 'livenza.fit — Fitness OS',
+  description: 'Workouts, exercise coaching, smart counters, health tracking, music and connected fitness by Livenza.',
+  manifest: '/fit.webmanifest',
+};
+
+export default function FitPage() {
+  return <FitApp />;
+}

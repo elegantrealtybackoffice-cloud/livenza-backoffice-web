@@ -475,6 +475,81 @@ class NotificationDelivery(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
+class FitProfile(db.Model):
+    __tablename__ = 'livenza_fit_profiles'
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, unique=True, index=True)
+    units = db.Column(db.String(16), nullable=False, default='metric')
+    height_cm = db.Column(db.Float, nullable=True)
+    default_rep_seconds = db.Column(db.Float, nullable=False, default=3.0)
+    goal = db.Column(db.String(64), nullable=False, default='general_fitness')
+    preferences_json = db.Column(db.Text, nullable=False, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class FitWorkout(db.Model):
+    __tablename__ = 'livenza_fit_workouts'
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    client_record_id = db.Column(db.String(128), nullable=False)
+    exercise_id = db.Column(db.String(96), nullable=False, index=True)
+    exercise_name = db.Column(db.String(160), nullable=False)
+    sets = db.Column(db.Integer, nullable=False)
+    reps = db.Column(db.Integer, nullable=False)
+    rep_seconds = db.Column(db.Float, nullable=False)
+    duration_seconds = db.Column(db.Integer, nullable=False, default=0)
+    estimated_calories = db.Column(db.Float, nullable=True)
+    source = db.Column(db.String(64), nullable=False, default='livenza_fit_web')
+    metadata_json = db.Column(db.Text, nullable=False, default='{}')
+    completed_at = db.Column(db.DateTime, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('customer_id','client_record_id', name='uq_fit_workout_customer_client_record'),)
+
+class FitHealthLog(db.Model):
+    __tablename__ = 'livenza_fit_health_logs'
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    provider_record_id = db.Column(db.String(192), nullable=True)
+    source = db.Column(db.String(64), nullable=False, default='manual', index=True)
+    recorded_at = db.Column(db.DateTime, nullable=False, index=True)
+    weight_kg = db.Column(db.Float, nullable=True)
+    height_cm = db.Column(db.Float, nullable=True)
+    bmi = db.Column(db.Float, nullable=True)
+    steps = db.Column(db.Integer, nullable=True)
+    active_calories = db.Column(db.Float, nullable=True)
+    total_calories = db.Column(db.Float, nullable=True)
+    activity_minutes = db.Column(db.Integer, nullable=True)
+    resting_heart_rate = db.Column(db.Integer, nullable=True)
+    sleep_minutes = db.Column(db.Integer, nullable=True)
+    raw_summary_json = db.Column(db.Text, nullable=False, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('customer_id','source','provider_record_id', name='uq_fit_health_customer_source_record'),)
+
+class FitPlan(db.Model):
+    __tablename__ = 'livenza_fit_plans'
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    name = db.Column(db.String(160), nullable=False)
+    difficulty = db.Column(db.String(32), nullable=False, default='beginner')
+    schedule_json = db.Column(db.Text, nullable=False, default='[]')
+    is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class FitConnection(db.Model):
+    __tablename__ = 'livenza_fit_connections'
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)
+    provider = db.Column(db.String(48), nullable=False, index=True)
+    status = db.Column(db.String(32), nullable=False, default='disconnected', index=True)
+    credential_ref = db.Column(db.String(256), nullable=False, default='')
+    scopes_json = db.Column(db.Text, nullable=False, default='[]')
+    provider_metadata_json = db.Column(db.Text, nullable=False, default='{}')
+    last_sync_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('customer_id','provider', name='uq_fit_connection_customer_provider'),)
+
 class Agreement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(250), nullable=False)
@@ -7175,6 +7250,11 @@ def register_livenza_consumer_api():
         'LoyaltyLedgerEntry': LoyaltyLedgerEntry,
         'ContentEntry': ContentEntry,
         'PropertyMedia': PropertyMedia,
+        'FitProfile': FitProfile,
+        'FitWorkout': FitWorkout,
+        'FitHealthLog': FitHealthLog,
+        'FitPlan': FitPlan,
+        'FitConnection': FitConnection,
     }, send_customer_otp, notify=send_livenza_transactional_notification)
 
 register_livenza_consumer_api()

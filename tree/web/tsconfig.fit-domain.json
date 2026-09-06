@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "../.build/fit",
+    "rootDir": "src/lib/fit"
+  },
+  "include": ["src/lib/fit/engine.ts", "src/lib/fit/exercises.ts", "src/lib/fit/storage.ts"]
+}

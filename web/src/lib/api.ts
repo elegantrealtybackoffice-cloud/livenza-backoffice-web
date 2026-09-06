@@ -113,3 +113,77 @@ export function getContent(contentType:string,key:string,locale='en'){
   const params=new URLSearchParams({locale})
   return readJson<{ok:true;content:CmsContent}>(`/api/v1/content/${encodeURIComponent(contentType)}/${encodeURIComponent(key)}?${params.toString()}`,{next:{revalidate:60}}).then(r=>r.content)
 }
+
+// Livenza.fit authenticated sync ------------------------------------------------
+export type FitProfile = {
+  units: 'metric' | 'imperial'
+  height_cm: number | null
+  default_rep_seconds: number
+  goal: string
+  preferences: Record<string, unknown>
+  updated_at?: string | null
+}
+export type FitWorkout = {
+  id: number
+  client_record_id: string
+  exercise_id: string
+  exercise_name: string
+  sets: number
+  reps: number
+  rep_seconds: number
+  duration_seconds: number
+  estimated_calories?: number | null
+  source: string
+  metadata: Record<string, unknown>
+  completed_at: string
+}
+export type FitHealthLog = {
+  id: number
+  provider_record_id?: string | null
+  source: string
+  recorded_at: string
+  weight_kg?: number | null
+  height_cm?: number | null
+  bmi?: number | null
+  steps?: number | null
+  active_calories?: number | null
+  total_calories?: number | null
+  activity_minutes?: number | null
+  resting_heart_rate?: number | null
+  sleep_minutes?: number | null
+  summary?: Record<string, unknown>
+}
+export type FitIntegration = {
+  provider: string
+  status: string
+  scopes: string[]
+  provider_metadata: Record<string, unknown>
+  last_sync_at?: string | null
+}
+
+export function getFitProfile(){
+  return readJson<{ok:true;profile:FitProfile}>('/api/v1/fit/profile',{cache:'no-store'}).then(r=>r.profile)
+}
+export function saveFitProfile(input:Partial<Pick<FitProfile,'units'|'height_cm'|'default_rep_seconds'|'goal'|'preferences'>>){
+  return readJson<{ok:true;profile:FitProfile}>('/api/v1/fit/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)}).then(r=>r.profile)
+}
+export function getFitWorkouts(limit=50){
+  const safe=Math.max(1,Math.min(100,Math.floor(limit)))
+  return readJson<{ok:true;items:FitWorkout[]}>(`/api/v1/fit/workouts?limit=${safe}`,{cache:'no-store'}).then(r=>r.items)
+}
+export function syncFitWorkout(input:{client_record_id:string;exercise_id:string;exercise_name:string;sets:number;reps:number;rep_seconds:number;duration_seconds:number;estimated_calories?:number;source?:string;completed_at:string;metadata?:Record<string,unknown>}){
+  return postJson<{ok:true;workout:FitWorkout;idempotent?:boolean}>('/api/v1/fit/workouts',input).then(r=>r.workout)
+}
+export function getFitHealthLogs(limit=100){
+  const safe=Math.max(1,Math.min(200,Math.floor(limit)))
+  return readJson<{ok:true;items:FitHealthLog[]}>(`/api/v1/fit/health/logs?limit=${safe}`,{cache:'no-store'}).then(r=>r.items)
+}
+export function syncFitHealthLog(input:{recorded_at:string;weight_kg?:number;height_cm?:number;steps?:number;active_calories?:number;total_calories?:number;activity_minutes?:number;resting_heart_rate?:number;sleep_minutes?:number;source?:string;provider_record_id?:string;summary?:Record<string,unknown>}){
+  return postJson<{ok:true;health_log:FitHealthLog;idempotent?:boolean}>('/api/v1/fit/health/logs',input).then(r=>r.health_log)
+}
+export function getFitIntegrations(){
+  return readJson<{ok:true;items:FitIntegration[]}>('/api/v1/fit/integrations',{cache:'no-store'}).then(r=>r.items)
+}
+export function connectFitIntegration(provider:string){
+  return postJson<{ok:true;connection:FitIntegration}>(`/api/v1/fit/integrations/${encodeURIComponent(provider)}/connect`,{}).then(r=>r.connection)
+}

@@ -97,6 +97,11 @@ def register_api_v1(app, db, models, send_otp, notify=None):
     LoyaltyLedgerEntry = models["LoyaltyLedgerEntry"]
     ContentEntry = models["ContentEntry"]
     PropertyMedia = models["PropertyMedia"]
+    FitProfile = models["FitProfile"]
+    FitWorkout = models["FitWorkout"]
+    FitHealthLog = models["FitHealthLog"]
+    FitPlan = models["FitPlan"]
+    FitConnection = models["FitConnection"]
     storage = storage_from_env()
 
     notify = notify or (lambda *args, **kwargs: [])
@@ -1470,6 +1475,383 @@ def register_api_v1(app, db, models, send_otp, notify=None):
         try: notify("support.updated",customer,{"ticket_id":row.public_id},["email","whatsapp"])
         except Exception: pass
         return jsonify(ok=True, ticket={"id":row.public_id,"category":row.category,"subject":row.subject,"description":row.description,"status":row.status}), 201
+
+    # Livenza.fit ---------------------------------------------------------
+    _FIT_GOALS = {"general_fitness", "strength", "endurance", "mobility", "weight_management", "wellness"}
+    _FIT_DIFFICULTIES = {"beginner", "intermediate", "advanced", "all_levels"}
+    _FIT_PROVIDERS = {"health_connect", "samsung_health", "apple_health", "fitbit", "spotify", "apple_music", "live_video"}
+    _FIT_NATIVE_PROVIDERS = {"health_connect", "samsung_health", "apple_health"}
+
+    def _fit_json(value, fallback):
+        try:
+            parsed = json.loads(value or "")
+            return parsed if isinstance(parsed, type(fallback)) else fallback
+        except Exception:
+            return fallback
+
+    def _fit_float(payload, key, minimum=None, maximum=None, required=False):
+        value = payload.get(key)
+        if value in (None, ""):
+            if required:
+                raise ValueError(f"{key} is required.")
+            return None
+        try:
+            value = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{key} must be numeric.") from exc
+        if minimum is not None and value < minimum:
+            raise ValueError(f"{key} must be at least {minimum}.")
+        if maximum is not None and value > maximum:
+            raise ValueError(f"{key} must be at most {maximum}.")
+        return value
+
+    def _fit_int(payload, key, minimum=None, maximum=None, required=False):
+        value = payload.get(key)
+        if value in (None, ""):
+            if required:
+                raise ValueError(f"{key} is required.")
+            return None
+        try:
+            numeric = float(value)
+            if not numeric.is_integer():
+                raise ValueError
+            value = int(numeric)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{key} must be an integer.") from exc
+        if minimum is not None and value < minimum:
+            raise ValueError(f"{key} must be at least {minimum}.")
+        if maximum is not None and value > maximum:
+            raise ValueError(f"{key} must be at most {maximum}.")
+        return value
+
+    def _fit_datetime(value, required=True):
+        if value in (None, ""):
+            if required:
+                raise ValueError("A date and time are required.")
+            return None
+        try:
+            parsed = datetime.datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+        except Exception as exc:
+            raise ValueError("Use a valid ISO date and time.") from exc
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        return parsed
+
+    def _fit_profile_payload(row):
+        if not row:
+            return {
+                "units": "metric", "height_cm": None, "default_rep_seconds": 3.0,
+                "goal": "general_fitness", "preferences": {}, "updated_at": None,
+            }
+        return {
+            "units": row.units or "metric",
+            "height_cm": round(float(row.height_cm), 2) if row.height_cm is not None else None,
+            "default_rep_seconds": round(float(row.default_rep_seconds or 3.0), 1),
+            "goal": row.goal or "general_fitness",
+            "preferences": _fit_json(row.preferences_json, {}),
+            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        }
+
+    def _fit_workout_payload(row):
+        return {
+            "id": row.id,
+            "client_record_id": row.client_record_id,
+            "exercise_id": row.exercise_id,
+            "exercise_name": row.exercise_name,
+            "sets": int(row.sets), "reps": int(row.reps),
+            "rep_seconds": round(float(row.rep_seconds), 1),
+            "duration_seconds": int(row.duration_seconds or 0),
+            "estimated_calories": round(float(row.estimated_calories), 2) if row.estimated_calories is not None else None,
+            "source": row.source,
+            "metadata": _fit_json(row.metadata_json, {}),
+            "completed_at": row.completed_at.isoformat() + "Z" if row.completed_at else None,
+        }
+
+    def _fit_health_payload(row):
+        return {
+            "id": row.id,
+            "provider_record_id": row.provider_record_id,
+            "source": row.source,
+            "recorded_at": row.recorded_at.isoformat() + "Z" if row.recorded_at else None,
+            "weight_kg": round(float(row.weight_kg), 2) if row.weight_kg is not None else None,
+            "height_cm": round(float(row.height_cm), 2) if row.height_cm is not None else None,
+            "bmi": round(float(row.bmi), 2) if row.bmi is not None else None,
+            "steps": row.steps,
+            "active_calories": round(float(row.active_calories), 2) if row.active_calories is not None else None,
+            "total_calories": round(float(row.total_calories), 2) if row.total_calories is not None else None,
+            "activity_minutes": row.activity_minutes,
+            "resting_heart_rate": row.resting_heart_rate,
+            "sleep_minutes": row.sleep_minutes,
+            "summary": _fit_json(row.raw_summary_json, {}),
+        }
+
+    def _fit_plan_payload(row):
+        return {
+            "id": row.id, "name": row.name, "difficulty": row.difficulty,
+            "schedule": _fit_json(row.schedule_json, []), "is_active": bool(row.is_active),
+            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        }
+
+    def _fit_connection_payload(row):
+        return {
+            "provider": row.provider,
+            "status": row.status,
+            "scopes": _fit_json(row.scopes_json, []),
+            "provider_metadata": _fit_json(row.provider_metadata_json, {}),
+            "last_sync_at": row.last_sync_at.isoformat() + "Z" if row.last_sync_at else None,
+        }
+
+    @api.get("/fit/profile")
+    def fit_profile_get():
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        row = FitProfile.query.filter_by(customer_id=customer.id).first()
+        return jsonify(ok=True, profile=_fit_profile_payload(row))
+
+    @api.put("/fit/profile")
+    def fit_profile_put():
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        payload = request.get_json(silent=True) or {}
+        row = FitProfile.query.filter_by(customer_id=customer.id).first()
+        if not row:
+            row = FitProfile(customer_id=customer.id)
+            db.session.add(row)
+        units = str(payload.get("units", row.units or "metric")).strip().lower()
+        if units not in {"metric", "imperial"}:
+            return error("units must be metric or imperial.", 400, "fit_validation_error")
+        goal = str(payload.get("goal", row.goal or "general_fitness")).strip().lower()
+        if goal not in _FIT_GOALS:
+            return error("Unsupported fitness goal.", 400, "fit_validation_error")
+        try:
+            if "height_cm" in payload:
+                row.height_cm = _fit_float(payload, "height_cm", 80, 250) if payload.get("height_cm") not in (None, "") else None
+            if "default_rep_seconds" in payload:
+                row.default_rep_seconds = _fit_float(payload, "default_rep_seconds", 0.5, 15.0, True)
+        except ValueError as exc:
+            db.session.rollback()
+            return error(str(exc), 400, "fit_validation_error")
+        preferences = payload.get("preferences", _fit_json(row.preferences_json, {}))
+        if not isinstance(preferences, dict):
+            db.session.rollback()
+            return error("preferences must be an object.", 400, "fit_validation_error")
+        row.units = units
+        row.goal = goal
+        row.preferences_json = json.dumps(preferences, ensure_ascii=False)[:20000]
+        db.session.commit()
+        return jsonify(ok=True, profile=_fit_profile_payload(row))
+
+    @api.get("/fit/workouts")
+    def fit_workouts_get():
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        try:
+            limit = min(max(int(request.args.get("limit", "50")), 1), 100)
+            before = _fit_datetime(request.args.get("before"), required=False)
+        except (ValueError, TypeError):
+            return error("Invalid workout query.", 400, "fit_validation_error")
+        query = FitWorkout.query.filter_by(customer_id=customer.id)
+        if before:
+            query = query.filter(FitWorkout.completed_at < before)
+        rows = query.order_by(FitWorkout.completed_at.desc(), FitWorkout.id.desc()).limit(limit).all()
+        return jsonify(ok=True, items=[_fit_workout_payload(row) for row in rows])
+
+    @api.post("/fit/workouts")
+    def fit_workouts_post():
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        payload = request.get_json(silent=True) or {}
+        client_record_id = str(payload.get("client_record_id") or "").strip()[:128]
+        if not client_record_id:
+            return error("client_record_id is required.", 400, "fit_validation_error")
+        existing = FitWorkout.query.filter_by(customer_id=customer.id, client_record_id=client_record_id).first()
+        if existing:
+            return jsonify(ok=True, idempotent=True, workout=_fit_workout_payload(existing)), 200
+        exercise_id = str(payload.get("exercise_id") or "").strip()[:96]
+        exercise_name = str(payload.get("exercise_name") or "").strip()[:160]
+        if not exercise_id or not exercise_name:
+            return error("exercise_id and exercise_name are required.", 400, "fit_validation_error")
+        try:
+            sets = _fit_int(payload, "sets", 1, 100, True)
+            reps = _fit_int(payload, "reps", 1, 1000, True)
+            rep_seconds = _fit_float(payload, "rep_seconds", 0.5, 15.0, True)
+            duration_seconds = _fit_int(payload, "duration_seconds", 0, 86400, True)
+            estimated_calories = _fit_float(payload, "estimated_calories", 0, 10000) if payload.get("estimated_calories") not in (None, "") else None
+            completed_at = _fit_datetime(payload.get("completed_at"))
+        except ValueError as exc:
+            return error(str(exc), 400, "fit_validation_error")
+        metadata = payload.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            return error("metadata must be an object.", 400, "fit_validation_error")
+        row = FitWorkout(
+            customer_id=customer.id, client_record_id=client_record_id,
+            exercise_id=exercise_id, exercise_name=exercise_name,
+            sets=sets, reps=reps, rep_seconds=rep_seconds, duration_seconds=duration_seconds,
+            estimated_calories=estimated_calories,
+            source=str(payload.get("source") or "livenza_fit_web").strip()[:64] or "livenza_fit_web",
+            metadata_json=json.dumps(metadata, ensure_ascii=False)[:20000], completed_at=completed_at,
+        )
+        db.session.add(row)
+        db.session.commit()
+        return jsonify(ok=True, workout=_fit_workout_payload(row)), 201
+
+    @api.get("/fit/health/logs")
+    def fit_health_logs_get():
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        try:
+            start = _fit_datetime(request.args.get("from"), required=False)
+            end = _fit_datetime(request.args.get("to"), required=False)
+            limit = min(max(int(request.args.get("limit", "100")), 1), 200)
+        except (ValueError, TypeError):
+            return error("Invalid health-log query.", 400, "fit_validation_error")
+        query = FitHealthLog.query.filter_by(customer_id=customer.id)
+        if start:
+            query = query.filter(FitHealthLog.recorded_at >= start)
+        if end:
+            query = query.filter(FitHealthLog.recorded_at <= end)
+        rows = query.order_by(FitHealthLog.recorded_at.desc(), FitHealthLog.id.desc()).limit(limit).all()
+        return jsonify(ok=True, items=[_fit_health_payload(row) for row in rows])
+
+    @api.post("/fit/health/logs")
+    def fit_health_logs_post():
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        payload = request.get_json(silent=True) or {}
+        source = str(payload.get("source") or "manual").strip().lower()[:64] or "manual"
+        provider_record_id = str(payload.get("provider_record_id") or "").strip()[:192] or None
+        if provider_record_id:
+            existing = FitHealthLog.query.filter_by(customer_id=customer.id, source=source, provider_record_id=provider_record_id).first()
+            if existing:
+                return jsonify(ok=True, idempotent=True, health_log=_fit_health_payload(existing)), 200
+        try:
+            recorded_at = _fit_datetime(payload.get("recorded_at") or datetime.datetime.utcnow().isoformat())
+            weight_kg = _fit_float(payload, "weight_kg", 20, 400) if payload.get("weight_kg") not in (None, "") else None
+            height_cm = _fit_float(payload, "height_cm", 80, 250) if payload.get("height_cm") not in (None, "") else None
+            steps = _fit_int(payload, "steps", 0, 1000000) if payload.get("steps") not in (None, "") else None
+            active_calories = _fit_float(payload, "active_calories", 0, 100000) if payload.get("active_calories") not in (None, "") else None
+            total_calories = _fit_float(payload, "total_calories", 0, 100000) if payload.get("total_calories") not in (None, "") else None
+            activity_minutes = _fit_int(payload, "activity_minutes", 0, 1440) if payload.get("activity_minutes") not in (None, "") else None
+            resting_heart_rate = _fit_int(payload, "resting_heart_rate", 20, 240) if payload.get("resting_heart_rate") not in (None, "") else None
+            sleep_minutes = _fit_int(payload, "sleep_minutes", 0, 1440) if payload.get("sleep_minutes") not in (None, "") else None
+        except ValueError as exc:
+            return error(str(exc), 400, "fit_validation_error")
+        bmi = round(weight_kg / ((height_cm / 100.0) ** 2), 2) if weight_kg is not None and height_cm is not None else None
+        raw_summary = payload.get("summary") or {}
+        if not isinstance(raw_summary, dict):
+            return error("summary must be an object.", 400, "fit_validation_error")
+        row = FitHealthLog(
+            customer_id=customer.id, provider_record_id=provider_record_id, source=source,
+            recorded_at=recorded_at, weight_kg=weight_kg, height_cm=height_cm, bmi=bmi,
+            steps=steps, active_calories=active_calories, total_calories=total_calories,
+            activity_minutes=activity_minutes, resting_heart_rate=resting_heart_rate,
+            sleep_minutes=sleep_minutes, raw_summary_json=json.dumps(raw_summary, ensure_ascii=False)[:20000],
+        )
+        db.session.add(row)
+        db.session.commit()
+        return jsonify(ok=True, health_log=_fit_health_payload(row)), 201
+
+    @api.get("/fit/plans")
+    def fit_plans_get():
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        rows = FitPlan.query.filter_by(customer_id=customer.id).order_by(FitPlan.updated_at.desc(), FitPlan.id.desc()).all()
+        return jsonify(ok=True, items=[_fit_plan_payload(row) for row in rows])
+
+    @api.post("/fit/plans")
+    def fit_plans_post():
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        payload = request.get_json(silent=True) or {}
+        name = str(payload.get("name") or "").strip()[:160]
+        difficulty = str(payload.get("difficulty") or "beginner").strip().lower()
+        schedule = payload.get("schedule") or []
+        if not name:
+            return error("Plan name is required.", 400, "fit_validation_error")
+        if difficulty not in _FIT_DIFFICULTIES:
+            return error("Unsupported difficulty.", 400, "fit_validation_error")
+        if not isinstance(schedule, list) or len(schedule) > 200:
+            return error("schedule must be an array with at most 200 entries.", 400, "fit_validation_error")
+        row = FitPlan(customer_id=customer.id, name=name, difficulty=difficulty, schedule_json=json.dumps(schedule, ensure_ascii=False)[:50000], is_active=bool(payload.get("is_active", True)))
+        db.session.add(row); db.session.commit()
+        return jsonify(ok=True, plan=_fit_plan_payload(row)), 201
+
+    @api.patch("/fit/plans/<int:plan_id>")
+    def fit_plans_patch(plan_id):
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        row = FitPlan.query.filter_by(id=plan_id, customer_id=customer.id).first()
+        if not row:
+            return error("Fitness plan not found.", 404, "not_found")
+        payload = request.get_json(silent=True) or {}
+        if "name" in payload:
+            name = str(payload.get("name") or "").strip()[:160]
+            if not name:
+                return error("Plan name is required.", 400, "fit_validation_error")
+            row.name = name
+        if "difficulty" in payload:
+            difficulty = str(payload.get("difficulty") or "").strip().lower()
+            if difficulty not in _FIT_DIFFICULTIES:
+                return error("Unsupported difficulty.", 400, "fit_validation_error")
+            row.difficulty = difficulty
+        if "schedule" in payload:
+            schedule = payload.get("schedule")
+            if not isinstance(schedule, list) or len(schedule) > 200:
+                return error("schedule must be an array with at most 200 entries.", 400, "fit_validation_error")
+            row.schedule_json = json.dumps(schedule, ensure_ascii=False)[:50000]
+        if "is_active" in payload:
+            row.is_active = bool(payload.get("is_active"))
+        db.session.commit()
+        return jsonify(ok=True, plan=_fit_plan_payload(row))
+
+    @api.get("/fit/integrations")
+    def fit_integrations_get():
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        rows = FitConnection.query.filter_by(customer_id=customer.id).order_by(FitConnection.provider.asc()).all()
+        return jsonify(ok=True, items=[_fit_connection_payload(row) for row in rows])
+
+    @api.post("/fit/integrations/<provider>/connect")
+    def fit_integration_connect(provider):
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        provider = str(provider or "").strip().lower()
+        if provider not in _FIT_PROVIDERS:
+            return error("Unsupported fitness provider.", 404, "fit_provider_not_supported")
+        if provider not in _FIT_NATIVE_PROVIDERS:
+            return error("This provider must be configured through the Livenza Integrations Center before authorization can start.", 503, "fit_provider_not_configured")
+        row = FitConnection.query.filter_by(customer_id=customer.id, provider=provider).first()
+        if not row:
+            row = FitConnection(customer_id=customer.id, provider=provider)
+            db.session.add(row)
+        row.status = "requires_companion"
+        row.credential_ref = ""
+        row.scopes_json = "[]"
+        row.provider_metadata_json = json.dumps({"connection_mode": "native_companion"})
+        db.session.commit()
+        return jsonify(ok=True, connection=_fit_connection_payload(row)), 202
+
+    @api.delete("/fit/integrations/<provider>")
+    def fit_integration_delete(provider):
+        _session_row, customer = session_for_request()
+        if not customer:
+            return error("Authentication required.", 401, "authentication_required")
+        provider = str(provider or "").strip().lower()
+        row = FitConnection.query.filter_by(customer_id=customer.id, provider=provider).first()
+        if row:
+            db.session.delete(row); db.session.commit()
+        return jsonify(ok=True, provider=provider, status="disconnected")
 
     @api.patch("/me/profile")
     def patch_me_profile():
