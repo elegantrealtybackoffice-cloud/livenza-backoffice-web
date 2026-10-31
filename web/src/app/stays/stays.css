@@ -16,3 +16,29 @@
 
 /* Hotfix 3 mobile polish */
 @media(max-width:480px){.stays-hero{padding-top:3.8rem;padding-bottom:2.8rem}.stays-hero h1{font-size:clamp(3.2rem,15vw,3.8rem);line-height:.88}.stays-hero p{font-size:1rem;line-height:1.5}.stay-search{margin-top:1.6rem;padding:.85rem}.search-submit{min-height:48px}}
+
+/* Midnight-blue stays collection */
+.stays-main{background:#061631;color:#eef8ff}
+.stays-hero{min-height:700px;display:flex;align-items:center;padding:7rem 0 8rem;background:linear-gradient(90deg,rgba(2,16,41,.97),rgba(3,26,58,.86) 38%,rgba(3,20,50,.08) 77%),url('/stays/gurugram-night.png') center/cover;color:#fff}
+.stays-hero h1{font-size:clamp(3.8rem,8vw,8rem);line-height:1;max-width:770px;margin:.65rem 0 1.4rem}
+.stays-hero p{color:#d3e8fb;max-width:620px;font-size:clamp(1.1rem,1.8vw,1.35rem);line-height:1.7}
+.stays-hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:2rem}
+.stays-hero-primary,.stays-hero-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:54px;padding:14px 22px;border-radius:11px;text-decoration:none;font-weight:850;font-size:.85rem;letter-spacing:.02em}
+.stays-hero-primary{background:#ff904f;color:#071934}.stays-hero-secondary{border:1px solid #a6d5ff;background:rgba(5,29,66,.42);color:#f4faff}
+.curated-section{padding:clamp(75px,9vw,130px) 0;background:#f0f5fc;color:#081d3e}
+.curated-section .results-head h2{max-width:790px}.curated-section .results-head p{max-width:670px;color:#526985;line-height:1.7}
+.curated-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+.curated-card{display:block;background:#fff;border:1px solid #d6e4f2;border-radius:20px;overflow:hidden;text-decoration:none;color:#061b3a;box-shadow:0 12px 32px rgba(4,32,70,.06);transition:transform .25s,box-shadow .25s}
+.curated-card:hover{transform:translateY(-5px);box-shadow:0 25px 54px rgba(4,32,70,.16)}
+.curated-card-media{height:260px;overflow:hidden;background:#0c356e}
+.curated-card-media img{width:100%;height:100%;object-fit:cover;transition:transform .5s}.curated-card:hover img{transform:scale(1.055)}
+.curated-pending{height:100%;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;padding:30px;color:#d6ecff;background:radial-gradient(circle at 85% 12%,rgba(66,152,234,.55),transparent 42%),linear-gradient(140deg,#08234c,#0d4c8b)}
+.curated-pending span{font-size:10px;font-weight:850;letter-spacing:.18em;color:#8fd8ff}.curated-pending strong{font-size:clamp(1.7rem,3vw,2.7rem);letter-spacing:-.04em}.curated-pending small{color:#b5d6ed}
+.curated-card-copy{padding:24px 26px 27px}.curated-card-copy span{font-size:10px;color:#1269b2;font-weight:850;letter-spacing:.16em}.curated-card-copy h3{font-size:clamp(1.7rem,2.5vw,2.3rem);letter-spacing:-.045em;margin:9px 0}.curated-card-copy p{color:#61788e;min-height:32px}.curated-card-copy strong{display:inline-block;color:#0b5eac;font-size:.78rem;letter-spacing:.07em;margin-top:12px}
+.stays-search-section{padding:85px 0;background:#091e41;color:#f4faff}.stays-search-section h2{font-size:clamp(2.2rem,5vw,4rem);letter-spacing:-.05em;margin:.5rem 0 1.5rem}
+.stay-search{background:#102e59;color:#eaf5ff;border:1px solid rgba(148,205,255,.25);box-shadow:0 20px 45px rgba(0,6,28,.2)}
+.stay-search label>span,.stay-search legend{color:#b7d5f0}.stay-search select,.stay-search input[type='text'],.stay-search input:not([type]),.intent span,.intent-clear{background:#081f43;color:#f2faff;border-color:rgba(151,207,255,.34)}
+.intent input:checked+span,.search-submit{background:#ff904f;border-color:#ff904f;color:#061a36}
+.results{background:#071832;color:#f2f8ff}.results-head h2{color:inherit}.simple-property,.empty-state{background:#0d2c57;color:#f1f9ff;border-color:rgba(148,205,255,.23)}.simple-property p,.empty-state{color:#c0d8ee}.simple-property a{color:#ffad75}.stay-type-list span{border-color:rgba(148,205,255,.35)}
+@media(max-width:1000px){.curated-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.stays-hero{min-height:650px;background-position:63% center;padding:5rem 0}.stays-hero h1{font-size:clamp(3.3rem,12vw,5rem)}.curated-grid{grid-template-columns:1fr}.curated-card-media{height:235px}.stays-hero-actions>*{width:100%}}

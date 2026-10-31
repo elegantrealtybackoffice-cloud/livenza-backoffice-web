@@ -52,3 +52,30 @@
   .actions { gap: .55rem; margin-top: 1.25rem; }
   .primary, .secondary { min-height: 44px; padding: .72rem .9rem; font-size: .82rem; }
 }
+
+/* Midnight-blue public art direction */
+.page { background:#061631; color:#eff8ff; }
+.hero { min-height:min(850px,calc(100svh - 90px)); background:#071e44; }
+.heroMedia { background-image:linear-gradient(90deg,rgba(2,15,39,.98) 0%,rgba(3,21,50,.84) 35%,rgba(3,23,58,.08) 77%),url('/stays/gurugram-night.png'); background-position:center; }
+.heroMedia::after { background:linear-gradient(0deg,#061631,transparent 37%); }
+.heroContent { padding:7rem 0 7rem; }
+.hero h1 { max-width:850px; font-size:clamp(4rem,8vw,8.6rem); line-height:.99; letter-spacing:-.06em; }
+.hero p { color:#d7eaff; }
+.primary { background:#ff904f; color:#061a36; }
+.secondary { border-color:rgba(169,211,255,.57); background:rgba(5,27,64,.45); }
+.section { background:#061631; }
+.section:nth-of-type(even) { background:#0a2147; }
+.dark { background:#081c3c !important; }
+.lede { color:#b9d3ed; }
+.brandCard,.panel,.lifeWords div,.quoteCard { background:#0e2b58; border-color:rgba(148,205,255,.2); color:#f2f8ff; }
+.brandCard span,.standardItem p { color:#b5cee8; }
+.brandCard[data-tone] strong { color:#e8f6ff; }
+.brandCard:hover { box-shadow:0 20px 50px rgba(0,0,0,.27); }
+.dark .panel { background:#0e2b58; border-color:rgba(148,205,255,.2); }
+.visual { background:linear-gradient(0deg,rgba(3,18,43,.2),rgba(3,18,43,.02)),url('/stays/g38-getaway/cover.webp') center/cover; }
+.cityCard:first-child { background:linear-gradient(0deg,rgba(3,18,43,.84),rgba(3,18,43,.06)),url('/stays/the-sienna/cover.webp') center/cover; }
+.cityCard:last-child { background:linear-gradient(0deg,rgba(3,18,43,.84),rgba(3,18,43,.04)),url('/stays/gurugram-night.png') center/cover; }
+.standardItem { border-color:#79c7ff; }
+.emerging a { background:#0d2b58; border-color:rgba(148,205,255,.24); }
+.closing { background:linear-gradient(120deg,#072451,#0c4a93); }
+@media(max-width:640px){.hero{min-height:690px}.heroMedia{background-position:62% center}.heroContent{padding:6rem 0 4rem}.hero h1{font-size:clamp(3.4rem,13vw,5rem)}}

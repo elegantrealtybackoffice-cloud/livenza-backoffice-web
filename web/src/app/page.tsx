@@ -2,6 +2,8 @@ import Link from 'next/link'
 import styles from './page.module.css'
 import { HomepageAnalytics } from '@/components/homepage-analytics'
 import { getContent } from '@/lib/api'
+import { GurugramMap } from '@/components/gurugram-map'
+import './stays/stays.css'
 
 const universe = [
   ['livenza.stays', '/stays', 'Find your place', 'stays'],
@@ -14,16 +16,16 @@ const universe = [
 
 export default async function Home() {
   const cms = await getContent('homepage','home').catch(() => null)
-  const cmsHero = typeof cms?.body?.hero_title === 'string' ? cms.body.hero_title : 'LIVE MORE.'
-  const cmsIntro = typeof cms?.body?.hero_intro === 'string' ? cms.body.hero_intro : 'Stay. Move. Wear. Care. Create. One lifestyle ecosystem designed around the way a new generation lives.'
+  const cmsHero = typeof cms?.body?.hero_title === 'string' ? cms.body.hero_title : 'A stay that stays with you.'
+  const cmsIntro = typeof cms?.body?.hero_intro === 'string' ? cms.body.hero_intro : 'Discover thoughtful spaces and a more connected way to live in Gurugram.'
   return <main className={styles.page}><HomepageAnalytics />
     <section className={styles.hero}>
       <div className={styles.heroMedia} aria-hidden="true" />
       <div className={styles.heroContent}>
-        <div className={styles.eyebrow}>LIVENZA.LIFE</div>
+        <div className={styles.eyebrow}>LIVENZA STAYS · GURUGRAM</div>
         <h1>{cmsHero}</h1>
         <p>{cmsIntro}</p>
-        <div className={styles.actions}><Link className={styles.primary} href="/stays">BOOK A STAY</Link><Link className={styles.secondary} href="#universe">EXPLORE LIVENZA</Link></div>
+        <div className={styles.actions}><Link className={styles.primary} href="#gurugram-map">EXPLORE GURUGRAM STAYS ↗</Link><Link className={styles.secondary} href="/stays">VIEW ALL STAYS</Link></div>
       </div>
     </section>
 
@@ -37,8 +39,10 @@ export default async function Home() {
     <section className={`${styles.section} ${styles.dark}`}><div className={styles.inner}>
       <div className={styles.eyebrow}>LIVENZA.STAYS</div><h2 className={styles.sectionTitle}>Find your place.</h2>
       <p className={styles.lede}>Student living, corporate living and short stays—built around comfort, community and everyday convenience.</p>
-      <div className={styles.split}><div className={styles.visual} role="img" aria-label="Livenza lifestyle development photography placeholder"/><div className={styles.panel}><div><h3>YOUR PLACE. YOUR PEOPLE. YOUR LIFE.</h3><div className={styles.featureRow}><span>Student Living</span><span>Corporate Living</span><span>Short Stays</span></div></div><Link className={styles.inlineLink} href="/stays">Explore stays →</Link></div></div>
+      <div className={styles.split}><div className={styles.visual} role="img" aria-label="G 38 Getaway room from the supplied property gallery"/><div className={styles.panel}><div><h3>YOUR PLACE. YOUR PEOPLE. YOUR LIFE.</h3><div className={styles.featureRow}><span>Student Living</span><span>Corporate Living</span><span>Short Stays</span></div></div><Link className={styles.inlineLink} href="/stays">Explore stays →</Link></div></div>
     </div></section>
+
+    <GurugramMap />
 
     <section className={styles.section}><div className={styles.inner}>
       <div className={styles.eyebrow}>DESTINATIONS</div><h2 className={styles.sectionTitle}>Find your city</h2>
@@ -55,7 +59,7 @@ export default async function Home() {
       <div className={styles.eyebrow}>LIVENZA.STORE</div><h2 className={styles.sectionTitle}>WEAR THE LIFE.</h2>
       <p className={styles.lede}>A curated lifestyle collection spanning wear, move, live and everyday essentials.</p>
       <Link className={styles.inlineLink} href="/store">Explore the first drop →</Link>
-      <div className={styles.split}><div className={styles.panel}><div><span className={styles.eyebrow}>LIVE MORE / COLLECTION 01</span><h3 className={styles.mega}>01</h3></div><p className={styles.lede}>Apparel, movement essentials, room goods and move-in kits.</p></div><div className={styles.visual} role="img" aria-label="Livenza Store collection development photography placeholder"/></div>
+      <div className={styles.split}><div className={styles.panel}><div><span className={styles.eyebrow}>LIVE MORE / COLLECTION 01</span><h3 className={styles.mega}>01</h3></div><p className={styles.lede}>Apparel, movement essentials, room goods and move-in kits.</p></div><div className={styles.visual} role="img" aria-label="Livenza design atmosphere"/></div>
     </div></section>
 
     <section className={`${styles.section} ${styles.dark}`}><div className={styles.inner}>

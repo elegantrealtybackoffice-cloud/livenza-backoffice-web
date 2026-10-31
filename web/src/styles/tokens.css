@@ -1,12 +1,12 @@
 :root {
-  --surface: #f7f6f2;
-  --surface-strong: #ffffff;
-  --surface-dark: #171719;
-  --ink: #171719;
+  --surface: #061631;
+  --surface-strong: #0c2650;
+  --surface-dark: #03112b;
+  --ink: #eef7ff;
   --ink-inverse: #ffffff;
-  --muted: #696970;
-  --border: rgba(23, 23, 25, .12);
-  --brand-accent: #7047eb;
+  --muted: #b3cce8;
+  --border: rgba(142, 202, 255, .22);
+  --brand-accent: #ff904f;
   --radius-sm: 8px;
   --radius-md: 16px;
   --radius-lg: 24px;
