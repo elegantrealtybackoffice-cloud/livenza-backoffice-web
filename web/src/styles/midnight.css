@@ -37,5 +37,18 @@ body { background:#061631; }
 .map-pin-name { display:block; padding:9px 11px; border:1px solid rgba(148,207,255,.46); border-radius:9px; background:rgba(3,25,58,.88); box-shadow:0 8px 22px rgba(0,5,20,.28); font-size:12px; font-weight:800; white-space:nowrap; }
 .map-pin-1 { left:12%; top:28%; }.map-pin-2 { left:35%; top:21%; }.map-pin-3 { left:20%; top:50%; }.map-pin-4 { left:47%; top:76%; }.map-pin-5 { left:73%; top:79%; }.map-pin-6 { left:64%; top:55%; }
 .map-disclaimer { color:#a8c9e9; font-size:.78rem; margin:15px 0 0; line-height:1.6; }
+.ecosystem-page { background:#061631; color:#eff8ff; }
+.ecosystem-hero { background:linear-gradient(90deg,rgba(3,17,42,.96),rgba(4,27,59,.8) 55%,rgba(4,31,70,.35)),url('/stays/gurugram-night.png') center/cover; }
+.ecosystem-hero h1 { line-height:1; }
+.ecosystem-hero p,.info-card p { color:#c0d9ee; }
+.ecosystem-primary { background:#ff904f; color:#061934; }
+.ecosystem-secondary,.info-card { background:#0d2b56; color:#edf7ff; border-color:rgba(148,205,255,.25); }
+.ecosystem-eyebrow { color:#8dd4ff; }
+.booking-page { background:#071b3b; color:#f1f9ff; }
+.booking-panel { background:#0d2b56; color:#eff8ff; border-color:rgba(148,205,255,.28); }
+.booking-panel input,.booking-panel select,.booking-panel textarea { background:#f5f9ff; color:#071b39; border-color:#9ebbd5; }
+.booking-panel>button,.booking-mode button[data-selected=true],.booking-steps li[data-active=true] { background:#ff904f; color:#061934; }
+.booking-mode button { background:#081f43; color:#f0f8ff; border-color:rgba(148,205,255,.3); }
+.booking-check small,.booking-note { color:#bed9ee; }
 @media(max-width:1000px){.brand-site-label{display:none}}
 @media(max-width:640px){.header-inner{min-height:78px}.brand-logo-frame{width:145px;height:68px}.brand-logo-frame img{width:145px;height:145px;transform:translateY(-35px)}.mobile-panel{top:78px}.map-intro{display:block}.map-intro p{margin-top:14px}.gurugram-map{min-height:640px}.map-city-label{font-size:36px;top:43%}.map-pin{max-width:145px}.map-pin-name{font-size:10px;padding:7px 8px}.map-pin-1{left:7%;top:18%}.map-pin-2{left:44%;top:26%}.map-pin-3{left:10%;top:38%}.map-pin-4{left:9%;top:71%}.map-pin-5{left:52%;top:79%}.map-pin-6{left:48%;top:54%}.map-sector-38{left:9%;top:10%}.map-sector-51{left:13%;top:62%}.map-sector-52{left:63%;top:70%}}

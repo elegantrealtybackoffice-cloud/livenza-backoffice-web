@@ -4,3 +4,14 @@
 /* Hotfix 3 mobile polish + deterministic cart divider */
 .store-summary hr{width:100%;margin:.25rem 0;border:0;border-top:1px solid rgba(255,255,255,.18)}
 @media(max-width:480px){.store-hero{min-height:66vh;padding:88px 0 52px}.store-hero h1{font-size:clamp(3.45rem,16vw,4.2rem);line-height:.84;margin:22px 0}.store-hero p{font-size:1rem;line-height:1.5}.store-hero-actions{gap:10px;margin-top:24px}.store-hero-actions a{min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:12px 14px;font-size:.82rem}}
+
+/* Public midnight-blue store treatment; shopping behavior is unchanged. */
+.storefront,.store-page{background:#061631;color:#f1f9ff}
+.store-hero{background:linear-gradient(90deg,rgba(3,16,39,.97),rgba(4,26,59,.65)),url('/stays/gurugram-night.png') center/cover}
+.store-hero-actions a,.store-primary{background:#ff904f;color:#061934}.store-hero-actions a+a{background:#0f315e;color:#f2f9ff;border:1px solid rgba(148,205,255,.3)}
+.store-world,.store-world:nth-child(2),.store-world:nth-child(3),.store-world:nth-child(4){background:#0d2b56;color:#f2f9ff;border:1px solid rgba(148,205,255,.24)}
+.store-world:nth-child(2){background:#0c3972}.store-world:nth-child(3){background:#0b467e}.store-world:nth-child(4){background:#0c315d}
+.store-product-card p{color:#bdd5ea}.store-product-image{background:linear-gradient(145deg,#0d2b56,#17518b);color:#eef9ff}.store-empty{background:#0d2b56;color:#bdd5ea;border-color:rgba(148,205,255,.24)}
+.store-product-stage,.store-summary{background:linear-gradient(145deg,#0c3972,#061936)}.store-cart-line{border-color:rgba(148,205,255,.25)}
+.store-qty button,.store-delivery-tabs button{background:#0d2b56;color:#f2f9ff;border-color:rgba(148,205,255,.35)}.store-delivery-tabs button[data-selected=true]{background:#ff904f;color:#061934}
+.store-product-copy select,.store-checkout input,.store-checkout select{background:#f5f9ff;color:#071b39;border-color:#9ebbd5}

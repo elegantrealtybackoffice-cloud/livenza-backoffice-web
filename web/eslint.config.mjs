@@ -1,5 +1,6 @@
-import { FlatCompat } from '@eslint/eslintrc'
-import { dirname } from 'path'
-import { fileURLToPath } from 'url'
-const compat = new FlatCompat({ baseDirectory: dirname(fileURLToPath(import.meta.url)) })
-export default [...compat.extends('next/core-web-vitals', 'next/typescript')]
+import nextVitals from 'eslint-config-next/core-web-vitals'
+import nextTypescript from 'eslint-config-next/typescript'
+
+const config = [...nextVitals, ...nextTypescript]
+
+export default config
