@@ -37,6 +37,9 @@ body { background:#061631; }
 .map-pin-name { display:block; padding:9px 11px; border:1px solid rgba(148,207,255,.46); border-radius:9px; background:rgba(3,25,58,.88); box-shadow:0 8px 22px rgba(0,5,20,.28); font-size:12px; font-weight:800; white-space:nowrap; }
 .map-pin-1 { left:12%; top:28%; }.map-pin-2 { left:35%; top:21%; }.map-pin-3 { left:20%; top:50%; }.map-pin-4 { left:47%; top:76%; }.map-pin-5 { left:73%; top:79%; }.map-pin-6 { left:64%; top:55%; }
 .map-disclaimer { color:#a8c9e9; font-size:.78rem; margin:15px 0 0; line-height:1.6; }
+.ambient-cursor{position:fixed;left:-18px;top:-18px;width:36px;height:36px;border:1px solid rgba(151,221,255,.85);border-radius:50%;background:radial-gradient(circle,rgba(255,153,87,.83) 0 3px,rgba(115,204,255,.12) 4px,transparent 12px);box-shadow:0 0 20px rgba(87,177,255,.42);pointer-events:none;z-index:1000;opacity:0;transition:opacity .2s ease,width .18s ease,height .18s ease;mix-blend-mode:screen;will-change:transform}
+.ambient-cursor.ambient-cursor-active{width:46px;height:46px;left:-23px;top:-23px}
+@media(pointer:coarse),(prefers-reduced-motion:reduce){.ambient-cursor{display:none}}
 .ecosystem-page { background:#061631; color:#eff8ff; }
 .ecosystem-hero { background:linear-gradient(90deg,rgba(3,17,42,.96),rgba(4,27,59,.8) 55%,rgba(4,31,70,.35)),url('/stays/gurugram-night.png') center/cover; }
 .ecosystem-hero h1 { line-height:1; }

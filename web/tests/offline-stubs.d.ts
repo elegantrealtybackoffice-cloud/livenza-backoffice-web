@@ -11,6 +11,7 @@ declare module 'react' {
   export function useState<T>(initial: T): [T, (next: T | ((old: T) => T)) => void]
   export function useEffect(fn: () => void | (() => void), deps: any[]): void
   export function useMemo<T>(fn: () => T, deps: any[]): T
+  export function useRef<T>(initial: T | null): { current: T | null }
 }
 declare module 'next' {
   export type Metadata = any
