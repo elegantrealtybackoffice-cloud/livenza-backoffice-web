@@ -1,33 +1,27 @@
-import Link from 'next/link'
-import Image from 'next/image'
-import { getCities, getProperties } from '@/lib/api'
-import type { StayType } from '@/lib/types'
-import { StaysSearch } from '@/components/stays-search'
-import { GurugramMap } from '@/components/gurugram-map'
-import { curatedStays, whatsappHref } from '@/lib/brochure'
+import { StaysExplorer } from '@/components/stays-explorer'
 import './stays.css'
 
 export const dynamic = 'force-dynamic'
 
-type Search = { city?: string; q?: string; stay_type?: string }
-
-export default async function StaysPage({ searchParams }: { searchParams: Promise<Search> }) {
-  const params = await searchParams
-  const stayType = ['student','corporate','short_stay'].includes(params.stay_type ?? '') ? params.stay_type as StayType : undefined
-  let cities = [] as Awaited<ReturnType<typeof getCities>>
-  let properties = [] as Awaited<ReturnType<typeof getProperties>>
-  let unavailable = false
-  try {
-    ;[cities, properties] = await Promise.all([getCities(), getProperties({ city: params.city, q: params.q, stay_type: stayType })])
-  } catch { unavailable = true }
-  const showCurated = !params.q && !params.stay_type && (!params.city || params.city.toLowerCase() === 'gurugram')
-
+export default function StaysPage() {
   return <main className="stays-main" data-brand="stays">
-    <section className="stays-hero"><div className="stays-inner"><div className="eyebrow">LIVENZA.STAYS · GURUGRAM</div><h1>Find your place<br/>in the city.</h1><p>Discover six distinct Livenza stays across Gurugram. Explore the map, step inside each space and speak to our team when you are ready.</p><div className="stays-hero-actions"><a href="#gurugram-map" className="stays-hero-primary">EXPLORE THE MAP ↗</a><a href={whatsappHref()} target="_blank" rel="noopener noreferrer" className="stays-hero-secondary">ENQUIRE ON WHATSAPP</a></div></div></section>
-    {showCurated && <><GurugramMap /><section className="curated-section" id="collection"><div className="stays-inner"><div className="results-head"><div><div className="eyebrow">THE LIVENZA COLLECTION</div><h2>Six ways to feel at home.</h2><p>Explore the first Gurugram properties by neighbourhood. Images appear only for stays with property-mapped media.</p></div></div><div className="curated-grid">{curatedStays.map(stay => <Link className="curated-card" href={`/stays/gurugram/${stay.slug}`} key={stay.slug}><div className="curated-card-media">{stay.photos[0] ? <Image src={stay.photos[0]} alt={`${stay.name} property photograph`} width={640} height={450} /> : <div className="curated-pending"><span>LIVENZA STAYS</span><strong>{stay.name}</strong><small>Photography coming soon</small></div>}</div><div className="curated-card-copy"><span>GURUGRAM · SECTOR {stay.sector}</span><h3>{stay.name}</h3><p>{stay.landmark ?? `Explore a stay in Sector ${stay.sector}.`}</p><strong>EXPLORE PROPERTY ↗</strong></div></Link>)}</div></div></section></>}
-    <section className="stays-search-section"><div className="stays-inner"><div className="eyebrow">FIND YOUR STAY</div><h2>Search all published properties.</h2><StaysSearch cities={cities} initialCity={params.city} initialQuery={params.q} initialStayType={stayType}/></div></section>
-    <section className="results"><div className="stays-inner"><div className="results-head"><div><div className="eyebrow">PLACES THAT FIT YOUR LIFE</div><h2>{params.city ? `Stays in ${params.city}` : 'Explore Livenza stays'}</h2></div></div>
-      {unavailable ? <div className="empty-state">Live room listings are temporarily unavailable. The Gurugram collection above and WhatsApp enquiry remain available.</div> : properties.length ? <div className="results-grid">{properties.map(property => <article className="simple-property" key={property.slug}><div><div className="eyebrow">{property.area ? `${property.area} · ${property.city}` : property.city}</div><h3>{property.name}</h3><p>{property.summary || 'Explore this Livenza stay.'}</p><div className="stay-type-list">{property.stay_types.map(type => <span key={type}>{type.replace('_',' ')}</span>)}</div></div><Link href={`/stays/${property.city.toLowerCase()}/${property.slug}`}>See rooms →</Link></article>)}</div> : <div className="empty-state">No public Livenza room listings match these filters yet. Try another city or search term.</div>}
+    <StaysExplorer />
+    <section className="stays-offers" aria-labelledby="offers-title"><div className="stays-inner">
+      <div className="stays-intro"><span>FOR YOUR NEXT ARRIVAL</span><h2 id="offers-title">Offers for you.</h2><p>Thoughtful options, shaped around the way you need to stay.</p></div>
+      <div className="offer-grid">
+        <article><span>WELCOME STAY</span><h3>A considered start to your first Livenza stay.</h3><p>Share your dates and the team will guide you to the right address.</p><a href="https://wa.me/917688845555">Speak to us →</a></article>
+        <article><span>LONGER, LIGHTER</span><h3>More time to settle into the city.</h3><p>For longer stays, our team can help shape a stay around your routine.</p><a href="https://wa.me/917688845555">Plan a stay →</a></article>
+        <article><span>FESTIVE CITY EDIT</span><h3>Thoughtful extras for a Diwali city stay.</h3><p>Ask our team about seasonal details available for your dates.</p><a href="https://wa.me/917688845555">Speak to us →</a></article>
+      </div>
     </div></section>
+    <section className="stays-trust" aria-labelledby="trust-title"><div className="stays-inner">
+      <div className="stays-intro"><span>THE LIVENZA STANDARD</span><h2 id="trust-title">Your trusted stay partner.</h2></div>
+      <div className="trust-grid">
+        <article><i aria-hidden="true">✦</i><div><h3>Curated city stays</h3><p>Thoughtfully selected addresses, made for the way you live.</p></div></article>
+        <article><i aria-hidden="true">◌</i><div><h3>A team that stays close</h3><p>Direct, human help before arrival and throughout your stay.</p></div></article>
+        <article><i aria-hidden="true">↗</i><div><h3>Simple, secure booking</h3><p>Clear next steps and a considered path from search to stay.</p></div></article>
+      </div>
+    </div></section>
+    <section className="stays-marquee" aria-label="Livenza highlights"><div><span>Livenza Stays</span><span>Thoughtful city living</span><span>Gurugram and Jaipur</span><span>Made for the way you arrive</span><span>Livenza Stays</span><span>Thoughtful city living</span><span>Gurugram and Jaipur</span><span>Made for the way you arrive</span></div></section>
   </main>
 }
